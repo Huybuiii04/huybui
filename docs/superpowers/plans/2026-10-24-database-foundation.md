@@ -156,7 +156,7 @@ Sửa `package.json`, thêm vào `scripts`:
 ```json
 "db:migrate": "node --env-file-if-exists=.env.local supabase/scripts/migrate.mjs",
 "db:verify": "node --env-file-if-exists=.env.local supabase/scripts/verify-schema.mjs && node --env-file-if-exists=.env.local supabase/scripts/verify-rls.mjs",
-"db:seed": "node --env-file=.env.local supabase/seed/seed-content.ts"
+"db:seed": "node --env-file-if-exists=.env.local supabase/seed/seed-content.ts"
 ```
 
 - [ ] **Step 5: Tạo `supabase/scripts/migrate.mjs`**
@@ -262,7 +262,7 @@ git commit -m "chore: add supabase client and migration runner"
 Chạy trước khi tạo migration:
 
 ```bash
-node --env-file=.env.local -e "const u=process.env.DATABASE_URL; const {spawnSync}=require('child_process'); const r=spawnSync('psql',[u,'-t','-A','-c','select count(*) from information_schema.tables where table_schema='\''public'\'' and table_name='\''profiles'\'''],{encoding:'utf8'}); console.log('profiles count =', r.stdout.trim())"
+node --env-file-if-exists=.env.local -e "const u=process.env.DATABASE_URL; const {spawnSync}=require('child_process'); const r=spawnSync('psql',[u,'-t','-A','-c','select count(*) from information_schema.tables where table_schema='\''public'\'' and table_name='\''profiles'\'''],{encoding:'utf8'}); console.log('profiles count =', r.stdout.trim())"
 ```
 
 Expected: `profiles count = 0`.
@@ -379,7 +379,7 @@ commit;
 - [ ] **Step 3: Áp dụng migration**
 
 ```bash
-node --env-file=.env.local supabase/scripts/migrate.mjs
+node --env-file-if-exists=.env.local supabase/scripts/migrate.mjs
 ```
 
 Expected: `=== 001_identity_access.sql ===` … `CREATE SCHEMA`, `CREATE TABLE`, `CREATE POLICY` … `COMMIT`. Không có dòng `ERROR`.
@@ -387,7 +387,7 @@ Expected: `=== 001_identity_access.sql ===` … `CREATE SCHEMA`, `CREATE TABLE`,
 - [ ] **Step 4: Kiểm chứng (kỳ vọng PASS)**
 
 ```bash
-node --env-file=.env.local -e "
+node --env-file-if-exists=.env.local -e "
 const {spawnSync}=require('child_process');
 const q=[
  \"select count(*) from information_schema.tables where table_schema='public' and table_name in ('profiles','user_access')\",
@@ -404,7 +404,7 @@ Expected lần lượt: `2`, `t`, `3`, `4`.
 - [ ] **Step 5: Chạy lại migration để chứng minh idempotent**
 
 ```bash
-node --env-file=.env.local supabase/scripts/migrate.mjs
+node --env-file-if-exists=.env.local supabase/scripts/migrate.mjs
 ```
 
 Expected: không có `ERROR`; `CREATE TABLE` báo `already exists, skipping` — đây là thông báo thông thường của `create table if not exists`, không phải lỗi.
@@ -539,7 +539,7 @@ commit;
 - [ ] **Step 2: Áp dụng migration**
 
 ```bash
-node --env-file=.env.local supabase/scripts/migrate.mjs
+node --env-file-if-exists=.env.local supabase/scripts/migrate.mjs
 ```
 
 Expected: `=== 002_content_storage.sql ===` … `INSERT 0 3` (3 bucket) … `COMMIT`, không `ERROR`.
@@ -547,7 +547,7 @@ Expected: `=== 002_content_storage.sql ===` … `INSERT 0 3` (3 bucket) … `COM
 - [ ] **Step 3: Kiểm chứng**
 
 ```bash
-node --env-file=.env.local -e "
+node --env-file-if-exists=.env.local -e "
 const {spawnSync}=require('child_process');
 const q=[
  \"select count(*) from information_schema.tables where table_schema='public' and table_name in ('content_entries','content_translations','writing_prompts')\",
@@ -1011,7 +1011,7 @@ commit;
 - [ ] **Step 4: Áp dụng migration**
 
 ```bash
-node --env-file=.env.local supabase/scripts/migrate.mjs
+node --env-file-if-exists=.env.local supabase/scripts/migrate.mjs
 ```
 
 Expected: `=== 003_essays_jobs_grading.sql ===` … `CREATE TABLE` ×9 … `CREATE FUNCTION` ×4 … `COMMIT`, không `ERROR`.
@@ -1019,7 +1019,7 @@ Expected: `=== 003_essays_jobs_grading.sql ===` … `CREATE TABLE` ×9 … `CREA
 - [ ] **Step 5: Kiểm chứng**
 
 ```bash
-node --env-file=.env.local -e "
+node --env-file-if-exists=.env.local -e "
 const {spawnSync}=require('child_process');
 const q=[
  \"select count(*) from information_schema.tables where table_schema='public' and table_name in ('essays','essay_revisions','essay_assets','revision_assets','ai_jobs','grading_results','essay_features','ai_tool_results','ai_usage')\",
@@ -1318,8 +1318,8 @@ commit;
 - [ ] **Step 2: Áp dụng + kiểm chứng**
 
 ```bash
-node --env-file=.env.local supabase/scripts/migrate.mjs
-node --env-file=.env.local -e "
+node --env-file-if-exists=.env.local supabase/scripts/migrate.mjs
+node --env-file-if-exists=.env.local -e "
 const {spawnSync}=require('child_process');
 const q=[
  \"select count(*) from information_schema.tables where table_schema='public' and table_name in ('study_cards','review_events','error_logs','guide_progress')\",
@@ -1411,8 +1411,8 @@ commit;
 - [ ] **Step 2: Áp dụng + kiểm chứng**
 
 ```bash
-node --env-file=.env.local supabase/scripts/migrate.mjs
-node --env-file=.env.local -e "
+node --env-file-if-exists=.env.local supabase/scripts/migrate.mjs
+node --env-file-if-exists=.env.local -e "
 const {spawnSync}=require('child_process');
 const r=spawnSync('psql',[process.env.DATABASE_URL,'-t','-A','-c',\"select id||' configured='||is_configured from public.donation_settings\"],{encoding:'utf8'});
 console.log(r.stdout.trim());
@@ -1500,7 +1500,7 @@ process.exit(failures ? 1 : 0)
 - [ ] **Step 2: Chạy kiểm chứng**
 
 ```bash
-node --env-file=.env.local supabase/scripts/verify-schema.mjs
+node --env-file-if-exists=.env.local supabase/scripts/verify-schema.mjs
 ```
 
 Expected:
@@ -1676,7 +1676,7 @@ SUPABASE_PUBLISHABLE_KEY=sb_publishable_KvzcWVDrX4lvKwybUsmPiA_t52fVLSS
 - [ ] **Step 3: Chạy kiểm chứng**
 
 ```bash
-node --env-file=.env.local supabase/scripts/verify-rls.mjs
+node --env-file-if-exists=.env.local supabase/scripts/verify-rls.mjs
 ```
 
 Expected:
@@ -1814,7 +1814,7 @@ SUPABASE_URL=https://fjlyjaomuxotqqjvugtv.supabase.co
 - [ ] **Step 3: Chạy seed**
 
 ```bash
-node --env-file=.env.local supabase/seed/seed-content.ts
+node --env-file-if-exists=.env.local supabase/seed/seed-content.ts
 ```
 
 Expected:
@@ -1828,7 +1828,7 @@ Tổng số content_entries trong DB: 15
 - [ ] **Step 4: Chạy lại seed để chứng minh idempotent**
 
 ```bash
-node --env-file=.env.local supabase/seed/seed-content.ts
+node --env-file-if-exists=.env.local supabase/seed/seed-content.ts
 ```
 
 Expected: `Tổng số content_entries trong DB: 15` — **không** tăng lên `30`.
@@ -1836,7 +1836,7 @@ Expected: `Tổng số content_entries trong DB: 15` — **không** tăng lên `
 - [ ] **Step 5: Kiểm chứng nội dung đọc được bằng anon**
 
 ```bash
-node --env-file=.env.local -e "
+node --env-file-if-exists=.env.local -e "
 const key=process.env.SUPABASE_PUBLISHABLE_KEY;
 fetch('https://fjlyjaomuxotqqjvugtv.supabase.co/rest/v1/content_entries?select=kind,slug&limit=3',{headers:{apikey:key}}).then(r=>r.json()).then(d=>console.log(JSON.stringify(d)));
 "
@@ -1878,7 +1878,7 @@ Mật khẩu chứa `@` → mã hoá `%40`.
 ## Chạy migration
 
 ```bash
-node --env-file=.env.local supabase/scripts/migrate.mjs
+node --env-file-if-exists=.env.local supabase/scripts/migrate.mjs
 ```
 
 Thứ tự file trong `migrations/` là thứ tự chạy. Mọi file idempotent, chạy lại an toàn.
@@ -1886,8 +1886,8 @@ Thứ tự file trong `migrations/` là thứ tự chạy. Mọi file idempotent
 ## Kiểm chứng
 
 ```bash
-node --env-file=.env.local supabase/scripts/verify-schema.mjs   # bảng, RLS, policy, bucket
-node --env-file=.env.local supabase/scripts/verify-rls.mjs      # 2 user thật, xác minh không đọc chéo
+node --env-file-if-exists=.env.local supabase/scripts/verify-schema.mjs   # bảng, RLS, policy, bucket
+node --env-file-if-exists=.env.local supabase/scripts/verify-rls.mjs      # 2 user thật, xác minh không đọc chéo
 ```
 
 `verify-rls.mjs` tạo 2 user tạm qua Admin API rồi xoá sau khi kiểm tra.
@@ -1895,7 +1895,7 @@ node --env-file=.env.local supabase/scripts/verify-rls.mjs      # 2 user thật,
 ## Seed nội dung
 
 ```bash
-node --env-file=.env.local supabase/seed/seed-content.ts
+node --env-file-if-exists=.env.local supabase/seed/seed-content.ts
 ```
 
 Nguồn: `src/data/content.ts`. Idempotent theo `(kind, slug)`.
@@ -1921,9 +1921,9 @@ Rồi chạy lại `db:migrate` + `db:seed`.
 - [ ] **Step 2: Chạy toàn bộ kiểm chứng lần cuối**
 
 ```bash
-node --env-file=.env.local supabase/scripts/migrate.mjs
-node --env-file=.env.local supabase/scripts/verify-schema.mjs
-node --env-file=.env.local supabase/scripts/verify-rls.mjs
+node --env-file-if-exists=.env.local supabase/scripts/migrate.mjs
+node --env-file-if-exists=.env.local supabase/scripts/verify-schema.mjs
+node --env-file-if-exists=.env.local supabase/scripts/verify-rls.mjs
 npm test
 npm run build
 ```
