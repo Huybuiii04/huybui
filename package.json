@@ -8,8 +8,8 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host 127.0.0.1",
     "test": "node --test tests/learning.test.ts",
-    "db:migrate": "node --env-file=.env.local supabase/scripts/migrate.mjs",
-    "db:verify": "node --env-file=.env.local supabase/scripts/verify-schema.mjs && node --env-file=.env.local supabase/scripts/verify-rls.mjs",
+    "db:migrate": "node --env-file-if-exists=.env.local supabase/scripts/migrate.mjs",
+    "db:verify": "node --env-file-if-exists=.env.local supabase/scripts/verify-schema.mjs && node --env-file-if-exists=.env.local supabase/scripts/verify-rls.mjs",
     "db:seed": "node --env-file=.env.local supabase/seed/seed-content.ts"
   },
   "dependencies": {
