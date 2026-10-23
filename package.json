@@ -7,11 +7,15 @@
     "dev": "vite --host 127.0.0.1",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host 127.0.0.1",
-    "test": "node --test tests/learning.test.ts"
+    "test": "node --test tests/learning.test.ts",
+    "db:migrate": "node supabase/scripts/migrate.mjs",
+    "db:verify": "node supabase/scripts/verify-schema.mjs && node supabase/scripts/verify-rls.mjs",
+    "db:seed": "node --env-file=.env.local supabase/seed/seed-content.ts"
   },
   "dependencies": {
     "@fontsource/outfit": "^5.2.0",
     "@fontsource/work-sans": "^5.2.0",
+    "@supabase/supabase-js": "^2.118.0",
     "i18next": "^25.6.0",
     "lucide-react": "^0.468.0",
     "react": "^19.2.0",
