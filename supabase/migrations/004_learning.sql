@@ -127,16 +127,16 @@ declare
   v_card public.study_cards;
 begin
   if v_user is null then
-    raise exception 'unauthenticated' using errcode = '42501';
+    perform private.raise_http_error('unauthenticated', 'Authentication required', 401);
   end if;
   if not private.is_active_user() then
-    raise exception 'suspended' using errcode = '42501';
+    perform private.raise_http_error('suspended', 'This account is suspended', 403);
   end if;
   if p_kind is null or p_kind not in ('vocabulary', 'collocation', 'structure', 'error') then
-    raise exception 'invalid card kind' using errcode = '22023';
+    perform private.raise_http_error('invalid_card_kind', 'Unknown card kind', 400);
   end if;
   if coalesce(btrim(p_front), '') = '' or coalesce(btrim(p_back), '') = '' then
-    raise exception 'front and back are required' using errcode = '22023';
+    perform private.raise_http_error('invalid_card', 'Front and back are required', 400);
   end if;
 
   v_key := coalesce(
@@ -180,10 +180,10 @@ declare
   v_replay integer;
 begin
   if v_user is null then
-    raise exception 'unauthenticated' using errcode = '42501';
+    perform private.raise_http_error('unauthenticated', 'Authentication required', 401);
   end if;
   if not private.is_active_user() then
-    raise exception 'suspended' using errcode = '42501';
+    perform private.raise_http_error('suspended', 'This account is suspended', 403);
   end if;
 
   select level_after into v_replay
@@ -199,10 +199,10 @@ begin
   where id = p_card_id and user_id = v_user
   for update;
   if not found then
-    raise exception 'card not found' using errcode = 'P0002';
+    perform private.raise_http_error('card_not_found', 'Card not found', 404);
   end if;
   if v_card.due_at > now() then
-    raise exception 'card not due' using errcode = '22023';
+    perform private.raise_http_error('card_not_due', 'Card is not due for review yet', 409);
   end if;
 
   v_before := v_card.level;
@@ -235,7 +235,7 @@ set search_path = public, private
 as $$
 begin
   if auth.uid() is null then
-    raise exception 'unauthenticated' using errcode = '42501';
+    perform private.raise_http_error('unauthenticated', 'Authentication required', 401);
   end if;
   if p_completed then
     insert into public.guide_progress (user_id, entry_id)

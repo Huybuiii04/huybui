@@ -131,8 +131,20 @@ try {
       method: 'POST', token: tokenB,
       body: { p_essay_id: saveA.data.essay_id, p_expected_version: version, p_task_type: 'task2', p_title: 'B overwrite' }
     })
-    check('B không ghi được vào essay của A', bTriesSave.status >= 400, `status ${bTriesSave.status}`)
+    check('B không ghi được vào essay của A', bTriesSave.status === 404 && bTriesSave.data?.code === 'essay_not_found', `status ${bTriesSave.status} ${JSON.stringify(bTriesSave.data)}`)
   }
+
+  // RPC không có user identity nào (không có JWT user) → 401
+  const noIdentitySave = await api('/rest/v1/rpc/save_draft', {
+    method: 'POST', body: { p_task_type: 'task2', p_title: 'no identity' }
+  })
+  check('RPC save_draft không có user trả 401', noIdentitySave.status === 401 && noIdentitySave.data?.code === 'unauthenticated', `status ${noIdentitySave.status} ${JSON.stringify(noIdentitySave.data)}`)
+
+  // RPC không xác thực (chỉ publishable key, không Authorization) → 401
+  const anonSave = await api('/rest/v1/rpc/save_draft', {
+    method: 'POST', anon: true, body: { p_task_type: 'task2', p_title: 'anon draft' }
+  })
+  check('RPC save_draft không xác thực trả 401', anonSave.status === 401, `status ${anonSave.status} ${JSON.stringify(anonSave.data)}`)
 } finally {
   // Dọn dẹp: luôn xoá test user, kể cả khi script lỗi giữa chừng
   if (idA && tokenA) {

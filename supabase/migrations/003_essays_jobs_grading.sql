@@ -246,13 +246,13 @@ declare
   v_version integer;
 begin
   if v_user is null then
-    raise exception 'unauthenticated' using errcode = '42501';
+    perform private.raise_http_error('unauthenticated', 'Authentication required', 401);
   end if;
   if not private.is_active_user() then
-    raise exception 'suspended' using errcode = '42501';
+    perform private.raise_http_error('suspended', 'This account is suspended', 403);
   end if;
   if p_task_type is null or p_task_type not in ('task2', 'academic_task1', 'general_task1') then
-    raise exception 'invalid task type' using errcode = '22023';
+    perform private.raise_http_error('invalid_task_type', 'Unknown task type', 400);
   end if;
 
   if p_essay_id is null then
@@ -271,7 +271,7 @@ begin
     where id = p_essay_id and user_id = v_user
     for update;
     if not found then
-      raise exception 'essay not found' using errcode = 'P0002';
+      perform private.raise_http_error('essay_not_found', 'Essay not found', 404);
     end if;
     if v_essay.draft_version <> coalesce(p_expected_version, -1) then
       -- SQLSTATE 40001 (serialization_failure) bị PostgREST/PostgreSQL coi là

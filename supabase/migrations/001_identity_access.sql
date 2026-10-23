@@ -69,6 +69,37 @@ grant execute on function private.set_updated_at() to authenticated, service_rol
 -- nên anon vẫn chỉ thấy status='published' (spec §6).
 grant execute on function private.is_admin() to anon;
 
+-- Helper chuẩn hoá lỗi trả về cho client.
+-- PostgREST chỉ tự ánh xạ một số SQLSTATE sang HTTP status (P0002 → 500,
+-- 42501 → 403, 22023 → 400) và SQLSTATE 40001 bị retry vô hạn (504).
+-- Dùng SQLSTATE 'PGRST' + DETAIL {"status":...,"headers":{}} để kiểm soát
+-- chính xác HTTP status trả về cho client.
+create or replace function private.raise_http_error(
+  p_code text,
+  p_message text,
+  p_status integer,
+  p_details text default null
+) returns void
+language plpgsql
+set search_path = private
+as $$
+begin
+  raise sqlstate 'PGRST' using
+    message = json_build_object(
+      'code', p_code,
+      'message', p_message,
+      'details', p_details,
+      'hint', null
+    )::text,
+    detail = json_build_object(
+      'status', p_status,
+      'headers', json_build_object()
+    )::text;
+end;
+$$;
+
+grant execute on function private.raise_http_error(text, text, integer, text) to authenticated, service_role;
+
 create or replace function private.handle_new_user()
 returns trigger language plpgsql security definer set search_path = private, public as $$
 begin
