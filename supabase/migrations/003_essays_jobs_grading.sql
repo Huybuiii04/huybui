@@ -274,7 +274,24 @@ begin
       raise exception 'essay not found' using errcode = 'P0002';
     end if;
     if v_essay.draft_version <> coalesce(p_expected_version, -1) then
-      raise exception 'conflict' using errcode = '40001';
+      -- SQLSTATE 40001 (serialization_failure) bị PostgREST/PostgreSQL coi là
+      -- lỗi có thể retry vô hạn → request treo tới khi Kong timeout (504).
+      -- Dùng SQLSTATE 'PGRST' để PostgREST trả đúng HTTP 409.
+      raise sqlstate 'PGRST' using
+        message = jsonb_build_object(
+          'code', 'draft_conflict',
+          'message', 'conflict',
+          'details', format(
+            'essay_id=%s, expected_version=%s, current_version=%s',
+            p_essay_id, p_expected_version, v_essay.draft_version
+          ),
+          'hint', 'reload the draft and retry with the current version'
+        )::text,
+        detail = jsonb_build_object(
+          'status', 409,
+          'status_text', 'Conflict',
+          'headers', jsonb_build_object()
+        )::text;
     end if;
     update public.essays set
       title = coalesce(p_title, v_essay.title),
