@@ -1,67 +1,92 @@
 # IELTS Writing Studio
 
-Giao diện luyện IELTS Writing song ngữ Việt/Anh, xây mới theo thiết kế tại `docs/superpowers/specs/2026-10-24-ielts-ai-platform-design.md`. Bản hiện tại là **frontend chạy độc lập**: mọi tính năng dùng được với dữ liệu lưu trong trình duyệt, phần chấm AI / tài khoản / quản trị chưa nối backend và được ghi rõ trên giao diện.
+Giao diện luyện IELTS Writing song ngữ Việt/Anh, xây mới theo thiết kế tại `docs/superpowers/specs/2026-10-24-ielts-ai-platform-design.md`.
+
+Ứng dụng chạy trên **Supabase**: tài khoản người dùng, nháp, thẻ ôn tập, tiến độ đọc và kho đề bài đều nằm trong Postgres; phần chấm bài và công cụ AI chạy qua Edge Functions.
 
 ## Chạy dự án
 
 ```bash
 npm install
-npm run dev        # http://127.0.0.1:5173
-npm run build      # kiểm tra kiểu + build production vào dist/
-npm run preview    # xem bản build
+cp .env.example .env.local     # điền VITE_SUPABASE_URL + VITE_SUPABASE_PUBLISHABLE_KEY
+npm run dev                    # http://127.0.0.1:5173
+npm run build                  # kiểm tra kiểu + build production vào dist/
+npm run preview                # xem bản build
 ```
 
 ## Kiểm thử
 
 ```bash
-npm test                      # logic học tập: đếm từ, lịch ôn, kiểm tra ảnh (node:test)
-node tests/browser.mjs        # luồng trình duyệt thật (Playwright, cần dev server đang chạy)
-node tests/accessibility.mjs  # axe WCAG 2.1 AA trên 6 route, cả theme sáng và tối
-node tests/screenshots.mjs    # ảnh chụp màn hình vào test-results/
+npm test                       # 28 test logic thuần: học tập, auth, đồng bộ, AI
+npm run test:edge              # 31 test hợp đồng của Edge Function
+node tests/browser.mjs         # luồng trình duyệt thật (Playwright, cần dev server)
+node tests/accessibility.mjs   # axe WCAG 2.1 AA trên 6 route, cả theme sáng và tối
+node tests/i18n.mjs            # kiểm tra song ngữ VI/EN trên 19 route
+node tests/prompt-images.mjs   # ảnh đề Task 1: cuộn hết lưới rồi xác nhận không ảnh hỏng
+node tests/screenshots.mjs     # ảnh chụp màn hình vào test-results/
 ```
 
-`tests/browser.mjs` và `tests/accessibility.mjs` dùng `http://127.0.0.1:5173`; đổi qua biến môi trường `TEST_URL` nếu chạy cổng khác.
+Các script trình duyệt dùng `http://127.0.0.1:5173`; đổi qua biến môi trường `TEST_URL` nếu chạy cổng khác.
+
+## Backend
+
+```bash
+npm run db:migrate             # áp dụng 12 file migration (idempotent)
+npm run db:verify              # kiểm tra schema + RLS (27 check)
+npm run db:seed                # nạp nội dung, đề bài và bảng giá AI
+npm run db:prune               # dọn đề Task 1 trùng (dry-run, thêm --apply để xoá)
+npm run db:deploy              # deploy 10 Edge Function + set secrets
+```
+
+`db:deploy` cần `SUPABASE_ACCESS_TOKEN` trong `.env.local`. Xem `supabase/README.md` cho thứ tự chạy, hợp đồng bảng và quy trình đổi secret.
 
 ## Cấu trúc
 
 | Đường dẫn | Vai trò |
 |---|---|
-| `src/App.tsx` | Bảng định tuyến (data router) cho toàn bộ route |
-| `src/main.tsx` | Điểm khởi tạo: provider lưu trữ → router → ứng dụng |
+| `src/App.tsx` | Bảng định tuyến (data router); `RouteGuard` bảo vệ `/app/**` và `/admin` |
+| `src/main.tsx` | Điểm khởi tạo: `AuthProvider` → `StoreProvider` → router |
 | `src/styles.css` | Design system theo token: màu hai theme, kính, gradient, responsive, trạng thái |
-| `src/i18n.ts` | Khởi tạo VI/EN, lưu lựa chọn ngôn ngữ |
-| `src/theme.ts` | Theme sáng/tối/theo hệ thống, lưu lựa chọn |
-| `src/lib/learning.ts` | Đếm từ, lịch ôn 1-3-7-14-30-60 ngày, kiểm tra ảnh đầu vào |
-| `src/lib/store.tsx` | Lưu trữ IndexedDB: nháp, ảnh, thẻ ôn, tiến độ đọc, hồ sơ |
-| `src/data/content.ts` | Nội dung biên soạn: khung bài, bài mẫu, từ vựng, Master Guide |
-| `src/data/prompts.ts` | Taxonomy kho đề: 5 dạng bài Task 2, 8 dạng thư Task 1 General, 18 chủ đề (dự phòng khi DB chưa có `prompt_topics`), 3 nguồn đề — **không chứa đề** |
-| `src/lib/promptRepository.ts` | Lớp đọc đề + chủ đề từ backend (PostgREST): `loadPrompts`, `loadTopics`, `loadPromptBySlug` |
-| `src/components/ChartPreview.tsx` | Dựng biểu đồ SVG (cột, đường, tròn, bảng, quy trình, bản đồ) từ dữ liệu của đề |
-| `src/components/Layout.tsx` | Khung ứng dụng: sidebar desktop, thanh điều hướng dưới cho mobile |
-| `src/pages/` | Tổng quan, viết bài, bài viết, từ vựng, ôn tập, thư viện, Master Guide, công cụ, donate, cài đặt, quản trị |
-| `design-system/ielts/MASTER.md` | Quy tắc thiết kế áp dụng cho toàn bộ giao diện |
+| `src/i18n.ts` · `src/theme.ts` | Khởi tạo VI/EN; theme sáng/tối/theo hệ thống |
+| `src/lib/auth.tsx` · `authLogic.ts` | Đăng nhập/đăng ký/đặt lại mật khẩu; phân loại lỗi thành mã thân thiện |
+| `src/lib/store.tsx` | Nguồn sự thật: Postgres khi đã đăng nhập, IndexedDB làm cache offline |
+| `src/lib/sync.ts` | Ánh xạ dữ liệu Postgres ⇄ model của app |
+| `src/lib/ai.ts` · `aiLogic.ts` | Gọi Edge Function (chấm bài, công cụ AI, admin) + logic thuần đi kèm |
+| `src/lib/promptRepository.ts` | Đọc đề/chủ đề/dạng biểu đồ từ PostgREST |
+| `src/components/GradingResult.tsx` | Hiển thị kết quả chấm: 4 tiêu chí, dẫn chứng, hành động |
+| `src/components/ChartPreview.tsx` | Dựng biểu đồ SVG từ dữ liệu của đề |
+| `src/pages/` | Tổng quan, viết bài, bài viết, kho đề, từ vựng, ôn tập, thư viện, Master Guide, công cụ, donate, cài đặt, quản trị |
+| `supabase/migrations/` | 12 migration: identity, content, essays/jobs/grading, learning, admin, kho đề, hardening AI |
+| `supabase/functions/` | 10 Edge Function + `_shared` (client Anthropic, schema, hợp đồng AI) |
+| `supabase/seed/` | Nạp nội dung, 244 đề Task 2, 70 đề Task 1 có ảnh, bảng giá AI |
+| `debai/` | Bộ đề gốc (190 đề Task 2 + 70 đề Task 1 kèm ảnh) dùng làm nguồn cho seed |
 
 ## Kho đề bài (`/app/prompts`)
 
-Đề **không còn nằm trong mã nguồn** — frontend đọc từ backend qua `src/lib/promptRepository.ts`.
+Đề **không nằm trong mã nguồn** — frontend đọc từ backend qua `src/lib/promptRepository.ts`.
 
-- **Luồng:** chọn loại bài (Task 2 / Task 1 Academic / Task 1 General) → chọn **chủ đề** → bấm vào chủ đề để mở **danh sách đề** của chủ đề đó → chọn 1 đề → *Thi thử* (có đồng hồ đếm ngược 40/20 phút, khoá editor khi hết giờ) hoặc *Luyện tập*.
-- **Task 1 Academic** chia theo **7 dạng biểu đồ**: Line Graph · Bar Chart · Pie Chart · Table · Map / Floor Plan · Process Diagram · Mixed Charts — lấy từ bảng `prompt_chart_types`, lọc đề bằng `subtype=eq.<key>`.
-- Lưới chủ đề của Task 2 / Task 1 General đọc từ bảng `prompt_topics` (nhãn VI/EN, từ khóa con, thứ tự); danh sách đề lọc phía server bằng `topics=cs.{key}`.
-- Dưới lưới chủ đề là lưới **tất cả đề** của loại bài đang chọn, kèm ô tìm kiếm và thẻ *Tự nhập đề bài của bạn* (dán chữ + tải ảnh/PDF, lưu vào kho riêng của bạn).
-- Khi mở tab *Bài viết*, **đề vẫn hiện ngay trên đầu vùng viết** (khung *ĐỀ BÀI* + mục *Xem dữ liệu tham chiếu*).
-- Hợp đồng bảng `prompts` và `prompt_topics` (cột, cách lọc, cấu trúc `chart`) ghi trong `supabase/README.md` của nhánh `feature/db-foundation`.
+- **Luồng:** chọn loại bài (Task 2 / Task 1 Academic / Task 1 General) → chọn **chủ đề** → bấm vào chủ đề để mở **danh sách đề** của chủ đề đó → chọn 1 đề → *Thi thử* (đồng hồ đếm ngược 40/20 phút) hoặc *Luyện tập*.
+- **Task 1 Academic chia theo 7 dạng biểu đồ**: Line Graph · Bar Chart · Pie Chart · Table · Map / Floor Plan · Process Diagram · Mixed Charts — đề có ảnh thật trong bucket `prompt-media`.
+- Lưới chủ đề của Task 2 / Task 1 General đọc từ bảng `prompt_topics`; danh sách đề lọc phía server bằng `topics=cs.{key}`.
+- Dưới lưới chủ đề là lưới **tất cả đề** của loại bài đang chọn, kèm ô tìm kiếm và thẻ *Tự nhập đề bài của bạn*.
+- Khi mở tab *Bài viết*, **đề vẫn hiện ngay trên đầu vùng viết**.
 
 ## Hành vi hiện tại
 
-- Giao diện gradient + kính, hỗ trợ theme **sáng / tối / theo hệ thống**: nút chuyển nhanh trên topbar và bộ chọn trong Cài đặt. Lựa chọn được lưu trong trình duyệt.
-- Nháp, ảnh đề bài, thẻ ôn tập và tiến độ đọc lưu trong IndexedDB của trình duyệt; hai tab đồng bộ qua `BroadcastChannel`.
+- Giao diện gradient + kính, hỗ trợ theme **sáng / tối / theo hệ thống**.
+- **Tài khoản thật**: đăng ký, đăng nhập, quên/đặt lại mật khẩu. Route `/app/**` và `/admin` yêu cầu đăng nhập; landing và `/library` công khai.
+- Nháp, ảnh đề bài, thẻ ôn tập và tiến độ đọc lưu trong Postgres; IndexedDB giữ bản cache offline và ảnh chưa tải lên xong.
+- Nút *Chấm bài* đẩy bài vào hàng đợi AI và hiện kết quả theo 4 tiêu chí (Task Response/Task Achievement, Coherence, Lexical, Grammar) kèm dẫn chứng trích từ bài.
+- Bộ công cụ AI (Magic Rewrite, Argument Stress Test, Critical Thinking) và nút *Đọc dữ liệu từ ảnh* gọi Edge Function thật.
+- Trang *Quản trị* đọc số liệu token/chi phí từ `admin-usage`.
 - Rời trang khi nháp chưa lưu sẽ hiện hộp thoại *Lưu và rời đi* / *Tiếp tục viết*.
-- Đổi loại bài giữ nguyên dữ liệu nếu bạn bấm lại đúng loại đang chọn; khi đổi thật sẽ hỏi trước khi xóa dữ liệu tham chiếu và ảnh.
-- Lịch ôn: nhớ lần đầu hẹn 1 ngày, sau đó 3-7-14-30-60 ngày; quên thì đặt lại về 1 ngày. Lưu trùng một thẻ không làm đổi lịch.
-- Nút *Chấm bài*, *Đọc dữ liệu từ ảnh*, các công cụ AI và trang đăng nhập hiện thông báo chưa kết nối backend, không sinh điểm giả.
+- Đổi loại bài giữ nguyên dữ liệu nếu bạn bấm lại đúng loại đang chọn.
 - Trang *Kết quả minh họa* (`/app/essays/demo`) là dữ liệu trình diễn giao diện, được gắn nhãn minh họa.
 
-## Bước kế tiếp (backend)
+## Bước kế tiếp
 
-Thứ tự triển khai theo `docs/superpowers/specs/2026-10-24-ielts-ai-platform-design.md`: Supabase (Auth, Postgres, Storage riêng tư, Edge Functions) → hàng đợi chấm bài với Claude Sonnet 4.6 / Haiku 4.5 → RLS và hạn dụng AI → nối frontend vào API thật.
+1. Deploy Edge Function và set secret: `npm run db:deploy` (cần `SUPABASE_ACCESS_TOKEN`, `ANTHROPIC_API_KEY`, `WORKER_SECRET`).
+2. Bật cron gọi worker `process-ai-jobs` (SQL mẫu trong `supabase/functions/README.md`).
+3. Bật xác minh email trong Supabase Dashboard.
+4. Đổi mật khẩu DB và tạo lại secret key trong Dashboard.
+5. Thêm bảng `user_prompts` (đề của người dùng) và bật Realtime để đồng bộ nhiều thiết bị.
