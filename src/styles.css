@@ -812,6 +812,7 @@ progress::-webkit-progress-value { background: linear-gradient(90deg, #2dd4bf, #
 .preview-content p { color: var(--text-muted); font-size: 14px; margin-bottom: 18px; }
 .preview-note { padding: 38px; border-radius: var(--radius-lg); transform: rotate(3deg); color: #0c4a41; background: linear-gradient(140deg, #a7f3d0, #d9f99d); box-shadow: var(--shadow-md); }
 .preview-note blockquote { font-family: Georgia, serif; font-size: 27px; color: #17452f; border: 0; padding: 0; background: none; margin: 0; }
+html[lang='vi'] .preview-note blockquote { font-family: inherit; }
 .preview-note > span { font-size: 11.5px; }
 .landing-features { max-width: 1140px; margin: auto; display: grid; grid-template-columns: repeat(3, 1fr); gap: 54px; padding: 0 30px 74px; }
 .landing-features h3 { font-size: 23px; margin: 20px 0 11px; }
