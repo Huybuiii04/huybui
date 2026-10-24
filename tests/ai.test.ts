@@ -4,6 +4,8 @@ import {
   AI_ERROR_MESSAGES,
   classifyAiError,
   criteriaForTask,
+  errorLogsFromRows,
+  featuresFromRow,
   gradingViewFromRow,
   isTerminalJobStatus,
   jobStatusFromRow,
@@ -104,6 +106,47 @@ test('a missing reference result has no overall band', () => {
   assert.equal(view.status, 'needs_reference')
   assert.equal(view.overallDisplay, null)
   assert.deepEqual(view.missingReference, ['chart values'])
+})
+
+test('essay features are parsed defensively', () => {
+  const features = featuresFromRow({
+    structure: { paragraphs: [{ index: 0, role: 'intro', summary: 's', link_to_next: 'n' }] },
+    lexical: { examples: [{ term: 'a', meaning: 'b', evidence: 'c', correction: 'd' }] },
+    grammar: { examples: [{ error: 'e', correction: 'f' }] },
+    unnatural: [{ quote: 'q', issue: 'i', suggestion: 's', severity: 'major' }],
+    vocabulary_plan: { topic: 'Education', words: [{ word: 'w', meaning: 'm', example: 'e', why: 'y' }] },
+    band_plan: { current_band: 6, target_band: 7.5, steps: [{ title: 't', detail: 'd', criterion: 'lexical_resource', expected_gain: '+0.5' }] },
+  })
+  assert.equal(features?.structure.length, 1)
+  assert.equal(features?.structure[0].linkToNext, 'n')
+  assert.equal(features?.lexical.length, 1)
+  assert.equal(features?.grammar.length, 1)
+  assert.equal(features?.unnatural[0].severity, 'major')
+  assert.equal(features?.vocabularyPlan.words[0].word, 'w')
+  assert.equal(features?.bandPlan.targetBand, 7.5)
+  assert.equal(features?.bandPlan.steps[0].expectedGain, '+0.5')
+})
+
+test('missing or broken feature fields never throw', () => {
+  assert.equal(featuresFromRow(null), null)
+  const empty = featuresFromRow({})
+  assert.deepEqual(empty?.structure, [])
+  assert.deepEqual(empty?.unnatural, [])
+  assert.equal(empty?.bandPlan.currentBand, null)
+  const broken = featuresFromRow({ unnatural: 'nope', band_plan: { steps: 'nope' } })
+  assert.deepEqual(broken?.unnatural, [])
+  assert.deepEqual(broken?.bandPlan.steps, [])
+})
+
+test('error logs drop invalid rows and keep the valid ones', () => {
+  const rows = errorLogsFromRows([
+    { id: '1', criterion: 'lexical_resource', category: 'word choice', quote: 'q', correction: 'c', explanation: 'e', skill_tags: ['t'] },
+    { id: '2', quote: 'missing fields' },
+    null,
+  ])
+  assert.equal(rows.length, 1)
+  assert.equal(rows[0].skillTags[0], 't')
+  assert.deepEqual(errorLogsFromRows(null), [])
 })
 
 test('a missing grading row produces no view', () => {

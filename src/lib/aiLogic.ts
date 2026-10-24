@@ -231,6 +231,141 @@ function taskCheckArray(value: unknown): TaskCheck[] {
 
 export type ToolOperation = 'magic-rewrite' | 'argument-stress-test' | 'critical-thinking' | 'read-image'
 
+/** Câu viết chưa hợp lý / lặp ý / thiếu căn cứ trong bài. */
+export type UnnaturalPoint = { quote: string; issue: string; suggestion: string; severity: 'minor' | 'major' }
+
+/** Từ vựng nên học cho chủ đề bài ở band mục tiêu. */
+export type VocabularySuggestion = { word: string; meaning: string; example: string; why: string }
+
+/** Một bước trong lộ trình nâng band. */
+export type BandPlanStep = { title: string; detail: string; criterion: string; expectedGain: string }
+
+/** Phản hồi sâu của một bài viết — đọc từ bảng `essay_features`. */
+export type EssayFeatures = {
+  structure: Array<{ index: number; role: string; summary: string; linkToNext: string }>
+  lexical: Array<{ term: string; meaning: string; evidence: string; correction: string }>
+  grammar: Array<{ error: string; correction: string }>
+  unnatural: UnnaturalPoint[]
+  vocabularyPlan: { topic: string; words: VocabularySuggestion[] }
+  bandPlan: { currentBand: number | null; targetBand: number | null; steps: BandPlanStep[] }
+}
+
+/** Một lỗi AI ghi nhận — đọc từ bảng `error_logs`. */
+export type ErrorLogEntry = {
+  id: string
+  criterion: string
+  category: string
+  quote: string
+  correction: string
+  explanation: string
+  skillTags: string[]
+}
+
+/** Đọc hàng `essay_features` thành model hiển thị — field hỏng thì bỏ qua, không throw. */
+export function featuresFromRow(row: unknown): EssayFeatures | null {
+  if (!row || typeof row !== 'object') return null
+  const record = row as Record<string, unknown>
+  const structure = (record.structure as Record<string, unknown> | undefined)?.paragraphs
+  const lexical = (record.lexical as Record<string, unknown> | undefined)?.examples
+  const grammar = (record.grammar as Record<string, unknown> | undefined)?.examples
+  const vocabularyPlan = (record.vocabulary_plan as Record<string, unknown> | undefined) ?? {}
+  const bandPlan = (record.band_plan as Record<string, unknown> | undefined) ?? {}
+  return {
+    structure: Array.isArray(structure)
+      ? structure.flatMap(item => {
+        const entry = item as Record<string, unknown>
+        if (typeof entry.role !== 'string' || typeof entry.summary !== 'string') return []
+        return [{
+          index: typeof entry.index === 'number' ? entry.index : 0,
+          role: entry.role,
+          summary: entry.summary,
+          linkToNext: typeof entry.link_to_next === 'string' ? entry.link_to_next : '',
+        }]
+      })
+      : [],
+    lexical: Array.isArray(lexical)
+      ? lexical.flatMap(item => {
+        const entry = item as Record<string, unknown>
+        if (typeof entry.term !== 'string' || typeof entry.correction !== 'string') return []
+        return [{
+          term: entry.term,
+          meaning: typeof entry.meaning === 'string' ? entry.meaning : '',
+          evidence: typeof entry.evidence === 'string' ? entry.evidence : '',
+          correction: entry.correction,
+        }]
+      })
+      : [],
+    grammar: Array.isArray(grammar)
+      ? grammar.flatMap(item => {
+        const entry = item as Record<string, unknown>
+        if (typeof entry.error !== 'string' || typeof entry.correction !== 'string') return []
+        return [{ error: entry.error, correction: entry.correction }]
+      })
+      : [],
+    unnatural: Array.isArray(record.unnatural)
+      ? record.unnatural.flatMap(item => {
+        const entry = item as Record<string, unknown>
+        if (typeof entry.quote !== 'string' || typeof entry.issue !== 'string') return []
+        return [{
+          quote: entry.quote,
+          issue: entry.issue,
+          suggestion: typeof entry.suggestion === 'string' ? entry.suggestion : '',
+          severity: entry.severity === 'minor' ? 'minor' : 'major',
+        }]
+      })
+      : [],
+    vocabularyPlan: {
+      topic: typeof vocabularyPlan.topic === 'string' ? vocabularyPlan.topic : '',
+      words: Array.isArray(vocabularyPlan.words)
+        ? vocabularyPlan.words.flatMap(item => {
+          const entry = item as Record<string, unknown>
+          if (typeof entry.word !== 'string') return []
+          return [{
+            word: entry.word,
+            meaning: typeof entry.meaning === 'string' ? entry.meaning : '',
+            example: typeof entry.example === 'string' ? entry.example : '',
+            why: typeof entry.why === 'string' ? entry.why : '',
+          }]
+        })
+        : [],
+    },
+    bandPlan: {
+      currentBand: typeof bandPlan.current_band === 'number' ? bandPlan.current_band : null,
+      targetBand: typeof bandPlan.target_band === 'number' ? bandPlan.target_band : null,
+      steps: Array.isArray(bandPlan.steps)
+        ? bandPlan.steps.flatMap(item => {
+          const entry = item as Record<string, unknown>
+          if (typeof entry.title !== 'string' || typeof entry.detail !== 'string') return []
+          return [{
+            title: entry.title,
+            detail: entry.detail,
+            criterion: typeof entry.criterion === 'string' ? entry.criterion : '',
+            expectedGain: typeof entry.expected_gain === 'string' ? entry.expected_gain : '',
+          }]
+        })
+        : [],
+    },
+  }
+}
+
+/** Đọc các hàng `error_logs` — bỏ qua hàng thiếu field bắt buộc. */
+export function errorLogsFromRows(rows: unknown): ErrorLogEntry[] {
+  if (!Array.isArray(rows)) return []
+  return rows.flatMap(item => {
+    if (!item || typeof item !== 'object') return []
+    const entry = item as Record<string, unknown>
+    if (typeof entry.quote !== 'string' || typeof entry.correction !== 'string') return []
+    return [{
+      id: typeof entry.id === 'string' ? entry.id : '',
+      criterion: typeof entry.criterion === 'string' ? entry.criterion : '',
+      category: typeof entry.category === 'string' ? entry.category : '',
+      quote: entry.quote,
+      correction: entry.correction,
+      explanation: typeof entry.explanation === 'string' ? entry.explanation : '',
+      skillTags: stringArray(entry.skill_tags),
+    }]
+  })
+}
 export const TOOL_OPERATIONS: ToolOperation[] = ['magic-rewrite', 'argument-stress-test', 'critical-thinking', 'read-image']
 
 /** Kết quả công cụ AI về dạng danh sách dòng để hiển thị. */
