@@ -8,7 +8,8 @@ if (!url) {
 
 const expectedTables = [
   'profiles', 'user_access',
-  'content_entries', 'content_translations', 'writing_prompts',
+  'content_entries', 'content_translations',
+  'prompts', 'prompt_topics', 'prompt_chart_types',
   'essays', 'essay_revisions', 'essay_assets', 'revision_assets',
   'ai_jobs', 'grading_results', 'essay_features', 'ai_tool_results', 'ai_usage',
   'study_cards', 'review_events', 'error_logs', 'guide_progress',
@@ -17,7 +18,7 @@ const expectedTables = [
 
 const expectedFunctions = [
   'save_draft', 'save_study_card', 'review_card', 'complete_guide',
-  'claim_ai_job', 'complete_ai_job', 'fail_ai_job'
+  'claim_ai_job', 'complete_ai_job', 'fail_ai_job', 'get_prompt'
 ]
 
 const expectedBuckets = ['essay-images', 'content-media', 'donation-media']
@@ -52,6 +53,15 @@ check('anon SELECT on private tables (must be 0)', anonLeak, 0)
 
 const usageLeak = query(`select has_table_privilege('authenticated', 'public.ai_usage', 'SELECT')`)
 check('authenticated SELECT on ai_usage (must be false)', usageLeak, 'f')
+
+const promptWrite = query(`select has_table_privilege('anon', 'public.prompts', 'INSERT')::text || has_table_privilege('anon', 'public.prompts', 'UPDATE')::text || has_table_privilege('anon', 'public.prompts', 'DELETE')::text`)
+check('anon write on prompts (must be falsefalsefalse)', promptWrite, 'falsefalsefalse')
+
+const promptRead = query(`select has_table_privilege('anon', 'public.prompts', 'SELECT')::text || has_table_privilege('anon', 'public.prompt_topics', 'SELECT')::text`)
+check('anon read on prompts/topics (must be truetrue)', promptRead, 'truetrue')
+
+const dropped = query(`select count(*) from information_schema.tables where table_schema='public' and table_name='writing_prompts'`)
+check('writing_prompts removed (must be 0)', dropped, '0')
 
 console.log(failures ? `\n${failures} kiểm tra thất bại.` : '\nTất cả kiểm tra schema đạt.')
 process.exit(failures ? 1 : 0)
