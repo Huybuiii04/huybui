@@ -11,10 +11,12 @@ begin;
 
 alter table public.prompts add column if not exists updated_by uuid references auth.users (id) on delete set null;
 alter table public.prompt_topics add column if not exists updated_by uuid references auth.users (id) on delete set null;
+alter table public.prompt_chart_types add column if not exists updated_by uuid references auth.users (id) on delete set null;
 alter table public.prompt_topics add column if not exists status text not null default 'published'
   check (status in ('draft', 'published', 'hidden'));
 
 create index if not exists prompts_task_set_idx on public.prompts (task, set_name);
+create index if not exists prompts_subtype_idx on public.prompts (task, subtype) where status = 'published';
 create index if not exists prompt_topics_order_idx on public.prompt_topics (sort_order) where status = 'published';
 
 -- Ghi chỉ dành cho admin (đọc thì policy prompts_read_published / prompt_topics_read_published lo).
