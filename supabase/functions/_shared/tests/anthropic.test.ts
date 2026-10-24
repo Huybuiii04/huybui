@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 
 import {
   AnthropicError,
+  buildStructuredSystemPrompt,
   classifyProviderError,
   extractTextContent,
   parseRetryAfter,
@@ -33,5 +34,13 @@ describe("Anthropic response handling", () => {
       { type: "text", text: "{\"ok\":true}" },
     ]);
     assert.equal(text, "{\"ok\":true}");
+  });
+});
+
+describe("structured output prompt mode", () => {
+  it("appends the json contract to the system prompt", () => {
+    const prompt = buildStructuredSystemPrompt("be nice", { type: "object" });
+    assert.match(prompt, /be nice/);
+    assert.match(prompt, /one JSON object/);
   });
 });

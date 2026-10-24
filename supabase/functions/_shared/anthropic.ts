@@ -1,7 +1,25 @@
+import {
+  extractJson,
+  extractTextContent,
+  parseProviderResponse,
+  protocolCandidates,
+  providerBody,
+  providerEndpoint,
+  providerHeaders,
+  resolveProviderConfig,
+  structuredInstruction,
+} from "./provider.ts";
+
+export { extractTextContent };
+
 export const ANTHROPIC_TIMEOUT_MS = 90_000;
 export const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
-export const ANTHROPIC_VERSION = "2023-06-01";
 export const PRICING_VERSION = "anthropic-pricing-v1";
+
+/** Ghép ràng buộc JSON vào system prompt (chế độ lấy JSON bằng prompt). */
+export function buildStructuredSystemPrompt(system: string, schema: Record<string, unknown>): string {
+  return `${system}\n\n${structuredInstruction(schema)}`;
+}
 
 export class AnthropicError extends Error {
   readonly code: string;
@@ -79,20 +97,6 @@ export function parseRetryAfter(value: string | null, now = Date.now()): number 
   return Math.min(300, Math.max(0, Math.ceil((timestamp - now) / 1_000)));
 }
 
-export function extractTextContent(content: unknown[]): string {
-  if (!Array.isArray(content)) return "";
-  return content
-    .filter((block): block is { type: "text"; text: string } =>
-      Boolean(block) &&
-      typeof block === "object" &&
-      (block as { type?: unknown }).type === "text" &&
-      typeof (block as { text?: unknown }).text === "string"
-    )
-    .map((block) => block.text)
-    .join("")
-    .trim();
-}
-
 export async function requestStructured<T>(request: StructuredRequest<T>): Promise<StructuredCall<T>> {
   const calls: AnthropicCall[] = [];
   const deadline = Date.now() + ANTHROPIC_TIMEOUT_MS;
@@ -107,7 +111,7 @@ export async function requestStructured<T>(request: StructuredRequest<T>): Promi
   calls.push(first);
 
   try {
-    const value = request.validate(JSON.parse(first.rawText));
+    const value = request.validate(extractJson(first.rawText));
     return { value, calls };
   } catch {
     // A single corrective call is allowed. The malformed provider output is sent back
@@ -139,7 +143,7 @@ export async function requestStructured<T>(request: StructuredRequest<T>): Promi
     );
     calls.push(repaired);
     try {
-      const value = request.validate(JSON.parse(repaired.rawText));
+      const value = request.validate(extractJson(repaired.rawText));
       return { value, calls };
     } catch {
       throw new AnthropicError("The AI provider returned invalid structured output", "invalid_model_output", false);
@@ -155,84 +159,66 @@ export async function callAnthropic(
   maxTokens: number,
   timeoutMs = ANTHROPIC_TIMEOUT_MS,
 ): Promise<AnthropicCall> {
-  const apiKey = readEnv("ANTHROPIC_API_KEY");
-  if (!apiKey) {
+  const config = resolveProviderConfig(readEnvMap());
+  if (!config.apiKey) {
     throw new AnthropicError("AI provider configuration is missing", "missing_api_key", false);
   }
   if (!model) {
     throw new AnthropicError("AI model configuration is missing", "missing_model", false);
   }
+  const systemText = config.structuredMode === "prompt"
+    ? buildStructuredSystemPrompt(system, schema)
+    : system;
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), Math.max(1, timeoutMs));
   const startedAt = Date.now();
 
   try {
-    const response = await fetch(ANTHROPIC_API_URL, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": ANTHROPIC_VERSION,
-      },
-      body: JSON.stringify({
-        model,
-        max_tokens: maxTokens,
-        system,
-        messages,
-        output_config: {
-          format: {
-            type: "json_schema",
-            schema,
-          },
-        },
-      }),
-      signal: controller.signal,
-    });
+    let lastError: AnthropicError | null = null;
+    for (const protocol of protocolCandidates(config)) {
+      const response = await fetch(providerEndpoint(config, protocol), {
+        method: "POST",
+        headers: providerHeaders(config, protocol),
+        body: JSON.stringify(providerBody(config, protocol, { model, system: systemText, messages, schema, maxTokens })),
+        signal: controller.signal,
+      });
 
-    if (!response.ok) {
-      const retryAfter = parseRetryAfter(response.headers.get("retry-after"));
-      const classified = classifyProviderError(response.status);
-      throw new AnthropicError(
-        classified.message,
-        classified.code,
-        classified.retryable,
-        response.status,
-        retryAfter ?? undefined,
-      );
-    }
+      if (!response.ok) {
+        const classified = classifyProviderError(response.status);
+        lastError = new AnthropicError(
+          classified.message,
+          classified.code,
+          classified.retryable,
+          response.status,
+          parseRetryAfter(response.headers.get("retry-after")) ?? undefined,
+        );
+        // Sai endpoint (404/405) → thử protocol còn lại trước khi bỏ cuộc.
+        if (response.status === 404 || response.status === 405) continue;
+        throw lastError;
+      }
 
-    const body = await response.json() as {
-      id?: unknown;
-      content?: unknown;
-      model?: unknown;
-      stop_reason?: unknown;
-      usage?: unknown;
-    };
-    const rawText = extractTextContent(Array.isArray(body.content) ? body.content : []);
-    if (!rawText) {
-      throw new AnthropicError("The AI provider returned no text output", "empty_model_output", false);
-    }
-    if (body.stop_reason === "max_tokens") {
-      throw new AnthropicError("The AI provider output was truncated", "truncated_model_output", false);
-    }
-    if (body.stop_reason === "refusal") {
-      throw new AnthropicError("The AI provider refused the request", "provider_refusal", false);
-    }
+      const body = await response.json();
+      const parsed = parseProviderResponse(body, response.headers);
+      if (!parsed.rawText) {
+        throw new AnthropicError("The AI provider returned no text output", "empty_model_output", false);
+      }
+      if (parsed.truncated) {
+        throw new AnthropicError("The AI provider output was truncated", "truncated_model_output", false);
+      }
+      if (parsed.refusal) {
+        throw new AnthropicError("The AI provider refused the request", "provider_refusal", false);
+      }
 
-    const usage = body.usage as Record<string, unknown> | undefined;
-    return {
-      rawText,
-      usage: {
-        input_tokens: numberOrZero(usage?.input_tokens),
-        output_tokens: numberOrZero(usage?.output_tokens),
-        cache_creation_input_tokens: numberOrZero(usage?.cache_creation_input_tokens),
-        cache_read_input_tokens: numberOrZero(usage?.cache_read_input_tokens),
-      },
-      providerRequestId: response.headers.get("request-id") ?? (typeof body.id === "string" ? body.id : ""),
-      model: typeof body.model === "string" ? body.model : model,
-      latencyMs: Date.now() - startedAt,
-    };
+      return {
+        rawText: parsed.rawText,
+        usage: parsed.usage,
+        providerRequestId: parsed.providerRequestId,
+        model: parsed.model || model,
+        latencyMs: Date.now() - startedAt,
+      };
+    }
+    throw lastError ?? new AnthropicError("The AI provider could not be reached", "network_error", true);
   } catch (error) {
     if (error instanceof AnthropicError) throw error;
     if (error instanceof DOMException && error.name === "AbortError") {
@@ -248,7 +234,15 @@ function numberOrZero(value: unknown): number {
   return typeof value === "number" && Number.isFinite(value) ? value : 0;
 }
 
-function readEnv(name: string): string | undefined {
+/** Đọc cấu hình nhà cung cấp AI từ biến môi trường của Edge Function. */
+function readEnvMap(): Record<string, string | undefined> {
   const deno = (globalThis as { Deno?: { env?: { get?: (key: string) => string | undefined } } }).Deno;
-  return deno?.env?.get?.(name);
+  const get = (key: string) => deno?.env?.get?.(key);
+  return {
+    AI_API_BASE_URL: get("AI_API_BASE_URL"),
+    AI_API_KEY: get("AI_API_KEY"),
+    ANTHROPIC_API_KEY: get("ANTHROPIC_API_KEY"),
+    AI_API_PROTOCOL: get("AI_API_PROTOCOL"),
+    AI_STRUCTURED_MODE: get("AI_STRUCTURED_MODE"),
+  };
 }
