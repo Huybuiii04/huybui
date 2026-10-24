@@ -26,7 +26,14 @@ node tests/prompt-images.mjs   # ảnh đề Task 1: cuộn hết lưới rồi 
 node tests/screenshots.mjs     # ảnh chụp màn hình vào test-results/
 ```
 
-Các script trình duyệt dùng `http://127.0.0.1:5173`; đổi qua biến môi trường `TEST_URL` nếu chạy cổng khác.
+Các script trình duyệt dùng `http://127.0.0.1:5173`; đổi qua biến môi trường `TEST_URL` nếu chạy cổng khác, hoặc trỏ thẳng vào bản deploy:
+
+```bash
+TEST_URL=https://huybui.vercel.app node tests/production.mjs   # smoke test bản deploy
+TEST_URL=https://huybui.vercel.app node tests/browser.mjs       # toàn bộ luồng trên production
+```
+
+`tests/browser.mjs` bỏ qua các luồng cần đăng nhập nếu thiếu `TEST_EMAIL` / `TEST_PASSWORD`.
 
 ## Backend
 

@@ -2,6 +2,7 @@ import { chromium } from 'playwright'
 import AxeBuilder from '@axe-core/playwright'
 import assert from 'node:assert/strict'
 
+const base = process.env.TEST_URL ?? 'http://127.0.0.1:5173'
 const browser = await chromium.launch()
 const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } })
 const page = await context.newPage()
@@ -9,7 +10,7 @@ const failures = []
 try {
   for (const theme of ['light', 'dark']) {
     for (const route of ['/app', '/app/write', '/app/prompts', '/library', '/app/vocabulary', '/guide', '/auth']) {
-      await page.goto(`http://127.0.0.1:5173${route}`)
+      await page.goto(`${base}${route}`)
       await page.evaluate(value => { localStorage.setItem('ielts-theme', value) }, theme)
       await page.reload()
       await page.locator('h1').waitFor()

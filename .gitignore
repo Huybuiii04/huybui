@@ -14,3 +14,6 @@ supabase/.branches/
 
 # Worktrees
 .worktrees/
+
+.vercel
+.env*
