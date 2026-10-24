@@ -3,9 +3,6 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "engines": {
-    "node": ">=20.19.0"
-  },
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "tsc --noEmit && vite build",
@@ -21,7 +18,8 @@
     "db:seed:pricing": "node --env-file-if-exists=.env.local supabase/seed/seed-ai-pricing.mjs",
     "db:prune": "node --env-file-if-exists=.env.local supabase/scripts/prune-duplicate-prompts.mjs",
     "db:cron": "node --env-file-if-exists=.env.local supabase/scripts/setup-cron.mjs",
-    "db:deploy": "node --env-file-if-exists=.env.local supabase/scripts/deploy-functions.mjs"
+    "db:deploy": "node --env-file-if-exists=.env.local supabase/scripts/deploy-functions.mjs",
+    "deploy:vercel": "node --env-file-if-exists=.env.local supabase/scripts/vercel-env.mjs"
   },
   "dependencies": {
     "@fontsource/outfit": "^5.2.0",
