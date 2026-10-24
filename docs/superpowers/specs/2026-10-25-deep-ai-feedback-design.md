@@ -103,6 +103,57 @@ Thêm 3 cột `jsonb` vào `public.essay_features` (mặc định `null`, không
 
 `error_logs` giữ nguyên schema. Pipeline vẫn ghi lỗi có `quote` nằm trong bài (đã kiểm tra bằng `revision.essay_text.includes(error.quote)`).
 
+### 4.4 Lớp gọi AI đa nhà cung cấp
+
+Hiện `supabase/functions/_shared/anthropic.ts` hardcode cho API chính thức: URL cố định `https://api.anthropic.com/v1/messages`, header `x-api-key`, structured output qua `output_config.format.json_schema`, và đọc response theo `body.content[]`. Proxy bên thứ 3 thường không hỗ trợ `output_config` và có thể dùng giao thức OpenAI.
+
+**Biến môi trường mới** (secret của Edge Function):
+
+| Biến | Mặc định | Ý nghĩa |
+|---|---|---|
+| `AI_API_BASE_URL` | `https://api.anthropic.com` | Gốc của endpoint. Có thể là sẵn có `/v1/messages` hoặc `/v1/chat/completions` — client tự nhận diện, không ghép thêm |
+| `AI_API_KEY` | — | Khóa API. Nếu rỗng thì lấy `ANTHROPIC_API_KEY` (giữ tương thích cấu hình cũ) |
+| `AI_API_PROTOCOL` | `auto` | `auto` \| `anthropic` \| `openai` |
+| `AI_STRUCTURED_MODE` | `prompt` | `prompt` (JSON trong prompt + validate + repair) \| `native` (`output_config.format.json_schema`, chỉ dùng khi provider là API chính thức) |
+
+**Quy tắc nhận diện** (`auto`):
+
+1. `AI_API_BASE_URL` chứa `/chat/completions` → giao thức `openai`; chứa `/messages` → `anthropic`.
+2. Còn lại: gửi theo `anthropic`; nếu HTTP 404/405 (sai endpoint) → thử lại theo `openai`; nếu cả hai lỗi thì ném `provider_request_failed`.
+3. **Parse response theo hình dạng, không theo giao thức**: có `content[]` → Anthropic; có `choices[0].message.content` → OpenAI; có `output[]` → Responses API. Thiếu cả 3 → `empty_model_output`.
+
+**Chuyển đổi request theo giao thức**:
+
+| | Anthropic | OpenAI-compatible |
+|---|---|---|
+| Endpoint | `{base}/v1/messages` | `{base}/v1/chat/completions` |
+| Auth | `x-api-key` + `anthropic-version` | `Authorization: Bearer` |
+| System | `system` (string) | `messages[0].role = "system"` |
+| Giới hạn token | `max_tokens` | `max_tokens` (gửi cả `max_tokens` và `max_completion_tokens`) |
+| Ảnh | `{ type: "image", source: { type: "base64", media_type, data } }` | `{ type: "image_url", image_url: { url: "data:<mime>;base64,<data>" } }` |
+| Token đã dùng | `usage.input_tokens` / `output_tokens` / `cache_creation_input_tokens` / `cache_read_input_tokens` | `usage.prompt_tokens` / `completion_tokens` / `prompt_tokens_details.cached_tokens` |
+| Dừng output | `stop_reason === "max_tokens"` | `choices[0].finish_reason === "length"` |
+
+**Structured output kiểu prompt** (`AI_STRUCTURED_MODE = "prompt`, mặc định):
+
+- Không gửi `output_config`. Thay bằng phần system prompt bắt buộc: schema JSON + yêu cầu trả về **đúng một** JSON object, không bọc code fence, không thêm chữ.
+- **Bóc JSON** từ raw text: bỏ code fence ```json, cắt từ `{` đầu tiên đến `}` cuối cùng, `JSON.parse`; không hợp lệ → `null` để gọi repair.
+- Giữ nguyên cơ chế hiện có: validate → hỏng thì 1 lượt *repair* → vẫn hỏng thì `invalid_model_output`.
+
+**Lý do chọn prompt-based**: một đường code duy nhất, chạy được với API chính thức và mọi proxy; đánh đổi là model đôi khi trả kèm prose → đã xử lý bằng bóc JSON + repair.
+
+**Mức độ tương thích còn lại**: không phải mọi proxy đều hỗ trợ `tools`/`response_format`; vì vậy code **không** dùng tool-use để ép structured output. Nếu provider báo lỗi 400 kèm thông báo về `output_config`/`response_format`, client tự hạ xuống prompt-based trong cùng lần gọi (không cần deploy lại).
+
+### 4.5 Kiểm thử lớp gọi AI
+
+`supabase/functions/_shared/tests/anthropic.test.ts` (mới) — test thuần, không gọi network:
+
+- Dựng URL đúng cho từng giao thức khi base URL có/không kèm path.
+- Parse response Anthropic / OpenAI / Responses → cùng `AnthropicCall`.
+- Bóc JSON: raw JSON, JSON trong code fence, JSON có prose trước/sau, JSON hỏng → `null`.
+- Ánh xạ token usage của 2 hình dạng.
+- Phát hiện `finish_reason: "length"` của OpenAI → `truncated_model_output`.
+
 ## 5. Frontend
 
 ### 5.1 Model hiển thị — `src/lib/aiLogic.ts`
@@ -243,15 +294,24 @@ Không cần model thật — dùng fixture.
 
 ```bash
 npm run db:migrate        # migration 016 (thêm 3 cột jsonb)
-npm run db:deploy         # deploy lại edge functions (enrichment-v2)
+npm run db:deploy         # deploy lại edge functions (enrichment-v2 + client đa provider)
 npm run build && push     # frontend lên Vercel
 ```
 
-Sau khi có `ANTHROPIC_API_KEY` (set làm secret trên Supabase Edge Functions) → `npm run db:deploy` là chạy được ngay, không cần sửa code.
+Cấu hình secret của Edge Function (làm 1 lần):
+
+```bash
+supabase secrets set AI_API_BASE_URL=<endpoint> AI_API_KEY=<key>
+# hoặc API chính thức:
+supabase secrets set ANTHROPIC_API_KEY=<key>
+```
+
+Sau khi có key (kể cả key của bên thứ 3) → `npm run db:deploy` là chạy được ngay, không cần sửa code.
 
 ## 10. Rủi ro
 
 - **Chưa verify với model thật.** Schema JSON của Anthropic có thể từ chối cấu trúc lồng nhau phức tạp → cần `repairInstruction` và có thể phải nới `maxTokens` của `enrich` (hiện 4.000) khi thêm 3 nhóm mới. Đây là rủi ro lớn nhất, chỉ phát hiện được khi có key.
+- **Provider bên thứ 3 không tương đương API chính thức.** Có thể đổi tên model theo thời gian, giới hạn `max_tokens`, hoặc không trả `usage` chi tiết → phần đo chi phí (`ai_usage`) sẽ thiếu số liệu cache. Adapter đã chịu thiếu `usage` (coi như 0) nhưng không tự sửa được model id hỏng.
 - **Độ trễ:** người dùng phải chờ thêm vài giây sau khi có điểm mới thấy phần rà soát. Đã xử lý bằng trạng thái chờ + poll 45s.
 - **Chi phí:** không tăng số lượt gọi model, nhưng output của `enrich` lớn hơn → token tăng một chút.
 - **Bài cũ:** các `essay_features` v1 không có 3 cột mới → các khối tương ứng ẩn cho tới khi bài được chấm lại (job `v2` chạy lại nhờ đổi `cacheKey`).
