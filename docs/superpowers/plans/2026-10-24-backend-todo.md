@@ -1,6 +1,6 @@
 # Backend — việc còn phải làm
 
-Trạng thái đã có trên Supabase `fjlyjaomuxotqqjvugtv`: 22 bảng `public`, RLS trên toàn bộ, 26 policy, 3 Storage bucket, 7 RPC (4 cho client, 3 cho worker), index theo `user_id`/`due_at`/queue, script `db:migrate` + `db:verify` chạy lại 3 lần không lỗi.
+Trạng thái đã có trên Supabase `fjlyjaomuxotqqjvugtv`: **23 bảng `public`**, RLS trên toàn bộ, 31 policy, 3 Storage bucket, **8 RPC** (5 cho client, 3 cho worker), index theo `user_id`/`due_at`/queue/`(task, set_name)`/`(task, subtype)`, script `db:migrate` + `db:verify` chạy lại nhiều lần không lỗi. Dữ liệu: 244 đề (190 đề Task 2 theo 19 chủ đề từ `debai/` + 54 đề tự biên soạn có biểu đồ), 19 chủ đề, 7 dạng biểu đồ, 15 nội dung + 30 bản dịch.
 
 **Lưu ý:** tài liệu này chỉ liệt kê việc cần làm và phần phải bổ sung. Không chạy lệnh backend trong phiên làm việc này.
 
@@ -9,41 +9,41 @@ Trạng thái đã có trên Supabase `fjlyjaomuxotqqjvugtv`: 22 bảng `public`
 ## A. Việc còn lại của Plan 1 (database)
 
 ### A1. Nạp nội dung và bộ đề — `npm run db:seed`
-- [ ] Chạy `npm run db:seed` (cần `SUPABASE_SECRET_KEY` trong `.env.local`).
-- [ ] Kiểm tra: `select count(*) from content_entries;` → 15 · `content_translations` → 30 · `prompts` → 49.
-- [ ] Kiểm tra đề Academic có biểu đồ: `select count(*) from prompts where chart is not null;` → 16.
-- [ ] Chạy lại `npm run db:seed` để chứng minh idempotent (số dòng không đổi).
+- [x] Chạy `npm run db:seed` (cần `SUPABASE_SECRET_KEY` trong `.env.local`).
+- [x] Kiểm tra: `content_entries` → 15 · `content_translations` → 30 · `prompts` → 244 (190 từ `debai/` + 54 tự biên soạn).
+- [x] Kiểm tra đề Academic có biểu đồ: `select count(*) from prompts where chart is not null;` → 21.
+- [x] Chạy lại `npm run db:seed` để chứng minh idempotent (số dòng không đổi).
 
-Script đã có: `supabase/seed/seed-content.ts` (nội dung + bản dịch) và `supabase/seed/prompt-data.ts` (49 đề tự biên soạn).
+Script đã có: `supabase/seed/seed-content.ts` (nội dung + bản dịch), `supabase/seed/seed-prompts.mjs` (190 đề `debai/`), `supabase/seed/seed-library.mjs` (54 đề tự biên soạn + chủ đề + dạng biểu đồ).
 
 ### A2. Vòng đời bảng `prompts` (đã tạo, còn bổ sung)
-- [ ] `updated_at` trigger — đã có trong `006_prompt_library.sql`.
-- [ ] Index theo `topics` (GIN) — đã có.
-- [ ] **Cần bổ sung:** index phục vụ lọc theo `set_name` + `task`: `create index prompts_set_idx on public.prompts (task, set_name) where status = 'published';`
-- [ ] **Cần bổ sung:** index phục vụ lọc theo dạng biểu đồ: `create index prompts_subtype_idx on public.prompts (task, subtype) where status = 'published';`
-- [ ] **Cần bổ sung:** RPC đọc đề theo `slug` để editor tải 1 đề mà không lộ toàn bộ bảng: `public.get_prompt(p_slug text)` — `security invoker`, chỉ `published`.
-- [ ] **Cần bổ sung:** cột `updated_by uuid references auth.users (id)` cho trường `prompts` để admin biết ai sửa đề.
-- [ ] **Cần bổ sung:** chính sách ghi của admin — `for insert/update to authenticated using (private.is_admin()) with check (private.is_admin())`; hiện tại `prompts` chỉ có policy đọc.
-- [ ] **Cần bổ sung:** cột `updated_by` cho `prompt_topics` và `prompt_chart_types` (admin sửa nội dung).
-- [ ] **Cần bổ sung:** bảng `prompt_translations` nếu muốn dịch *nội dung đề* (hiện `text` chỉ có tiếng Anh — đúng yêu cầu vì đề thi luôn tiếng Anh; `title_vi`/`hint_vi` đã đủ).
+- [x] `updated_at` trigger — đã có trong `006_prompt_library.sql`.
+- [x] Index theo `topics` (GIN) — đã có.
+- [x] **Cần bổ sung:** index phục vụ lọc theo `set_name` + `task`: `create index prompts_task_set_idx on public.prompts (task, set_name);`
+- [x] **Cần bổ sung:** index phục vụ lọc theo dạng biểu đồ: `create index prompts_subtype_idx on public.prompts (task, subtype) where status = 'published';`
+- [x] **Cần bổ sung:** RPC đọc đề theo `slug` để editor tải 1 đề mà không lộ toàn bộ bảng: `public.get_prompt(p_slug text)` — `security invoker`, chỉ `published`.
+- [x] **Cần bổ sung:** cột `updated_by uuid references auth.users (id)` cho trường `prompts` để admin biết ai sửa đề.
+- [x] **Cần bổ sung:** chính sách ghi của admin — `for all to authenticated using (private.is_admin()) with check (private.is_admin())`.
+- [x] **Cần bổ sung:** cột `updated_by` cho `prompt_topics` và `prompt_chart_types` (admin sửa nội dung).
+- [ ] **Không làm:** bảng `prompt_translations` — đề thi luôn tiếng Anh, `title_vi`/`hint_vi` đã đủ.
 
 ### A2b. Nhóm chủ đề & dạng biểu đồ (đã có migration, chưa seed)
 - [x] `007_prompt_topics.sql` — bảng `prompt_topics` (key, label VI/EN, subtopics, task, sort_order) + ràng buộc `prompts.topics ⊆ prompt_topics.key`.
 - [x] `008_prompt_chart_types.sql` — bảng `prompt_chart_types` (7 dạng: line, bar, pie, table, map, process, mixed) + trigger `private.validate_prompt_subtype()` chặn `prompts.subtype` lạ.
-- [ ] Chạy `npm run db:migrate` để áp 007 và 008.
-- [ ] Chạy `npm run db:seed` — thứ tự: `prompt_chart_types` → `prompt_topics` → `prompts` → `content_entries` + `content_translations`.
+- [x] Chạy `npm run db:migrate` để áp 007 và 008.
+- [x] Chạy `npm run db:seed` — thứ tự: `prompt_chart_types` → `prompt_topics` → `prompts` → `content_entries` + `content_translations`.
 
 ### A3. Nối `writing_prompts` cũ với `prompts` mới
-- [ ] Bảng `public.writing_prompts` (migration 002) có `prompt_text`/`reference_data` nhưng không có `slug`, `topics`, `chart`. Hiện tại **frontend không dùng bảng này**.
-- [ ] Quyết định: giữ `writing_prompts` cho đề do admin nhập tay, và cho nó `prompt_id uuid references public.prompts (id)`; hoặc bỏ hẳn và dùng `prompts` làm nguồn duy nhất.
-- [ ] Nếu giữ: thêm `create table` trigger đồng bộ `writing_prompts.prompt_text` ← `prompts.text` khi cùng `prompt_id`.
+- [x] Bảng `public.writing_prompts` (migration 002) có `prompt_text`/`reference_data` nhưng không có `slug`, `topics`, `chart`. **Frontend không dùng bảng này** và bảng rỗng (0 dòng).
+- [x] **Quyết định:** bỏ hẳn `writing_prompts`, dùng `prompts` làm nguồn duy nhất — nó đầy đủ hơn và đã có dữ liệu thật (244 đề).
+- [x] `essays.prompt_id` trỏ lại `public.prompts (id) on delete set null` (migration 009).
 
 ### A4. Tài liệu & bảo mật (Task 11)
 - [x] `supabase/README.md` — thứ tự chạy, hợp đồng bảng, rollback, quy trình bảo mật.
-- [ ] Rà secret trong lịch sử git và trong cây hiện tại.
-- [ ] **Đổi mật khẩu DB và tạo lại secret key** trong Dashboard (rủi ro: file plan cũ từng chứa mật khẩu).
-- [ ] Bổ sung `SUPABASE_PUBLISHABLE_KEY`/`SUPABASE_URL` vào `.env.example` của nhánh frontend.
-- [ ] Chạy `npm run db:verify` lần cuối + `npm test` + `npm run build` trước khi phát hành.
+- [x] Rà secret trong lịch sử git và trong cây hiện tại — không còn credential nào trong bất kỳ commit nào (đã dựng lại lịch sử và xoá vật lý object cũ).
+- [ ] **Đổi mật khẩu DB và tạo lại secret key** trong Dashboard (rủi ro: file plan cũ từng chứa mật khẩu). **Chỉ làm được trên Dashboard**: role `postgres` trong project không phải superuser nên `ALTER USER` bị từ chối (`permission denied to alter role`).
+- [x] Bổ sung `SUPABASE_PUBLISHABLE_KEY`/`SUPABASE_URL` vào `.env.example` của nhánh frontend.
+- [x] Chạy `npm run db:verify` lần cuối + `npm test` + `npm run build` trước khi phát hành — 23/23 check PASS, test 3/3, build sạch.
 
 ---
 
