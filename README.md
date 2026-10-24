@@ -23,6 +23,7 @@ node tests/browser.mjs         # luồng trình duyệt thật (Playwright, cầ
 node tests/accessibility.mjs   # axe WCAG 2.1 AA trên 6 route, cả theme sáng và tối
 node tests/i18n.mjs            # kiểm tra song ngữ VI/EN trên 19 route
 node tests/prompt-images.mjs   # ảnh đề Task 1: cuộn hết lưới rồi xác nhận không ảnh hỏng
+node tests/writing-space.mjs   # không gian viết: ảnh đề, tiêu đề theo ngôn ngữ, đăng ký
 node tests/screenshots.mjs     # ảnh chụp màn hình vào test-results/
 ```
 
@@ -44,6 +45,7 @@ npm run db:seed                # nạp nội dung, đề bài và bảng giá AI
 npm run db:prune               # dọn đề Task 1 trùng (dry-run, thêm --apply để xoá)
 npm run db:deploy              # deploy 10 Edge Function + set secrets
 npm run db:cron                # bật cron gọi worker mỗi 10 giây
+npm run auth:autoconfirm       # tắt bước xác nhận email khi đăng ký
 ```
 
 `db:migrate` chạy theo hai đường: nếu có `DATABASE_URL` thì dùng `psql`, nếu không thì gọi Management API bằng `SUPABASE_ACCESS_TOKEN`.
@@ -90,7 +92,7 @@ Cần `SUPABASE_ACCESS_TOKEN` trong `.env.local`. Xem `supabase/README.md` cho t
 | `src/App.tsx` | Bảng định tuyến (data router); `RouteGuard` bảo vệ `/app/**` và `/admin` |
 | `src/main.tsx` | Điểm khởi tạo: `AuthProvider` → `StoreProvider` → router |
 | `src/styles.css` | Design system theo token: màu hai theme, kính, gradient, responsive, trạng thái |
-| `src/i18n.ts` · `src/theme.ts` | Khởi tạo VI/EN; theme sáng/tối/theo hệ thống |
+| `src/i18n.ts` · `src/theme.ts` | Khởi tạo VI/EN (**mặc định là EN**, nhớ lựa chọn trong `localStorage`); theme sáng/tối/theo hệ thống |
 | `src/lib/auth.tsx` · `authLogic.ts` | Đăng nhập/đăng ký/đặt lại mật khẩu; phân loại lỗi thành mã thân thiện |
 | `src/lib/store.tsx` | Nguồn sự thật: Postgres khi đã đăng nhập, IndexedDB làm cache offline |
 | `src/lib/sync.ts` | Ánh xạ dữ liệu Postgres ⇄ model của app |
@@ -117,21 +119,23 @@ Cần `SUPABASE_ACCESS_TOKEN` trong `.env.local`. Xem `supabase/README.md` cho t
 ## Hành vi hiện tại
 
 - Giao diện gradient + kính, hỗ trợ theme **sáng / tối / theo hệ thống**.
-- **Tài khoản thật**: đăng ký, đăng nhập, quên/đặt lại mật khẩu. Route `/app/**` và `/admin` yêu cầu đăng nhập; landing và `/library` công khai.
+- **Ngôn ngữ mặc định là EN**; bấm VI ở thanh trên cùng để chuyển sang tiếng Việt. Lựa chọn được nhớ trong `localStorage`.
+- **Tài khoản thật**: đăng ký, đăng nhập, quên/đặt lại mật khẩu. Đăng ký xong là đăng nhập được ngay (không có bước xác nhận email — xem `npm run auth:autoconfirm`). Route `/app/**` và `/admin` yêu cầu đăng nhập; landing và `/library` công khai.
 - Nháp, ảnh đề bài, thẻ ôn tập và tiến độ đọc lưu trong Postgres; IndexedDB giữ bản cache offline và ảnh chưa tải lên xong.
+- **Không gian viết**: cột trái là **đề bài read-only** — ảnh đề đầy đủ (bấm để xem cỡ lớn), câu hỏi và dữ liệu tham chiếu; loại bài hiện dạng nhãn cố định, **không chuyển loại bài được** (đổi đề bằng cách chọn đề khác ở Kho đề bài). Bài viết tự do (chưa chọn đề) vẫn dán được câu hỏi và dữ liệu tham chiếu.
 - Nút *Chấm bài* đẩy bài vào hàng đợi AI và hiện kết quả theo 4 tiêu chí (Task Response/Task Achievement, Coherence, Lexical, Grammar) kèm dẫn chứng trích từ bài. Thiếu dữ liệu tham chiếu thì báo `needs_reference` — **không bịa điểm**.
 - Bộ công cụ AI (Magic Rewrite, Argument Stress Test, Critical Thinking) và nút *Đọc dữ liệu từ ảnh* gọi Edge Function thật.
 - Trang *Quản trị* có 4 tab: nội dung, người dùng, hàng đợi AI và token/chi phí.
 - Đề tự nhập lưu vào bảng `user_prompts` (có RLS theo chủ sở hữu) kèm tệp đính kèm trong bucket `user-prompt-media`.
 - Đồng bộ giữa nhiều thiết bị qua Supabase Realtime; tab trong cùng máy đồng bộ qua `BroadcastChannel`.
 - Rời trang khi nháp chưa lưu sẽ hiện hộp thoại *Lưu và rời đi* / *Tiếp tục viết*.
-- Đổi loại bài giữ nguyên dữ liệu nếu bạn bấm lại đúng loại đang chọn.
+- Tiêu đề bài viết lấy theo ngôn ngữ đang dùng; người dùng tự đặt tên thì giữ nguyên tên đó.
 - Trang *Kết quả minh họa* (`/app/essays/demo`) là dữ liệu trình diễn giao diện, được gắn nhãn minh họa.
 
 ## Bước kế tiếp
 
 1. **Thêm `ANTHROPIC_API_KEY`**: lấy ở https://console.anthropic.com/settings/keys rồi đặt trong Supabase (Dashboard → Edge Functions → Secrets) hoặc chạy `npm run db:deploy` sau khi thêm key vào `.env.local`. Tới lúc đó tính năng chấm bài và công cụ AI mới trả điểm thật.
-2. Bật xác minh email trong Supabase Dashboard.
+2. Cấu hình SMTP để gửi email đặt lại mật khẩu (hiện Dashboard chưa có SMTP).
 3. Đổi mật khẩu DB và tạo lại secret key trong Dashboard.
 4. Cấu hình tài khoản/QR donate.
 5. Thêm `admin-content` hỗ trợ quản lý bộ `prompts`; đưa audit admin vào cùng transaction với mutation.

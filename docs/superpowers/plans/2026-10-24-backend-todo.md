@@ -57,6 +57,6 @@ Trạng thái trên Supabase `fjlyjaomuxotqqjvugtv`: **24 bảng `public`**, RLS
 - [x] Xoá bài qua Edge Function `delete-essay` (tombstone → huỷ job → dọn Storage).
 - [x] Nút *Thử lại* khi job AI lỗi (`retry-job`).
 - [x] Test browser chạy được cả luồng đăng nhập (`TEST_EMAIL`/`TEST_PASSWORD`).
-- [ ] Bật xác minh email trong Supabase Dashboard.
+- [x] Tắt bước xác nhận email khi đăng ký (`npm run auth:autoconfirm`) — đăng ký xong là đăng nhập được ngay.
 - [ ] Đổi mật khẩu DB và tạo lại secret key trong Dashboard (rủi ro: file plan cũ từng chứa mật khẩu).
 - [ ] Cấu hình tài khoản/QR donate (trang donate hiện ghi rõ chưa cấu hình).

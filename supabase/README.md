@@ -32,9 +32,16 @@ npm run db:verify         # kiểm tra schema + RLS bằng 2 user thật
 npm run db:seed           # nạp content_entries/translations + prompts/prompt_topics
 npm run db:seed:content   # chỉ nội dung học tập
 npm run db:seed:prompts   # chỉ bộ đề task 2 (debai)
+npm run auth:autoconfirm  # tắt bước xác nhận email khi đăng ký
 ```
 
 Mọi lệnh dùng `--env-file-if-exists=.env.local` nên vẫn chạy được khi secret được inject qua biến môi trường (CI).
+
+### Đăng ký không cần xác nhận email
+
+`npm run auth:autoconfirm` đặt `mailer_autoconfirm = true` trong cấu hình dự án (Management API, cần `SUPABASE_ACCESS_TOKEN`).
+Khi cờ này bật, `signUp` trả về phiên đăng nhập ngay: **đăng ký xong là dùng được**, không phải bấm link trong email.
+Frontend vẫn tự thử đăng nhập nếu `signUp` không trả về phiên, nên bỏ cờ cũng không làm hỏng luồng đăng ký.
 
 ## Migration
 
