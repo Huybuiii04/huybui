@@ -19,6 +19,8 @@ try {
   // ---------- Phần công khai: không cần đăng nhập ----------
   await page.goto(`${base}/app/prompts`)
   await page.getByRole('heading', { name: /Luyện đề thi thử IELTS Writing|IELTS Writing practice tests/ }).waitFor()
+  // Mặc định của app là EN — chuyển sang VI để so nhãn tiếng Việt.
+  await page.getByRole('button', { name: 'VI', exact: true }).click()
   await page.getByRole('radio', { name: /Task 1 Academic/ }).click()
   await page.locator('.topic-card').first().waitFor()
   assert.ok(await page.locator('.topic-card').count() >= 7, 'Academic task must group by the 7 chart types')
@@ -86,22 +88,22 @@ try {
     await page.getByLabel('What should we call you?').waitFor()
     assert.equal(await page.getByLabel('What should we call you?').inputValue(), 'E2E Learner', 'Profile must persist in the database')
 
-    await page.goto(`${base}/app/write?task=academic_task1`)
+    await page.goto(`${base}/app/write?task=academic_task1&prompt=t1-w1-009`)
+    // Đề Task 1 Academic: ảnh đề hiện đầy đủ ở cột trái, không còn form nhập đề.
+    await page.locator('.task-image img').waitFor()
     await page.getByLabel('Essay title', { exact: true }).fill('Commuting practice')
-    await page.getByLabel('Task prompt', { exact: true }).fill('Summarise the commuting data.')
-    await page.getByLabel('Reference data / description').fill('Car: 60% in 2010, 45% in 2020.')
     await page.getByLabel('Essay text', { exact: true }).fill('The share of commuters travelling by car declined over the period.')
-    await page.locator('input[type=file]').setInputFiles({ name: 'chart.png', mimeType: 'image/png', buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6V7sAAAAASUVORK5CYII=', 'base64') })
+    await page.locator('.upload-zone input[type=file]').setInputFiles({ name: 'chart.png', mimeType: 'image/png', buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6V7sAAAAASUVORK5CYII=', 'base64') })
     await page.getByText('Saved in this browser', { exact: true }).waitFor()
     await page.reload()
     await page.getByLabel('Essay text', { exact: true }).waitFor()
     assert.match(await page.getByLabel('Essay text', { exact: true }).inputValue(), /declined/)
     assert.equal(await page.locator('.image-previews img').count(), 1)
+    // Chỉ hiện loại bài đang làm — không có thanh chuyển task.
+    assert.equal(await page.locator('.editor-toolbar .segmented').count(), 0)
+    assert.match(await page.locator('.editor-task').innerText(), /Task 1 Academic/)
     await page.getByRole('button', { name: 'Get feedback', exact: true }).click()
     await page.getByText(/has not configured an AI model|is busy or temporarily unavailable|being assessed/i).first().waitFor({ timeout: 90000 })
-    await page.getByRole('button', { name: 'Task 1 Academic', exact: true }).click()
-    assert.match(await page.getByLabel('Reference data / description').inputValue(), /Car/)
-    assert.equal(await page.locator('.image-previews img').count(), 1)
     await page.getByLabel('Essay text', { exact: true }).fill('Unsaved sentence that must survive navigation.')
     await page.locator('#main').getByRole('link', { name: 'My writing', exact: true }).click()
     await page.getByRole('heading', { name: 'Your writing is not saved yet' }).waitFor()
