@@ -2,6 +2,7 @@
 // Logic thuần (phân loại lỗi, ánh xạ kết quả) nằm trong ./aiLogic.ts.
 
 import { supabase } from './supabase'
+import { fetchLatestRevisionId } from './featuresRepository.ts'
 import {
   classifyAiError,
   gradingViewFromRow,
@@ -195,14 +196,8 @@ export async function deleteEssayDirect(essayId: string): Promise<AiResult<unkno
 
 /** Lấy kết quả chấm gần nhất của một bài (nếu đã có). */
 export async function fetchLatestGrading(essayId: string, task: string): Promise<GradingView | null> {
-  const { data: revision, error: revisionError } = await supabase
-    .from('essay_revisions')
-    .select('id')
-    .eq('essay_id', essayId)
-    .order('revision_no', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-  if (revisionError || !revision) return null
-  const row = await readGrading((revision as { id: string }).id)
+  const revisionId = await fetchLatestRevisionId(essayId)
+  if (!revisionId) return null
+  const row = await readGrading(revisionId)
   return gradingViewFromRow(row, task)
 }
