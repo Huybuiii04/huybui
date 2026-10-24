@@ -1,0 +1,31 @@
+project_id = "fjlyjaomuxotqqjvugtv"
+
+[functions.submit-essay]
+verify_jwt = true
+
+[functions.prepare-upload]
+verify_jwt = true
+
+[functions.retry-job]
+verify_jwt = true
+
+[functions.run-writing-tool]
+verify_jwt = true
+
+[functions.delete-essay]
+verify_jwt = true
+
+[functions.delete-account]
+verify_jwt = true
+
+[functions.admin-content]
+verify_jwt = true
+
+[functions.admin-users]
+verify_jwt = true
+
+[functions.admin-usage]
+verify_jwt = true
+
+[functions.process-ai-jobs]
+verify_jwt = false

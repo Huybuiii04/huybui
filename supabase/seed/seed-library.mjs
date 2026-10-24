@@ -16,12 +16,16 @@ const topicRows = seedTopics.map(topic => ({
   key: topic.key,
   label_vi: topic.labelVi,
   label_en: topic.labelEn,
+  description_vi: topic.descriptionVi ?? '',
+  description_en: topic.descriptionEn ?? '',
   subtopics: topic.subtopics ?? [],
   task: topic.task ?? null,
   sort_order: topic.sortOrder ?? 0
 }))
 
-const promptRows = seedPrompts.map((prompt, index) => ({
+const promptRows = seedPrompts
+  .filter(prompt => prompt.task !== 'academic_task1') // Task 1 Academic nạp bằng seed-task1.mjs (có ảnh đề)
+  .map((prompt, index) => ({
   slug: prompt.slug,
   task: prompt.task,
   subtype: prompt.subtype ?? '',

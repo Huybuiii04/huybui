@@ -13,12 +13,14 @@ const expectedTables = [
   'essays', 'essay_revisions', 'essay_assets', 'revision_assets',
   'ai_jobs', 'grading_results', 'essay_features', 'ai_tool_results', 'ai_usage',
   'study_cards', 'review_events', 'error_logs', 'guide_progress',
-  'donation_settings', 'admin_audit_logs', 'rate_limit_buckets'
+  'donation_settings', 'admin_audit_logs', 'rate_limit_buckets',
+  'ai_pricing'
 ]
 
 const expectedFunctions = [
   'save_draft', 'save_study_card', 'review_card', 'complete_guide',
-  'claim_ai_job', 'complete_ai_job', 'fail_ai_job', 'get_prompt'
+  'claim_ai_job', 'complete_ai_job', 'fail_ai_job', 'get_prompt',
+  'submit_essay_job', 'estimate_ai_cost'
 ]
 
 const expectedBuckets = ['essay-images', 'content-media', 'donation-media']
@@ -62,6 +64,15 @@ check('anon read on prompts/topics (must be truetrue)', promptRead, 'truetrue')
 
 const dropped = query(`select count(*) from information_schema.tables where table_schema='public' and table_name='writing_prompts'`)
 check('writing_prompts removed (must be 0)', dropped, '0')
+
+const concurrencyTrigger = query(`select count(*) from pg_trigger t join pg_class c on c.oid=t.tgrelid where c.relname='ai_jobs' and t.tgname='ai_jobs_concurrency_guard' and not t.tgisinternal`)
+check('ai job concurrency trigger (must be 1)', concurrencyTrigger, '1')
+
+const leaseRecovery = query(`select case when pg_get_functiondef(p.oid) like '%lease_until <= now()%' then 'yes' else 'no' end from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='claim_ai_job'`)
+check('claim_ai_job reclaims expired leases (must be yes)', leaseRecovery, 'yes')
+
+const costUnknown = query(`select case when public.estimate_ai_cost('v1', 'no-such-model', 100, 100) is null then 'null' else 'value' end`)
+check('cost is null for unconfigured models (must be null)', costUnknown, 'null')
 
 console.log(failures ? `\n${failures} kiểm tra thất bại.` : '\nTất cả kiểm tra schema đạt.')
 process.exit(failures ? 1 : 0)

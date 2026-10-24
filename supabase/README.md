@@ -123,3 +123,7 @@ psql "$DATABASE_URL" -c "drop schema public cascade; create schema public; grant
 ```
 
 Rồi chạy lại `npm run db:migrate` và `npm run db:seed`.
+
+## Edge Functions + AI
+
+Hướng dẫn 10 Edge Function, hợp đồng input/output, secrets, pipeline Anthropic, cron worker và cách deploy nằm tại [`supabase/functions/README.md`](functions/README.md).
