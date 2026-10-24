@@ -27,7 +27,7 @@ Trạng thái trên Supabase `fjlyjaomuxotqqjvugtv`: **24 bảng `public`**, RLS
 - [x] `target_band` chuẩn hoá `numeric(2,1)`; tài khoản bị `suspended` bị chặn ghi.
 - [x] `tests/auth.test.ts` + `tests/sync.test.ts` — 19 test thuần.
 
-## C. Edge Functions + AI — code xong, chưa deploy
+## C. Edge Functions + AI — đã deploy, chờ API key
 
 - [x] C1: 10 function + `_shared` (client Anthropic, schema request, hợp đồng AI, cache key, storage).
 - [x] C2: đủ 10 endpoint theo hợp đồng trong `supabase/functions/README.md`.
@@ -36,10 +36,11 @@ Trạng thái trên Supabase `fjlyjaomuxotqqjvugtv`: **24 bảng `public`**, RLS
 - [x] C5: bảng giá `ai_pricing` + `estimate_ai_cost()` ⇒ `estimated_cost_usd` là con số thật (null nếu chưa cấu hình).
 - [x] `claim_ai_job()` lấy lại job hết lease; `submit_essay_job()` tạo revision + job trong một transaction.
 - [x] Giới hạn 2 job AI đồng thời mỗi người dùng (trigger ở database).
+- [x] **Đã deploy 10/10 function** — `npm run db:deploy`. Tất cả `status: ACTIVE`, xác thực JWT trả 401 đúng, worker từ chối sai secret đúng shape.
+- [x] **Cron đã bật** — `npm run db:cron`, worker mỗi 10 giây, secret lưu trong `private.worker_secrets`.
+- [x] **Đã kiểm chứng end-to-end**: bài viết → `submit-essay` → job `grade` → worker xử lý → `grading_results` trả `needs_reference` (không bịa điểm khi thiếu dữ liệu tham chiếu).
 - [x] 31 test hợp đồng (`npm run test:edge`) + `deno check` sạch.
-- [ ] **Deploy 10 function** — cần `SUPABASE_ACCESS_TOKEN` + `ANTHROPIC_API_KEY` + `WORKER_SECRET`: `npm run db:deploy`.
-- [ ] **Bật cron** gọi worker mỗi 10 giây (SQL mẫu trong `supabase/functions/README.md`).
-- [ ] **Smoke test thật** trên project: chấm một bài, chạy công cụ AI, kiểm tra Storage và cron.
+- [ ] **Thêm `ANTHROPIC_API_KEY`** — set trong Supabase (Edge Functions → Secrets) hoặc `.env.local` rồi `npm run db:deploy`. Tới lúc đó chấm bài và công cụ AI mới trả kết quả thật.
 - [ ] `admin-content` chưa quản lý được bộ `prompts` (mới quản lý `content_entries`).
 - [ ] Audit admin và mutation chưa nằm trong cùng transaction DB.
 - [ ] `createSignedUploadUrl` dùng hạn mặc định của Storage; magic bytes/SHA-256 kiểm lúc submit.
@@ -50,8 +51,12 @@ Trạng thái trên Supabase `fjlyjaomuxotqqjvugtv`: **24 bảng `public`**, RLS
 - [x] Cập nhật `.env.local` (`VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`).
 - [x] Frontend nối Edge Function: `src/lib/ai.ts` gọi `submit-essay`, `run-writing-tool`, `admin-usage`.
 - [x] Trang kết quả chấm: `src/components/GradingResult.tsx` + route `/app/essays/:id`.
-- [ ] Bảng `user_prompts` (đề do người dùng nhập) với `created_by` + RLS owner — hiện `store.addPrompt` chỉ lưu IndexedDB.
-- [ ] Realtime thay `BroadcastChannel` để đồng bộ nhiều thiết bị.
+- [x] Bảng `user_prompts` (đề do người dùng nhập) với `created_by` + RLS owner — migration 013.
+- [x] Realtime bật cho `essays`, `study_cards`, `guide_progress`, `user_prompts` — migration 013.
+- [x] Trang quản trị 4 tab: nội dung, người dùng, hàng đợi AI, token/chi phí — `src/pages/Admin.tsx`.
+- [x] Xoá bài qua Edge Function `delete-essay` (tombstone → huỷ job → dọn Storage).
+- [x] Nút *Thử lại* khi job AI lỗi (`retry-job`).
+- [x] Test browser chạy được cả luồng đăng nhập (`TEST_EMAIL`/`TEST_PASSWORD`).
 - [ ] Bật xác minh email trong Supabase Dashboard.
 - [ ] Đổi mật khẩu DB và tạo lại secret key trong Dashboard (rủi ro: file plan cũ từng chứa mật khẩu).
 - [ ] Cấu hình tài khoản/QR donate (trang donate hiện ghi rõ chưa cấu hình).

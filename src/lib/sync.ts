@@ -35,7 +35,7 @@ export type CustomPrompt = {
   title: string
   text: string
   reference: string
-  file?: { name: string; kind: 'image' | 'pdf'; url: string }
+  file?: { name: string; kind: 'image' | 'pdf'; url: string; path?: string }
   createdAt: number
 }
 
@@ -66,6 +66,41 @@ export type StudyCardRow = {
 }
 
 export type GuideEntryRow = { id: string; slug: string }
+
+/** Hàng của bảng `user_prompts` — đề bài do chính người dùng nhập. */
+export type UserPromptRow = {
+  id: string
+  task_type: string
+  title: string
+  prompt_text: string
+  reference_data: string
+  file_path: string | null
+  file_name: string | null
+  file_kind: string | null
+  created_at: string
+}
+
+export const USER_PROMPT_BUCKET = 'user-prompt-media'
+
+/** Hàng user_prompts -> đề của bạn trong app. */
+export function userPromptRowToPrompt(row: UserPromptRow, fileUrl = ''): CustomPrompt {
+  const kind = row.file_kind === 'pdf' ? 'pdf' : 'image'
+  return {
+    id: row.id,
+    task: toTask(row.task_type),
+    title: row.title,
+    text: row.prompt_text,
+    reference: row.reference_data,
+    file: row.file_path && row.file_name ? { name: row.file_name, kind, url: fileUrl, path: row.file_path } : undefined,
+    createdAt: Date.parse(row.created_at) || Date.now(),
+  }
+}
+
+/** Đường dẫn trong Storage cho tệp đính kèm của đề tự nhập. */
+export function userPromptFilePath(userId: string, promptId: string, fileName: string): string {
+  const safe = fileName.replace(/[^A-Za-z0-9._-]/g, '_')
+  return `${userId}/${promptId}/${safe}`
+}
 
 const TASKS: Task[] = ['task2', 'academic_task1', 'general_task1']
 

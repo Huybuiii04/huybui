@@ -1,13 +1,13 @@
 ﻿import { useState } from 'react'
-import { Link, useSearchParams } from 'react-router'
-import { ArrowRight, ArrowUpRight, BookOpen, Check, CheckCircle2, Coffee, Heart, Lightbulb, LockKeyhole, Monitor, Moon, PenLine, ShieldCheck, Sparkles, Sun, Target } from 'lucide-react'
+import { Link } from 'react-router'
+import { ArrowRight, ArrowUpRight, BookOpen, Check, CheckCircle2, Coffee, Heart, Lightbulb, Monitor, Moon, PenLine, ShieldCheck, Sparkles, Sun, Target } from 'lucide-react'
 import { Brand, LanguageSwitch } from '../components/Layout'
 import { Empty, Notice, PageHeader } from '../components/ui'
 import { useCopy } from '../i18n'
 import { useStore } from '../lib/store'
 import { useTheme } from '../theme'
 import { AI_ERROR_MESSAGES } from '../lib/aiLogic.ts'
-import { fetchAdminUsage, pollToolResult, runWritingTool, type AdminUsage } from '../lib/ai.ts'
+import { pollToolResult, runWritingTool } from '../lib/ai.ts'
 
 export function Landing() {
   const { c } = useCopy()
@@ -57,27 +57,6 @@ export function Settings() {
 }
 
 
-export function Admin() {
-  const { c } = useCopy()
-  const [params, setParams] = useSearchParams()
-  const tab = params.get('tab') ?? 'content'
-  const [usage, setUsage] = useState<AdminUsage | null>(null)
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
-
-  async function loadUsage() {
-    setBusy(true)
-    setError('')
-    const to = new Date()
-    const from = new Date(to.getTime() - 30 * 24 * 60 * 60 * 1000)
-    const result = await fetchAdminUsage(from.toISOString(), to.toISOString())
-    setBusy(false)
-    if (!result.ok) { setError(c(...AI_ERROR_MESSAGES[result.code])); return }
-    setUsage(result.value)
-  }
-
-  return <><PageHeader eyebrow="ADMIN" title={c('Quản trị', 'Administration')} description={c('Theo dõi nội dung, người dùng và chi phí AI.', 'Track content, users and AI usage.')} /><div className="tabs">{[['content', c('Nội dung', 'Content')], ['users', c('Người dùng', 'Users')], ['jobs', c('Tác vụ AI', 'AI jobs')], ['usage', c('Token & chi phí', 'Tokens & costs')], ['donate', c('Ủng hộ', 'Donate')]].map(([value, label]) => <button key={value} className={tab === value ? 'active' : ''} onClick={() => setParams({ tab: value })}>{label}</button>)}</div>{error && <Notice error>{error}</Notice>}{tab === 'usage' ? <div className="panel"><div className="panel-heading"><h2>{c('Token & chi phí 30 ngày', 'Tokens & costs — last 30 days')}</h2><button className="button outline" disabled={busy} onClick={() => void loadUsage()}>{busy ? c('Đang tải…', 'Loading…') : c('Tải dữ liệu', 'Load usage')}</button></div>{usage ? <div className="usage-table"><div className="usage-row usage-head"><span>{c('Mô hình', 'Model')}</span><span>{c('Input', 'Input')}</span><span>{c('Output', 'Output')}</span><span>{c('Độ trễ', 'Latency')}</span></div>{usage.rows.map((row, index) => <div className="usage-row" key={`${row.model}-${index}`}><span>{row.model}</span><span>{row.input_tokens.toLocaleString()}</span><span>{row.output_tokens.toLocaleString()}</span><span>{row.latency_ms} ms</span></div>)}<p className="helper-text">{c(`Tổng: ${usage.totals.jobs} lượt · ${usage.totals.inputTokens.toLocaleString()} token vào · ${usage.totals.outputTokens.toLocaleString()} token ra.`, `Total: ${usage.totals.jobs} calls · ${usage.totals.inputTokens.toLocaleString()} input tokens · ${usage.totals.outputTokens.toLocaleString()} output tokens.`)}</p></div> : <Empty title={c('Chưa tải dữ liệu', 'No usage loaded yet')} description={c('Bấm "Tải dữ liệu" để đọc số liệu từ máy chủ.', 'Use "Load usage" to read the figures from the server.')} />}</div> : <div className="panel"><Empty title={c('Chưa có dữ liệu cho mục này', 'No data for this section yet')} description={c('Các thao tác quản trị cần quyền trên máy chủ. Quyền được kiểm tra trước khi thực hiện.', 'Administrative actions require server-side permissions, checked before anything runs.')} action={<span className="badge neutral"><LockKeyhole size={15} />{c('Quyền kiểm tra trên server', 'Permissions checked on the server')}</span>} /></div>}</>
-}
 export function NotFound() {
   const { c } = useCopy()
   return <Empty title={c('Trang này chưa có ở đây', 'This page is not here')} description={c('Quay lại không gian học tập để tiếp tục.', 'Return to your workspace to continue.')} action={<Link className="button primary" to="/app"><Target size={18} />{c('Về tổng quan', 'Back to overview')}</Link>} />

@@ -14,7 +14,7 @@
  */
 import { spawnSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
-import { join, resolve } from 'node:url'
+import { join, resolve } from 'node:path'
 
 const FUNCTIONS = [
   'submit-essay',
@@ -66,9 +66,9 @@ if (!accessToken) {
 const childEnv = { ...env, SUPABASE_ACCESS_TOKEN: accessToken, SUPABASE_PROJECT_REF: projectRef }
 
 /** Chạy lệnh supabase CLI, trả về true khi thành công. */
-function run(label, command, commandArgs) {
+function run(label, commandArgs) {
   console.log(`\n=== ${label} ===`)
-  const result = spawnSync('npx', ['--yes', 'supabase@2.122.0', ...command, ...commandArgs], {
+  const result = spawnSync('npx', ['--yes', 'supabase@2.122.0', ...commandArgs], {
     stdio: 'inherit',
     env: childEnv,
     shell: true,

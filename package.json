@@ -17,6 +17,7 @@
     "db:seed:library": "node --env-file-if-exists=.env.local supabase/seed/seed-library.mjs",
     "db:seed:pricing": "node --env-file-if-exists=.env.local supabase/seed/seed-ai-pricing.mjs",
     "db:prune": "node --env-file-if-exists=.env.local supabase/scripts/prune-duplicate-prompts.mjs",
+    "db:cron": "node --env-file-if-exists=.env.local supabase/scripts/setup-cron.mjs",
     "db:deploy": "node --env-file-if-exists=.env.local supabase/scripts/deploy-functions.mjs"
   },
   "dependencies": {

@@ -31,14 +31,19 @@ Các script trình duyệt dùng `http://127.0.0.1:5173`; đổi qua biến môi
 ## Backend
 
 ```bash
-npm run db:migrate             # áp dụng 12 file migration (idempotent)
-npm run db:verify              # kiểm tra schema + RLS (27 check)
+npm run db:migrate             # áp dụng 15 file migration (idempotent)
+npm run db:verify              # kiểm tra schema + RLS
 npm run db:seed                # nạp nội dung, đề bài và bảng giá AI
 npm run db:prune               # dọn đề Task 1 trùng (dry-run, thêm --apply để xoá)
 npm run db:deploy              # deploy 10 Edge Function + set secrets
+npm run db:cron                # bật cron gọi worker mỗi 10 giây
 ```
 
-`db:deploy` cần `SUPABASE_ACCESS_TOKEN` trong `.env.local`. Xem `supabase/README.md` cho thứ tự chạy, hợp đồng bảng và quy trình đổi secret.
+`db:migrate` chạy theo hai đường: nếu có `DATABASE_URL` thì dùng `psql`, nếu không thì gọi Management API bằng `SUPABASE_ACCESS_TOKEN`.
+
+`db:deploy` và `db:cron` cần `SUPABASE_ACCESS_TOKEN` trong `.env.local` (personal access token loại **user-scoped / full access** — token bị giới hạn scope sẽ thiếu `edge_functions_write` và `database_write`).
+
+Xem `supabase/README.md` cho thứ tự chạy, hợp đồng bảng và quy trình đổi secret.
 
 ## Deploy
 
@@ -103,17 +108,19 @@ Cần `SUPABASE_ACCESS_TOKEN` trong `.env.local`. Xem `supabase/README.md` cho t
 - Giao diện gradient + kính, hỗ trợ theme **sáng / tối / theo hệ thống**.
 - **Tài khoản thật**: đăng ký, đăng nhập, quên/đặt lại mật khẩu. Route `/app/**` và `/admin` yêu cầu đăng nhập; landing và `/library` công khai.
 - Nháp, ảnh đề bài, thẻ ôn tập và tiến độ đọc lưu trong Postgres; IndexedDB giữ bản cache offline và ảnh chưa tải lên xong.
-- Nút *Chấm bài* đẩy bài vào hàng đợi AI và hiện kết quả theo 4 tiêu chí (Task Response/Task Achievement, Coherence, Lexical, Grammar) kèm dẫn chứng trích từ bài.
+- Nút *Chấm bài* đẩy bài vào hàng đợi AI và hiện kết quả theo 4 tiêu chí (Task Response/Task Achievement, Coherence, Lexical, Grammar) kèm dẫn chứng trích từ bài. Thiếu dữ liệu tham chiếu thì báo `needs_reference` — **không bịa điểm**.
 - Bộ công cụ AI (Magic Rewrite, Argument Stress Test, Critical Thinking) và nút *Đọc dữ liệu từ ảnh* gọi Edge Function thật.
-- Trang *Quản trị* đọc số liệu token/chi phí từ `admin-usage`.
+- Trang *Quản trị* có 4 tab: nội dung, người dùng, hàng đợi AI và token/chi phí.
+- Đề tự nhập lưu vào bảng `user_prompts` (có RLS theo chủ sở hữu) kèm tệp đính kèm trong bucket `user-prompt-media`.
+- Đồng bộ giữa nhiều thiết bị qua Supabase Realtime; tab trong cùng máy đồng bộ qua `BroadcastChannel`.
 - Rời trang khi nháp chưa lưu sẽ hiện hộp thoại *Lưu và rời đi* / *Tiếp tục viết*.
 - Đổi loại bài giữ nguyên dữ liệu nếu bạn bấm lại đúng loại đang chọn.
 - Trang *Kết quả minh họa* (`/app/essays/demo`) là dữ liệu trình diễn giao diện, được gắn nhãn minh họa.
 
 ## Bước kế tiếp
 
-1. Deploy Edge Function và set secret: `npm run db:deploy` (cần `SUPABASE_ACCESS_TOKEN`, `ANTHROPIC_API_KEY`, `WORKER_SECRET`).
-2. Bật cron gọi worker `process-ai-jobs` (SQL mẫu trong `supabase/functions/README.md`).
-3. Bật xác minh email trong Supabase Dashboard.
-4. Đổi mật khẩu DB và tạo lại secret key trong Dashboard.
-5. Thêm bảng `user_prompts` (đề của người dùng) và bật Realtime để đồng bộ nhiều thiết bị.
+1. **Thêm `ANTHROPIC_API_KEY`**: lấy ở https://console.anthropic.com/settings/keys rồi đặt trong Supabase (Dashboard → Edge Functions → Secrets) hoặc chạy `npm run db:deploy` sau khi thêm key vào `.env.local`. Tới lúc đó tính năng chấm bài và công cụ AI mới trả điểm thật.
+2. Bật xác minh email trong Supabase Dashboard.
+3. Đổi mật khẩu DB và tạo lại secret key trong Dashboard.
+4. Cấu hình tài khoản/QR donate.
+5. Thêm `admin-content` hỗ trợ quản lý bộ `prompts`; đưa audit admin vào cùng transaction với mutation.

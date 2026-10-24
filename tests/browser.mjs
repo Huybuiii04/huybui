@@ -58,7 +58,7 @@ try {
   if (email && password) {
     await page.goto(`${base}/auth`)
     await page.getByLabel('Email').fill(email)
-    await page.getByLabel('Mật khẩu', { exact: true }).fill(password)
+    await page.getByLabel(/^Mật khẩu/).fill(password)
     await page.getByRole('button', { name: /Đăng nhập|Sign in/ }).click()
     await page.waitForURL(url => !url.pathname.startsWith('/auth'), { timeout: 30000 })
 
@@ -89,7 +89,7 @@ try {
     assert.match(await page.getByLabel('Essay text', { exact: true }).inputValue(), /declined/)
     assert.equal(await page.locator('.image-previews img').count(), 1)
     await page.getByRole('button', { name: 'Get feedback', exact: true }).click()
-    await page.getByText(/Backend not connected/).waitFor()
+    await page.getByText(/has not configured an AI model|is busy or temporarily unavailable|being assessed/i).first().waitFor({ timeout: 90000 })
     await page.getByRole('button', { name: 'Task 1 Academic', exact: true }).click()
     assert.match(await page.getByLabel('Reference data / description').inputValue(), /Car/)
     assert.equal(await page.locator('.image-previews img').count(), 1)
@@ -100,9 +100,9 @@ try {
     await page.getByRole('heading', { name: 'My writing' }).waitFor()
     await page.getByText('Commuting practice', { exact: true }).first().waitFor()
 
-    await page.goto(`${base}/app/prompts`)
+    await page.goto(`${base}/app/prompts?task=academic_task1`)
     await page.getByRole('button', { name: 'Your attempts' }).click()
-    await page.getByText('Mock exam March', { exact: true }).first().waitFor()
+    await page.getByText('Commuting practice', { exact: true }).first().waitFor()
 
     await page.goto(`${base}/app/vocabulary`)
     await page.getByRole('button', { name: 'Add a card', exact: true }).click()

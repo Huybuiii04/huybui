@@ -4,6 +4,7 @@ import { isConfigured, supabase } from './supabase'
 import { useSession } from './session'
 import { classifyRemoteError, parseRemotePayload, profileFromRow, type ProfileState } from './authLogic'
 import { saveProfileRow } from './profile'
+import { deleteEssay, deleteEssayDirect } from './ai'
 import {
   completedSlugs,
   draftToSaveArgs,
@@ -12,6 +13,9 @@ import {
   mergeImages,
   splitImages,
   studyCardRowToCard,
+  userPromptFilePath,
+  userPromptRowToPrompt,
+  USER_PROMPT_BUCKET,
   type Card,
   type CustomPrompt,
   type Draft,
@@ -20,6 +24,7 @@ import {
   type StudyCardRow,
   type Task,
   type TaskImage,
+  type UserPromptRow,
 } from './sync'
 
 export type { Card, CustomPrompt, Draft, Task, TaskImage }
@@ -42,6 +47,7 @@ type Store = {
   review: (id: string, remembered: boolean) => Promise<void>
   addPrompt: (prompt: Omit<CustomPrompt, 'id' | 'createdAt'>) => Promise<CustomPrompt>
   removePrompt: (id: string) => Promise<void>
+  removeDraft: (id: string) => Promise<void>
   /** Tham chiếu bài trong database: cần cho Edge Function (submit-essay, prepare-upload). */
   remoteRef: (draftId: string) => { essayId: string; version: number } | null
 }
@@ -111,6 +117,15 @@ function loadGuides() {
     }))
   return guidePromise
 }
+
+/** Tạo signed URL ngắn hạn cho tệp đính kèm của đề tự nhập. */
+async function hydrateUserPrompts(rows: UserPromptRow[]): Promise<CustomPrompt[]> {
+  return Promise.all(rows.map(async row => {
+    if (!row.file_path) return userPromptRowToPrompt(row)
+    const { data } = await supabase.storage.from(USER_PROMPT_BUCKET).createSignedUrl(row.file_path, 3600)
+    return userPromptRowToPrompt(row, data?.signedUrl ?? '')
+  }))
+}
 export function StoreProvider({ children }: { children: ReactNode }) {
   const { session, loading: sessionLoading } = useSession()
   const [state, setState] = useState<State>(initial)
@@ -161,11 +176,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const guide = await loadGuides()
     guides.current = guide.bySlug
     guideSlugs.current = guide.byId
-    const [essayRows, cardRows, progressRows, profileRow] = await Promise.all([
+    const [essayRows, cardRows, progressRows, profileRow, promptRows] = await Promise.all([
       supabase.from('essays').select('*').then(({ data }) => (data ?? []) as EssayRow[]),
       supabase.from('study_cards').select('*').then(({ data }) => (data ?? []) as StudyCardRow[]),
       supabase.from('guide_progress').select('entry_id').then(({ data }) => (data ?? []) as { entry_id: string }[]),
       supabase.from('profiles').select('*').eq('id', userId ?? '').maybeSingle().then(({ data }) => data),
+      supabase.from('user_prompts').select('*').then(({ data }) => (data ?? []) as UserPromptRow[]),
     ])
     const nextMeta = new Map<string, RemoteMeta>()
     const drafts = essayRows.map(row => {
@@ -185,7 +201,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const cards = cardRows.map(studyCardRowToCard)
     const completed = completedSlugs(progressRows.map(row => row.entry_id), guide.byId)
     const profile = profileFromRow(profileRow as Parameters<typeof profileFromRow>[0])
-    return { drafts, cards, completed, prompts: current.current.prompts, profile }
+    const prompts = await hydrateUserPrompts(promptRows)
+    return { drafts, cards, completed, prompts, profile }
   }, [userId])
 
   /** Đẩy dữ liệu chỉ có trong IndexedDB lên Supabase (chạy một lần khi đăng nhập). */
@@ -217,7 +234,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const entryId = guides.current.get(slug)
       if (entryId) await supabase.rpc('complete_guide', { p_entry_id: entryId, p_completed: true })
     }
-  }, [])
+    // Đề tự nhập chỉ có trong IndexedDB → đẩy lên bảng user_prompts.
+    const remotePromptIds = new Set(remote.prompts.map(prompt => prompt.id))
+    for (const prompt of local.prompts.filter(item => !remotePromptIds.has(item.id))) {
+      await addPrompt(prompt).catch(() => {})
+    }
+  }, [userId])
 
   const load = useCallback(async () => {
     if (!userId) {
@@ -234,7 +256,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         await migrateLocal(local, remote)
       }
       const merged = await loadRemote(local)
-      commit({ ...merged, prompts: local.prompts })
+      commit(merged)
       setReady(true)
     } catch {
       const value = await transact()
@@ -255,6 +277,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     channel.onmessage = () => { void load() }
     return () => channel.close()
   }, [load])
+
+  // Realtime: thay đổi từ thiết bị khác được nạp lại từ database.
+  useEffect(() => {
+    if (!userId) return
+    const channel = supabase
+      .channel(`ielts-studio-${userId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'essays', filter: `user_id=eq.${userId}` }, () => { void load() })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'study_cards', filter: `user_id=eq.${userId}` }, () => { void load() })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'guide_progress', filter: `user_id=eq.${userId}` }, () => { void load() })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'user_prompts', filter: `user_id=eq.${userId}` }, () => { void load() })
+      .subscribe()
+    return () => { void supabase.removeChannel(channel) }
+  }, [userId, load])
 
   const handleRemoteError = useCallback((failure: unknown): never => {
     const kind = classifyRemoteError(failure)
@@ -296,7 +331,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     try {
       await syncDiff(previous, next)
       const refreshed = await loadRemote(next)
-      commit({ ...refreshed, prompts: next.prompts })
+      commit(refreshed)
       setError('')
       announce()
     } catch (failure) {
@@ -473,16 +508,80 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }
 
   async function addPrompt(prompt: Omit<CustomPrompt, 'id' | 'createdAt'>) {
-    const created: CustomPrompt = { ...prompt, id: crypto.randomUUID(), createdAt: Date.now() }
+    if (!userId) {
+      const created: CustomPrompt = { ...prompt, id: crypto.randomUUID(), createdAt: Date.now() }
+      const next = { ...current.current, prompts: [created, ...current.current.prompts] }
+      commit(next)
+      try { await cache(next) } catch (failure) { fail(failure) }
+      announce()
+      return created
+    }
+    const id = crypto.randomUUID()
+    let filePath: string | null = null
+    if (prompt.file?.url) {
+      const decoded = dataUrlToBytes(prompt.file.url)
+      if (decoded) {
+        filePath = userPromptFilePath(userId, id, prompt.file.name)
+        const { error: failure } = await supabase.storage.from(USER_PROMPT_BUCKET).upload(filePath, new Blob([decoded.bytes as unknown as BlobPart], { type: decoded.mime }))
+        if (failure) filePath = null
+      }
+    }
+    const { data, error: failure } = await supabase
+      .from('user_prompts')
+      .insert({
+        id,
+        task_type: prompt.task,
+        title: prompt.title,
+        prompt_text: prompt.text,
+        reference_data: prompt.reference,
+        file_path: filePath,
+        file_name: filePath ? prompt.file?.name ?? null : null,
+        file_kind: filePath ? prompt.file?.kind ?? null : null,
+      })
+      .select('*')
+      .maybeSingle()
+    if (failure) handleRemoteError(failure)
+    const row = (data ?? { id, task_type: prompt.task, title: prompt.title, prompt_text: prompt.text, reference_data: prompt.reference, file_path: filePath, file_name: prompt.file?.name ?? null, file_kind: prompt.file?.kind ?? null, created_at: new Date().toISOString() }) as UserPromptRow
+    const created = userPromptRowToPrompt(row, prompt.file?.url ?? '')
     const next = { ...current.current, prompts: [created, ...current.current.prompts] }
     commit(next)
-    try { await cache(next) } catch (failure) { fail(failure) }
+    try { await cache(next) } catch (problem) { fail(problem) }
     announce()
     return created
   }
 
   async function removePrompt(id: string) {
+    if (!userId) {
+      const next = { ...current.current, prompts: current.current.prompts.filter(item => item.id !== id) }
+      commit(next)
+      try { await cache(next) } catch (failure) { fail(failure) }
+      announce()
+      return
+    }
+    const target = current.current.prompts.find(item => item.id === id)
+    const { error: failure } = await supabase.from('user_prompts').delete().eq('id', id)
+    if (failure) handleRemoteError(failure)
+    if (target?.file?.path) {
+      await supabase.storage.from(USER_PROMPT_BUCKET).remove([target.file.path])
+    }
     const next = { ...current.current, prompts: current.current.prompts.filter(item => item.id !== id) }
+    commit(next)
+    try { await cache(next) } catch (problem) { fail(problem) }
+    announce()
+  }
+
+  /**
+   * Xoá bài viết. Khi đã đăng nhập: gọi Edge Function delete-essay để huỷ job,
+   * dọn Storage rồi xoá bản ghi. Nếu function lỗi thì xoá thẳng trong database.
+   */
+  async function removeDraft(id: string) {
+    const remote = meta.current.get(id)
+    if (userId && remote) {
+      const result = await deleteEssay(remote.essayId)
+      if (!result.ok) await deleteEssayDirect(remote.essayId)
+      meta.current.delete(id)
+    }
+    const next = { ...current.current, drafts: current.current.drafts.filter(item => item.id !== id) }
     commit(next)
     try { await cache(next) } catch (failure) { fail(failure) }
     announce()
@@ -491,7 +590,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   /** Tham chiếu bài trong database theo client id — dùng cho Edge Function. */
   const remoteRef = useCallback((draftId: string) => meta.current.get(draftId) ?? null, [])
 
-  return <Context.Provider value={{ state, ready, error, suspended, signedIn: Boolean(userId), update, saveDraft, addCard, review, addPrompt, removePrompt, remoteRef }}>{children}</Context.Provider>
+  return <Context.Provider value={{ state, ready, error, suspended, signedIn: Boolean(userId), update, saveDraft, addCard, review, addPrompt, removePrompt, removeDraft, remoteRef }}>{children}</Context.Provider>
 }
 
 /** Tham chiếu bài trong database (essay id + phiên bản) theo client id của nháp. */

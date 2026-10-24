@@ -487,6 +487,9 @@ button, a, input, textarea, select { transition: background-color .18s, border-c
 .usage-row { display: grid; grid-template-columns: 1.4fr 1fr 1fr .8fr; gap: 12px; padding: 11px 12px; font-size: 13px; color: var(--text-muted); border-radius: var(--radius-sm); }
 .usage-row:nth-child(odd) { background: var(--surface-soft); }
 .usage-head { color: var(--text); font-weight: 600; border-bottom: 1px solid var(--border); border-radius: 0; }
+.row-actions { display: flex; gap: 6px; align-items: center; }
+.spin { animation: spin 900ms linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
 
 /* ---------- Prompt library ---------- */
 .prompt-hero { position: relative; overflow: hidden; border-radius: 26px; padding: 34px 38px; color: #fff; margin-bottom: 22px; background: radial-gradient(30rem 22rem at 88% 10%, rgba(45, 212, 191, .4), transparent 62%), radial-gradient(26rem 20rem at 8% 96%, rgba(251, 191, 36, .22), transparent 60%), linear-gradient(130deg, #0b3f36, #10564a 55%, #0d7f74); box-shadow: var(--shadow-lg); }

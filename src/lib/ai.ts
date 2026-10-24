@@ -186,6 +186,13 @@ export async function deleteEssay(essayId: string): Promise<AiResult<unknown>> {
   return invoke('delete-essay', { essayId })
 }
 
+/** Xoá bài viết khi Edge Function chưa sẵn sàng: xoá thẳng trong database. */
+export async function deleteEssayDirect(essayId: string): Promise<AiResult<unknown>> {
+  const { error } = await supabase.from('essays').delete().eq('id', essayId)
+  if (error) return { ok: false, code: classifyAiError(error) }
+  return { ok: true, value: null }
+}
+
 /** Lấy kết quả chấm gần nhất của một bài (nếu đã có). */
 export async function fetchLatestGrading(essayId: string, task: string): Promise<GradingView | null> {
   const { data: revision, error: revisionError } = await supabase

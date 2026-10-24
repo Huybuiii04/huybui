@@ -8,7 +8,9 @@ test-results/
 # Supabase
 .env.local
 .env.seed
+.env.test
 supabase/.temp/
+supabase/.branches/
 
 # Worktrees
 .worktrees/

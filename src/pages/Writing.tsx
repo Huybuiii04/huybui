@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useBlocker, useSearchParams } from 'react-router'
-import { ArrowLeft, Check, ChevronRight, ImagePlus, Maximize2, PenLine, Save, Sparkles, Timer, X } from 'lucide-react'
+import { ArrowLeft, Check, ChevronRight, ImagePlus, Maximize2, PenLine, RefreshCw, Save, Sparkles, Timer, X } from 'lucide-react'
 import { useCopy } from '../i18n'
 import { useStore, type Draft, type Task } from '../lib/store'
 import { countWords, validateImages } from '../lib/learning'
@@ -8,7 +8,7 @@ import { loadPromptBySlug } from '../lib/promptRepository'
 import { Notice, PageHeader } from '../components/ui'
 import { GradingResult } from '../components/GradingResult'
 import { AI_ERROR_MESSAGES, type GradingView } from '../lib/aiLogic.ts'
-import { pollGrading, pollToolResult, runWritingTool, submitEssay } from '../lib/ai.ts'
+import { pollGrading, pollToolResult, retryJob, runWritingTool, submitEssay } from '../lib/ai.ts'
 
 export default function Writing() {
   const [params, setParams] = useSearchParams()
@@ -46,6 +46,7 @@ function Editor({ id, existing, task, promptSlug, customId, mode }: { id: string
   const [aiError, setAiError] = useState('')
   const [imageReading, setImageReading] = useState<'idle' | 'busy' | 'done' | 'error'>('idle')
   const [imageData, setImageData] = useState<string[]>([])
+  const [lastJobId, setLastJobId] = useState<string | null>(null)
   const version = useRef(existing?.updatedAt ?? 0)
   const latest = useRef(draft)
   const dirty = useRef(false)
@@ -53,8 +54,13 @@ function Editor({ id, existing, task, promptSlug, customId, mode }: { id: string
   const persisted = useRef(false)
   latest.current = draft
 
+  /**
+   * Lưu nháp. Trả về true khi đã lưu (hoặc không có gì để lưu),
+   * false khi lỗi hoặc có một lần lưu khác đang chạy.
+   */
   async function save() {
-    if (!dirty.current || saving.current) return false
+    if (!dirty.current) return true
+    if (saving.current) return false
     saving.current = true
     const snapshot = latest.current
     setStatus('saving')
@@ -66,6 +72,14 @@ function Editor({ id, existing, task, promptSlug, customId, mode }: { id: string
       setStatus(error instanceof Error && error.message === 'conflict' ? 'conflict' : 'error')
       return false
     } finally { saving.current = false }
+  }
+
+  /** Chờ lần lưu đang chạy xong rồi lưu tiếp nếu còn thay đổi. */
+  async function saveWhenIdle() {
+    if (saving.current) {
+      await new Promise<void>(resolve => window.setTimeout(resolve, 300))
+    }
+    return save()
   }
 
   useEffect(() => {
@@ -129,7 +143,7 @@ function Editor({ id, existing, task, promptSlug, customId, mode }: { id: string
   }, [blocker.state])
 
   async function leave() {
-    const saved = await save()
+    const saved = await saveWhenIdle()
     if (saved && blocker.state === 'blocked') blocker.proceed()
   }
 
@@ -157,14 +171,28 @@ function Editor({ id, existing, task, promptSlug, customId, mode }: { id: string
     if (!signedIn) { setAiError(c('Hãy đăng nhập để nhận nhận xét.', 'Sign in to receive feedback.')); return }
     if (!draft.text.trim() || !draft.prompt.trim()) { setAiError(c('Cần có cả đề bài và nội dung bài viết.', 'Both the task prompt and your writing are needed.')); return }
     setGradingState('saving')
-    const saved = await save()
+    const saved = await saveWhenIdle()
     if (!saved) { setGradingState('error'); setAiError(c('Chưa lưu được bài viết. Hãy lưu lại rồi thử.', 'The essay could not be saved. Save it and try again.')); return }
     const ref = remoteRef(id)
     if (!ref) { setGradingState('error'); setAiError(c('Bài viết chưa được đồng bộ lên tài khoản.', 'This essay is not synced to your account yet.')); return }
     const submitted = await submitEssay({ essayId: ref.essayId, expectedVersion: ref.version, idempotencyKey: `grade-${id}-${ref.version}`, mode: 'grade' })
     if (!submitted.ok) { setGradingState('error'); setAiError(c(...AI_ERROR_MESSAGES[submitted.code])); return }
+    setLastJobId(submitted.value.jobId)
     setGradingState('queued')
     const result = await pollGrading(submitted.value.jobId, draft.task, snapshot => { if (snapshot.view) setGrading(snapshot.view) })
+    if (!result.ok) { setGradingState('error'); setAiError(c(...AI_ERROR_MESSAGES[result.code])); return }
+    setGrading(result.value.view)
+    setGradingState('done')
+  }
+
+  /** Thử lại job đã lỗi. */
+  async function retry() {
+    if (!lastJobId) return
+    setAiError('')
+    setGradingState('queued')
+    const queued = await retryJob(lastJobId)
+    if (!queued.ok) { setGradingState('error'); setAiError(c(...AI_ERROR_MESSAGES[queued.code])); return }
+    const result = await pollGrading(lastJobId, draft.task, snapshot => { if (snapshot.view) setGrading(snapshot.view) })
     if (!result.ok) { setGradingState('error'); setAiError(c(...AI_ERROR_MESSAGES[result.code])); return }
     setGrading(result.value.view)
     setGradingState('done')
@@ -203,6 +231,7 @@ function Editor({ id, existing, task, promptSlug, customId, mode }: { id: string
     {!!words && words < minimum && <p className="helper-text"><PenLine size={14} />{c(`Bài hiện dưới ${minimum} từ. Bạn vẫn có thể chấm khi backend được kết nối.`, `Your draft is under ${minimum} words. It can still be assessed once the backend is connected.`)}</p>}
     {expired && <Notice error>{c('Đã hết thời gian của bài thi thử. Bài viết của bạn vẫn được lưu — hãy nộp để nhận nhận xét khi backend sẵn sàng.', 'Your mock test time is up. Your writing is still saved — submit it for feedback once the backend is ready.')}</Notice>}
     {aiError && <Notice error>{aiError}</Notice>}
+    {gradingState === 'error' && lastJobId && <button className="button outline" onClick={() => void retry()}><RefreshCw size={16} />{c('Thử lại', 'Try again')}</button>}
     {imageReading === 'done' && imageData.length > 0 && <section className="panel grading-panel"><span className="eyebrow">{c('DỮ LIỆU ĐỌC TỪ ẢNH', 'DATA READ FROM THE IMAGE')}</span><ul className="grading-list">{imageData.map((line, index) => <li key={`${line}-${index}`}>{line}</li>)}</ul><button className="button outline full" onClick={() => change({ reference: imageData.join('\n') })}><Check size={16} />{c('Chèn vào dữ liệu tham chiếu', 'Insert into reference data')}</button></section>}
     {gradingState === 'queued' && <Notice>{c('Bài đang được chấm. Kết quả sẽ hiện ngay sau khi AI xử lý xong.', 'Your essay is being assessed. The result appears as soon as the AI finishes.')}</Notice>}
     {grading && <GradingResult view={grading} task={draft.task} />}
