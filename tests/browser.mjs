@@ -74,8 +74,17 @@ try {
     await page.waitForFunction(() => document.documentElement.dataset.theme === 'light')
     await page.screenshot({ path: 'test-results/dashboard-desktop.png', fullPage: true })
     await page.getByRole('button', { name: 'EN', exact: true }).click()
-    await page.getByRole('heading', { name: 'Hello there, let’s write better.' }).waitFor()
+    await page.getByRole('heading', { name: /^Hello .*, let’s write better\.$/ }).waitFor()
     assert.equal(await page.locator('html').getAttribute('lang'), 'en')
+
+    // Hồ sơ học tập phải lưu được vào database (bảng profiles), không chỉ localStorage.
+    await page.goto(`${base}/app/settings`)
+    await page.getByLabel('What should we call you?').fill('E2E Learner')
+    await page.getByRole('button', { name: 'Save changes', exact: true }).click()
+    await page.getByText('Settings saved', { exact: false }).first().waitFor()
+    await page.reload()
+    await page.getByLabel('What should we call you?').waitFor()
+    assert.equal(await page.getByLabel('What should we call you?').inputValue(), 'E2E Learner', 'Profile must persist in the database')
 
     await page.goto(`${base}/app/write?task=academic_task1`)
     await page.getByLabel('Essay title', { exact: true }).fill('Commuting practice')
