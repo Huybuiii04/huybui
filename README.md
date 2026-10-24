@@ -56,7 +56,7 @@ Xem `supabase/README.md` cho thứ tự chạy, hợp đồng bảng và quy tr�
 
 ### Frontend → Vercel
 
-Cấu hình sẵn trong `vercel.json` (SPA fallback + cache header) và `.github/workflows/deploy.yml` (deploy tự động khi push lên `main`).
+Cấu hình sẵn trong `vercel.json` (SPA fallback + cache header). Vercel GitHub App tự deploy mỗi lần push lên `main`.
 
 Bản đang chạy: **https://huybui.vercel.app** (project `huybui04/huybui`, Node 24.x).
 
@@ -71,7 +71,7 @@ Bản đang chạy: **https://huybui.vercel.app** (project `huybui04/huybui`, No
 
 4. Deploy. Từ đó mỗ lần push lên `main` Vercel tự build và đổi URL production.
 
-Nếu muốn deploy bằng GitHub Actions, thêm 3 **Secrets** (`VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`) và 2 **Variables** (`VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`) trong repo.
+Vercel GitHub App tự deploy mỗi lần push lên `main` — không cần GitHub Actions riêng. Muốn deploy lại bản cũ thì bấm **Redeploy** trong Vercel dashboard.
 
 > **Lưu ý về email commit:** Vercel chặn deployment nếu không map được commit author với tài khoản GitHub. Commit phải dùng email **noreply** của GitHub (`<id>+<login>@users.noreply.github.com`), không dùng email cá nhân — nếu không sẽ báo *"The deployment was blocked because Vercel couldn't find a Git account for the commit author"*.
 
