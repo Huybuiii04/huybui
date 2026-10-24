@@ -413,6 +413,7 @@ button, a, input, textarea, select { transition: background-color .18s, border-c
 .feedback-block > summary strong { margin-left: auto; color: var(--text-subtle); font-size: 13px; }
 .feedback-block > .grading-list { padding: 0 22px 20px; margin: 0; }
 .error-item, .vocab-item, .band-step, .structure-item { display: flex; flex-direction: column; gap: 6px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.vocab-item > span, .band-step > span:last-child, .structure-item > span:last-child { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
 .error-item:last-child, .vocab-item:last-child, .band-step:last-child, .structure-item:last-child { border-bottom: none; }
 .error-quote { color: var(--text-muted); text-decoration: line-through; font-size: 13.5px; }
 .error-correction { color: var(--brand-ink); font-weight: 600; font-size: 14px; }
