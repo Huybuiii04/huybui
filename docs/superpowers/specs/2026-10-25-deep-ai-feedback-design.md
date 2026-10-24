@@ -166,6 +166,7 @@ Nội dung từng khối:
 - **Lộ trình lên band X**: tiêu đề = band mục tiêu; mỗi bước = `title` + `detail` + badge tiêu chí + `expected_gain`.
 - **Điểm chưa hợp lý**: `quote` + `issue` + `suggestion` + badge mức độ (major ưu tiên lên đầu).
 - **Từ vựng nâng cao**: hai nhóm — *Nâng cấp từ đang dùng* (`lexical`: `term` → `correction`, `meaning`, `evidence`) và *Từ vựng nên học* (`vocabularyPlan.words`: `word`, `meaning`, `example`, `why`). Cả hai có nút *Lưu vào sổ từ vựng* → `addCard({kind: 'vocabulary'})`.
+  - Khối này có thêm nút **+ Thêm từ của tôi** → mở hộp thoại nhập tay (từ / nghĩa / câu ví dụ) → `addCard({kind: 'vocabulary'})`. Người dùng tự thêm từ riêng ngay cạnh gợi ý của AI, không phải điều hướng sang trang khác.
 - **Cấu trúc bài**: mỗi đoạn = số thứ tự + `role` + `summary` + `linkToNext`.
 
 Khối không có dữ liệu → ẩn hẳn (không hiện khung rỗng).
@@ -190,6 +191,19 @@ Khối không có dữ liệu → ẩn hẳn (không hiện khung rỗng).
 - Fixture `src/data/sampleFeatures.ts`: một bộ `EssayFeatures` + `ErrorLogEntry` mẫu (tiếng Anh, Task 2).
 - Trang `/app/essays/demo` (công khai) render `GradingResult` với fixture → xem được đủ 5 khối mà không cần key.
 
+### 5.7 Hộp thoại thêm thẻ dùng chung
+
+Hộp thoại nhập thẻ hiện nằm inline trong `src/pages/Learning.tsx` (trang *Sổ từ vựng*). Tách thành component dùng chung `src/components/VocabularyCardDialog.tsx`:
+
+| Prop | Việc |
+|---|---|
+| `open` | Đang mở hay không |
+| `onClose()` | Đóng hộp thoại |
+| `defaultKind` | Loại thẻ mặc định (`vocabulary` \| `structure` \| `error`) |
+| `onSave(values)` | Nhận `{ term, meaning, example, kind }` → gọi `addCard` |
+
+Dùng lại ở hai nơi: trang *Sổ từ vựng* (giữ nguyên hành vi hiện tại) và khối *Từ vựng nâng cao* trong kết quả chấm. Không viết lặp form hai lần.
+
 ## 6. Luồng dữ liệu tổng thể
 
 ```
@@ -198,6 +212,7 @@ Bấm "Chấm bài"
   → pollGrading (job 'grade' chạy, điểm về)      → hiện điểm + tiêu chí
   → pollFeatures (revisionId, tối đa 45s)        → hiện lỗi / band plan / từ vựng / cấu trúc
   → lỗi/từ vựng bấm "Lưu" → addCard → study_cards (đồng bộ DB)
+  → người dùng tự nhập từ trong khối "Từ vựng nâng cao" → addCard → study_cards
 ```
 
 `grade` fail (chưa có key) → hiện lỗi hiện hữu *"has not configured an AI model"*, không đổi.
@@ -221,8 +236,8 @@ Không cần model thật — dùng fixture.
 |---|---|
 | `supabase/functions/_shared/tests/enrich.test.ts` | Contract `enrichment-v2`: hợp lệ, thiếu field, sai kiểu, `severity` sai → `invalid_enrichment` |
 | `tests/ai.test.ts` (npm test) | `featuresFromRow` / `errorLogsFromRows`: đủ field, thiếu field, sai kiểu, rỗng, null |
-| `tests/writing-space.mjs` | Không gian viết hiện đủ khối mới khi có features (qua demo/fixture) |
-| `tests/accessibility.mjs` | Accordion mới phải đạt axe WCAG 2.1 AA (nhãn, mở/đóng) |
+| `tests/writing-space.mjs` | Không gian viết hiện đủ khối mới khi có features (qua demo/fixture); nút *+ Thêm từ của tôi* mở hộp thoại và lưu được thẻ vào sổ |
+| `tests/accessibility.mjs` | Accordion mới + hộp thoại thêm thẻ phải đạt axe WCAG 2.1 AA (nhãn, mở/đóng, focus) |
 
 ## 9. Triển khai
 
