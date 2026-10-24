@@ -42,7 +42,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const created: ProfileState = {
         name: (user.user_metadata?.display_name as string | undefined) ?? '',
         target: '7.0',
-        feedback: 'vi',
+        feedback: 'en',
       }
       await saveProfileRow(user.id, created)
       setProfile(created)
@@ -76,6 +76,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [syncProfile])
 
+  /**
+   * Đăng ký. Dự án bật "auto confirm" nên signUp trả về phiên đăng nhập ngay —
+   * đăng ký xong là dùng được, không cần xác nhận email. Nếu phiên chưa có,
+   * thử đăng nhập luôn; chỉ khi cả hai thất bại mới báo cần xác nhận email.
+   */
   const signUp = useCallback(async (email: string, password: string, displayName: string): Promise<AuthResult> => {
     if (!isConfigured) return { ok: false, code: 'not_configured' }
     const { data, error } = await supabase.auth.signUp({
@@ -84,7 +89,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       options: { data: { display_name: displayName }, emailRedirectTo: `${window.location.origin}/auth/callback` },
     })
     if (error) return { ok: false, code: authErrorCode(error) }
-    return { ok: true, needsConfirmation: !data.session }
+    if (data.session) return { ok: true }
+    const signedIn = await supabase.auth.signInWithPassword({ email, password })
+    if (signedIn.data.session) return { ok: true }
+    return { ok: true, needsConfirmation: true }
   }, [])
 
   const signIn = useCallback(async (email: string, password: string): Promise<AuthResult> => {

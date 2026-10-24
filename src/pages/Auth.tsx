@@ -69,7 +69,7 @@ export function Auth() {
       setBusy(false)
       if (!result.ok) return setError(result.code ?? 'unknown')
       if (result.needsConfirmation) {
-        setNotice(c('Đã tạo tài khoản. Kiểm tra email để xác nhận trước khi đăng nhập.', 'Account created. Check your email to confirm before signing in.'))
+        setNotice(c('Đã tạo tài khoản. Hãy xác nhận email rồi đăng nhập.', 'Account created. Confirm your email, then sign in.'))
         setMode('login')
         return
       }
@@ -84,7 +84,7 @@ export function Auth() {
   }
 
   const title = mode === 'login' ? c('Chào mừng trở lại.', 'Welcome back.') : mode === 'signup' ? c('Một hành trình mới.', 'A new chapter.') : mode === 'forgot' ? c('Quên mật khẩu?', 'Forgot your password?') : c('Đặt lại mật khẩu', 'Reset your password')
-  const subtitle = mode === 'login' ? c('Đăng nhập để đồng bộ bài viết của bạn.', 'Sign in to sync your essays across devices.') : mode === 'signup' ? c('Tạo tài khoản miễn phí để bắt đầu.', 'Create a free account to get started.') : mode === 'forgot' ? c('Chúng tôi sẽ gửi link đặt lại mật khẩu tới email của bạn.', 'We will email you a link to reset your password.') : c('Chọn mật khẩu mới cho tài khoản.', 'Choose a new password for your account.')
+  const subtitle = mode === 'login' ? c('Đăng nhập để đồng bộ bài viết của bạn.', 'Sign in to sync your essays across devices.') : mode === 'signup' ? c('Đăng ký xong là dùng được ngay, không cần xác nhận email.', 'Register and you are in — no email confirmation needed.') : mode === 'forgot' ? c('Chúng tôi sẽ gửi link đặt lại mật khẩu tới email của bạn.', 'We will email you a link to reset your password.') : c('Chọn mật khẩu mới cho tài khoản.', 'Choose a new password for your account.')
 
   return <div className="auth-page"><div className="auth-top"><Brand /><LanguageSwitch /></div><div className="auth-card panel"><span className="task-icon teal"><PenLine size={25} /></span><h1>{title}</h1><p>{subtitle}</p>
     {!configured && <Notice>{c('Chưa cấu hình kết nối máy chủ. Đăng nhập tạm thời không khả dụng.', 'The server connection is not configured. Signing in is unavailable for now.')}</Notice>}
