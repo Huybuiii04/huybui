@@ -40,6 +40,33 @@ npm run db:deploy              # deploy 10 Edge Function + set secrets
 
 `db:deploy` cần `SUPABASE_ACCESS_TOKEN` trong `.env.local`. Xem `supabase/README.md` cho thứ tự chạy, hợp đồng bảng và quy trình đổi secret.
 
+## Deploy
+
+### Frontend → Vercel
+
+Cấu hình sẵn trong `vercel.json` (SPA fallback + cache header) và `.github/workflows/deploy.yml` (deploy tự động khi push lên `main`).
+
+1. Vercel → **Add New → Project** → **Import** repo `Huybuiii04/huybui`.
+2. Framework preset: **Vite** · Build command: `npm run build` · Output: `dist`.
+3. **Settings → Environment Variables** — thêm 2 biến cho cả Production và Preview:
+
+   | Key | Value |
+   |---|---|
+   | `VITE_SUPABASE_URL` | `https://fjlyjaomuxotqqjvugtv.supabase.co` |
+   | `VITE_SUPABASE_PUBLISHABLE_KEY` | `sb_publishable_...` (lấy từ Supabase Dashboard → API) |
+
+4. Deploy. Từ đó mỗ lần push lên `main` Vercel tự build và đổi URL production.
+
+Nếu muốn deploy bằng GitHub Actions, thêm 3 **Secrets** (`VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`) và 2 **Variables** (`VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`) trong repo.
+
+### Edge Functions → Supabase
+
+```bash
+npm run db:deploy
+```
+
+Cần `SUPABASE_ACCESS_TOKEN` trong `.env.local`. Xem `supabase/README.md` cho thứ tự chạy, hợp đồng bảng và quy trình đổi secret.
+
 ## Cấu trúc
 
 | Đường dẫn | Vai trò |

@@ -1,0 +1,54 @@
+name: Deploy lên Vercel
+
+# Deploy tự động khi push lên nhánh main.
+# Lần chạy đầu: tạo project trên Vercel (Import repo này) rồi lấy 3 giá trị
+# trong Project Settings → Environment Variables / Project ID:
+#   VERCEL_TOKEN      — access token từ vercel.com/account/tokens
+#   VERCEL_ORG_ID     — team id
+#   VERCEL_PROJECT_ID — project id
+# Hoặc bấm nút "Deploy" trong tab Actions sau khi thêm secrets.
+#
+# Biến môi trường (Repository → Settings → Secrets and variables → Actions):
+#   Secrets: VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID
+#   Variables: VITE_SUPABASE_URL, VITE_SUPABASE_PUBLISHABLE_KEY
+# Hai biến VITE_ phải được đặt cả trong Vercel Project Settings vì Vercel tự build.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: vercel-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Build và deploy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Cài dependencies
+        run: npm ci
+
+      - name: Kiểm tra kiểu và test
+        env:
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: npm run build
+
+      - name: Test
+        run: npm test
+
+      - name: Deploy
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: npx --yes vercel@latest deploy --prod --yes --token="$VERCEL_TOKEN"
