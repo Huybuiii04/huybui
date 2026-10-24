@@ -9,6 +9,8 @@ import { Notice, PageHeader } from '../components/ui'
 import { GradingResult } from '../components/GradingResult'
 import { ChartPreview, type ChartSpec } from '../components/ChartPreview'
 import { AI_ERROR_MESSAGES, type GradingView } from '../lib/aiLogic.ts'
+import { pollEssayFeatures } from '../lib/featuresRepository'
+import type { ErrorLogEntry, EssayFeatures } from '../lib/aiLogic.ts'
 import { pollGrading, pollToolResult, retryJob, runWritingTool, submitEssay } from '../lib/ai.ts'
 
 /**
@@ -48,7 +50,7 @@ export default function Writing() {
 
 function Editor({ id, existing, task, promptSlug, customId, mode }: { id: string; existing?: Draft; task: string | null; promptSlug: string | null; customId: string | null; mode: 'mock' | 'practice' }) {
   const { c, language } = useCopy()
-  const { saveDraft, state, ready, signedIn, remoteRef } = useStore()
+  const { saveDraft, state, ready, signedIn, remoteRef, addCard } = useStore()
   const own = state.prompts.find(item => item.id === customId)
   const [seed, setSeed] = useState<TaskSeed | null>(null)
   useEffect(() => {
@@ -81,6 +83,9 @@ function Editor({ id, existing, task, promptSlug, customId, mode }: { id: string
   const [aiError, setAiError] = useState('')
   const [imageReading, setImageReading] = useState<'idle' | 'busy' | 'done' | 'error'>('idle')
   const [imageData, setImageData] = useState<string[]>([])
+  const [features, setFeatures] = useState<EssayFeatures | null>(null)
+  const [errorLogs, setErrorLogs] = useState<ErrorLogEntry[]>([])
+  const [reviewing, setReviewing] = useState(false)
   const [lastJobId, setLastJobId] = useState<string | null>(null)
   const version = useRef(existing?.updatedAt ?? 0)
   const latest = useRef(draft)
@@ -245,6 +250,13 @@ function Editor({ id, existing, task, promptSlug, customId, mode }: { id: string
     if (!result.ok) { setGradingState('error'); setAiError(c(...AI_ERROR_MESSAGES[result.code])); return }
     setGrading(result.value.view)
     setGradingState('done')
+    // Pipeline enrich chạy sau vài giây — chờ để có lỗi sai, lộ trình lên band và từ vựng.
+    setReviewing(true)
+    void pollEssayFeatures(submitted.value.revisionId).then(payload => {
+      setFeatures(payload.features)
+      setErrorLogs(payload.errors)
+      setReviewing(false)
+    })
   }
 
   /** Thử lại job đã lỗi. */
@@ -313,7 +325,9 @@ function Editor({ id, existing, task, promptSlug, customId, mode }: { id: string
     {gradingState === 'error' && lastJobId && <button className="button outline" onClick={() => void retry()}><RefreshCw size={16} />{c('Thử lại', 'Try again')}</button>}
     {imageReading === 'done' && imageData.length > 0 && <section className="panel grading-panel"><span className="eyebrow">{c('DỮ LIỆU ĐỌC TỪ ẢNH', 'DATA READ FROM THE IMAGE')}</span><ul className="grading-list">{imageData.map((line, index) => <li key={`${line}-${index}`}>{line}</li>)}</ul><button className="button outline full" onClick={() => change({ reference: imageData.join('\n') })}><Check size={16} />{c('Chèn vào dữ liệu tham chiếu', 'Insert into reference data')}</button></section>}
     {gradingState === 'queued' && <Notice>{c('Bài đang được chấm. Kết quả sẽ hiện ngay sau khi AI xử lý xong.', 'Your essay is being assessed. The result appears as soon as the AI finishes.')}</Notice>}
-    {grading && <GradingResult view={grading} task={draft.task} />}
+    {reviewing && <p className="helper-text" role="status"><Sparkles size={14} />{c('Đang rà soát lỗi và từ vựng…', 'Reviewing mistakes and vocabulary…')}</p>}
+    {grading && !features && !reviewing && <p className="helper-text">{c('Chưa có dữ liệu rà soát thêm cho bài này.', 'No extra review data is available for this essay yet.')}</p>}
+    {grading && <GradingResult view={grading} task={draft.task} features={features} errors={errorLogs} onAddCard={addCard} />}
     <p className="helper-text">{signedIn ? c('Nháp được đồng bộ tới tài khoản của bạn.', 'Drafts are synced to your account.') : c('Nháp và ảnh chỉ lưu trên trình duyệt này. Hãy đăng nhập để đồng bộ và nhận nhận xét.', 'Drafts and images are stored only in this browser. Sign in to sync and receive feedback.')}</p>
     {zoom && <div className="modal-backdrop image-lightbox" role="dialog" aria-modal="true" aria-label={c('Ảnh đề bài', 'Task image')} onClick={() => setZoom('')}><button type="button" className="icon-button image-lightbox-close" aria-label={c('Đóng', 'Close')} onClick={() => setZoom('')}><X size={20} /></button><img src={zoom} alt={seedTitle || c('Ảnh đề bài', 'Task image')} /></div>}
     {blocker.state === 'blocked' && <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="leave-title"><div className="panel leave-dialog"><span className="task-icon amber"><PenLine size={24} /></span><h2 id="leave-title">{c('Bạn chưa lưu bài viết', 'Your writing is not saved yet')}</h2><p>{c('Lưu nháp trước khi rời đi? Nếu không, thay đổi chưa lưu sẽ mất.', 'Save your draft before leaving? Unsaved changes are lost otherwise.')}</p><div className="button-row"><button className="button primary" onClick={() => void leave()}><Save size={17} />{c('Lưu và rời đi', 'Save and leave')}</button><button className="button outline" onClick={() => blocker.reset()}>{c('Tiếp tục viết', 'Keep writing')}</button></div></div></div>}
