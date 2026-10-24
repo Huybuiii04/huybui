@@ -94,6 +94,10 @@ if (!secretsOnly) {
 // Secrets: chỉ truyền những biến có giá trị trong môi trường.
 const secretValues = [
   ['ANTHROPIC_API_KEY', env.ANTHROPIC_API_KEY],
+  ['AI_API_BASE_URL', env.AI_API_BASE_URL],
+  ['AI_API_KEY', env.AI_API_KEY],
+  ['AI_API_PROTOCOL', env.AI_API_PROTOCOL],
+  ['AI_STRUCTURED_MODE', env.AI_STRUCTURED_MODE],
   ['WORKER_SECRET', env.WORKER_SECRET],
   ['AI_MODEL_GRADING', env.AI_MODEL_GRADING],
   ['AI_MODEL_EXTRACTION', env.AI_MODEL_EXTRACTION],
@@ -112,8 +116,8 @@ if (secretValues.length) {
   console.log('\nKhông có biến secret nào trong .env.local — bỏ qua bước set secrets.')
 }
 
-if (!env.ANTHROPIC_API_KEY) {
-  console.log('\nCẢNH BÁO: chưa có ANTHROPIC_API_KEY. Các function gọi AI sẽ trả lỗi cấu hình.')
+if (!env.ANTHROPIC_API_KEY && !env.AI_API_KEY) {
+  console.log('\nCẢNH BÁO: chưa có ANTHROPIC_API_KEY hoặc AI_API_KEY. Các function gọi AI sẽ trả lỗi cấu hình.')
 }
 if (!env.WORKER_SECRET && !skipWorker) {
   console.log('\nCẢNH BÁO: chưa có WORKER_SECRET. Worker process-ai-jobs sẽ từ chối mọi lời gọi.')

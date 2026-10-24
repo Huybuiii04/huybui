@@ -40,7 +40,7 @@ TEST_URL=https://huybui.vercel.app node tests/browser.mjs       # toàn bộ lu�
 ## Backend
 
 ```bash
-npm run db:migrate             # áp dụng 15 file migration (idempotent)
+npm run db:migrate             # áp dụng 16 file migration (idempotent)
 npm run db:verify              # kiểm tra schema + RLS
 npm run db:seed                # nạp nội dung, đề bài và bảng giá AI
 npm run db:prune               # dọn đề Task 1 trùng (dry-run, thêm --apply để xoá)
@@ -54,6 +54,26 @@ npm run auth:autoconfirm       # tắt bước xác nhận email khi đăng ký
 `db:deploy` và `db:cron` cần `SUPABASE_ACCESS_TOKEN` trong `.env.local` (personal access token loại **user-scoped / full access** — token bị giới hạn scope sẽ thiếu `edge_functions_write` và `database_write`).
 
 Xem `supabase/README.md` cho thứ tự chạy, hợp đồng bảng và quy trình đổi secret.
+
+### Cấu hình nhà cung cấp AI
+
+Lớp gọi AI (`supabase/functions/_shared/provider.ts`) hỗ trợ API chính thức của Anthropic **và** các bên thứ 3 (proxy Anthropic-compatible hoặc OpenAI-compatible). Cấu hình bằng secret của Edge Function:
+
+| Secret | Mặc định | Ý nghĩa |
+|---|---|---|
+| `AI_API_BASE_URL` | `https://api.anthropic.com` | Gốc endpoint. Có sẵn `/v1/messages` hoặc `/v1/chat/completions` đều được |
+| `AI_API_KEY` | — | Khóa API. Rỗng thì lấy `ANTHROPIC_API_KEY` (giữ tương thích cấu hình cũ) |
+| `AI_API_PROTOCOL` | `auto` | `auto` tự nhận diện theo URL → `anthropic` · `openai` |
+| `AI_STRUCTURED_MODE` | `prompt` | `prompt` (mọi provider) · `native` (`output_config`, chỉ API chính thức) |
+| `AI_MODEL_GRADING` | — | Model chấm điểm (mặc định `claude-sonnet-4-6`) |
+| `AI_MODEL_EXTRACTION` | — | Model rà soát lỗi/từ vựng (mặc định `claude-haiku-5-5`) |
+
+```bash
+supabase secrets set AI_API_BASE_URL=https://api.third-party.dev AI_API_KEY=sk-...
+npm run db:deploy
+```
+
+Ở chế độ `prompt`, model được yêu cầu trả về đúng một JSON object; client bóc JSON ra khỏi code fence và prose, và có một lượt *repair* nếu output không khớp schema.
 
 ## Deploy
 
@@ -126,6 +146,8 @@ Cần `SUPABASE_ACCESS_TOKEN` trong `.env.local`. Xem `supabase/README.md` cho t
 - Nháp, ảnh đề bài, thẻ ôn tập và tiến độ đọc lưu trong Postgres; IndexedDB giữ bản cache offline và ảnh chưa tải lên xong.
 - **Không gian viết**: cột trái là **đề bài read-only** — ảnh đề đầy đủ (bấm để xem cỡ lớn), câu hỏi và dữ liệu tham chiếu; loại bài hiện dạng nhãn cố định, **không chuyển loại bài được** (đổi đề bằng cách chọn đề khác ở Kho đề bài). Bài viết tự do (chưa chọn đề) vẫn dán được câu hỏi và dữ liệu tham chiếu.
 - Nút *Chấm bài* đẩy bài vào hàng đợi AI và hiện kết quả theo 4 tiêu chí (Task Response/Task Achievement, Coherence, Lexical, Grammar) kèm dẫn chứng trích từ bài. Thiếu dữ liệu tham chiếu thì báo `needs_reference` — **không bịa điểm**.
+- **Phản hồi sâu hơn band**: sau khi có điểm, pipeline `enrich` rà soát tiếp và bổ sung 5 khối trong kết quả chấm — *Lỗi sai cần sửa* (quote → correction → giải thích), *Lộ trình lên band X* (từng bước kèm band dự kiến), *Điểm chưa hợp lý*, *Từ vựng nâng cao* (nâng cấp từ đang dùng + từ nên học theo chủ đề) và *Cấu trúc bài*. Từ gợi ý lưu thẳng vào sổ từ vựng, lỗi lưu vào sổ lỗi sai.
+- **Tự thêm từ vựng**: nút *+ Thêm từ của tôi* trong khối *Từ vựng nâng cao* (hoặc *Thêm thẻ mới* ở trang Sổ từ vựng) để nhập tay — lưu vào `study_cards` nên đồng bộ mọi thiết bị và ôn tập được.
 - Bộ công cụ AI (Magic Rewrite, Argument Stress Test, Critical Thinking) và nút *Đọc dữ liệu từ ảnh* gọi Edge Function thật.
 - Trang *Quản trị* có 4 tab: nội dung, người dùng, hàng đợi AI và token/chi phí.
 - Đề tự nhập lưu vào bảng `user_prompts` (có RLS theo chủ sở hữu) kèm tệp đính kèm trong bucket `user-prompt-media`.
