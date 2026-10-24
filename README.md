@@ -24,6 +24,7 @@ node tests/accessibility.mjs   # axe WCAG 2.1 AA trên 6 route, cả theme sáng
 node tests/i18n.mjs            # kiểm tra song ngữ VI/EN trên 19 route
 node tests/prompt-images.mjs   # ảnh đề Task 1: cuộn hết lưới rồi xác nhận không ảnh hỏng
 node tests/writing-space.mjs   # không gian viết: ảnh đề, tiêu đề theo ngôn ngữ, đăng ký
+node tests/auth-flow.mjs       # đăng ký → đăng xuất → đăng nhập lại (desktop + mobile)
 node tests/screenshots.mjs     # ảnh chụp màn hình vào test-results/
 ```
 
@@ -121,6 +122,7 @@ Cần `SUPABASE_ACCESS_TOKEN` trong `.env.local`. Xem `supabase/README.md` cho t
 - Giao diện gradient + kính, hỗ trợ theme **sáng / tối / theo hệ thống**.
 - **Ngôn ngữ mặc định là EN**; bấm VI ở thanh trên cùng để chuyển sang tiếng Việt. Lựa chọn được nhớ trong `localStorage`.
 - **Tài khoản thật**: đăng ký, đăng nhập, quên/đặt lại mật khẩu. Đăng ký xong là đăng nhập được ngay (không có bước xác nhận email — xem `npm run auth:autoconfirm`). Route `/app/**` và `/admin` yêu cầu đăng nhập; landing và `/library` công khai.
+- **Đăng xuất**: nút biểu tượng ở thanh trên cùng (desktop) và mục *Tài khoản* trong trang Cài đặt (kể cả mobile) — hiện email đang đăng nhập, bấm là quay về trang đăng nhập.
 - Nháp, ảnh đề bài, thẻ ôn tập và tiến độ đọc lưu trong Postgres; IndexedDB giữ bản cache offline và ảnh chưa tải lên xong.
 - **Không gian viết**: cột trái là **đề bài read-only** — ảnh đề đầy đủ (bấm để xem cỡ lớn), câu hỏi và dữ liệu tham chiếu; loại bài hiện dạng nhãn cố định, **không chuyển loại bài được** (đổi đề bằng cách chọn đề khác ở Kho đề bài). Bài viết tự do (chưa chọn đề) vẫn dán được câu hỏi và dữ liệu tham chiếu.
 - Nút *Chấm bài* đẩy bài vào hàng đợi AI và hiện kết quả theo 4 tiêu chí (Task Response/Task Achievement, Coherence, Lexical, Grammar) kèm dẫn chứng trích từ bài. Thiếu dữ liệu tham chiếu thì báo `needs_reference` — **không bịa điểm**.

@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router'
-import { ArrowUpRight, BookOpen, BookOpenCheck, ChevronRight, CircleHelp, ClipboardList, FileText, GraduationCap, Heart, LayoutDashboard, Lightbulb, Menu, Moon, NotebookPen, PanelLeftClose, PenLine, RotateCcw, Settings, Sparkles, Sun, X } from 'lucide-react'
+import { ArrowUpRight, BookOpen, BookOpenCheck, ChevronRight, CircleHelp, ClipboardList, FileText, GraduationCap, Heart, LayoutDashboard, Lightbulb, LogOut, Menu, Moon, NotebookPen, PanelLeftClose, PenLine, RotateCcw, Settings, Sparkles, Sun, X } from 'lucide-react'
 import { useCopy } from '../i18n'
 import { useStore } from '../lib/store'
 import { useTheme } from '../theme'
 import { isConfigured } from '../lib/supabase'
+import { useAuth } from '../lib/auth'
 import { Notice } from './ui'
 
 export function Brand() {
@@ -22,6 +23,7 @@ export function ThemeToggle() {
 export default function Layout() {
   const { c } = useCopy()
   const { state, ready, error } = useStore()
+  const { signOut, user } = useAuth()
   const [open, setOpen] = useState(false)
   const location = useLocation()
   useEffect(() => { setOpen(false); window.scrollTo(0, 0) }, [location.pathname])
@@ -53,7 +55,7 @@ export default function Layout() {
       <nav aria-label={c('Điều hướng chính', 'Main navigation')} className="side-nav">{nav.map((item, index) => <div key={item.path}>{(index === 0 || index === 4 || index === 7) && <p className="nav-label">{index === 0 ? c('LUYỆN VIẾT', 'PRACTICE') : index === 4 ? c('GÓC HỌC TẬP', 'MY LEARNING') : c('KHÁM PHÁ', 'EXPLORE')}</p>}<NavLink to={item.path} end={item.end} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}><item.icon size={19} /><span>{item.label}</span>{!!item.badge && <span className="nav-count">{item.badge}</span>}</NavLink></div>)}</nav>
       <div className="sidebar-bottom"><div className="support-card"><span className="support-icon"><Heart size={18} /></span><strong>{c('Cùng nuôi dưỡng tri thức', 'Keep learning open')}</strong><p>{c('Miễn phí để bạn tiến xa hơn.', 'Free learning. More possibilities.')}</p><Link to="/donate">{c('Ủng hộ dự án', 'Support the project')}<ArrowUpRight size={15} /></Link></div><NavLink to="/app/settings" className="nav-item"><Settings size={18} />{c('Cài đặt', 'Settings')}</NavLink><div className="sidebar-footer"><span>© 2026 IELTS Studio</span><PanelLeftClose size={15} /></div></div>
     </aside>
-    <div className="workspace"><header className="topbar"><div className="breadcrumb"><button className="icon-button mobile-only" onClick={() => setOpen(!open)} aria-expanded={open} aria-label={c('Mở menu', 'Open menu')}><Menu size={22} /></button><span className="desktop-only">{c('Không gian học tập', 'Workspace')}</span><ChevronRight size={14} className="desktop-only" /><strong>{current?.label ?? c('Khám phá', 'Explore')}</strong></div><div className="topbar-actions"><ThemeToggle /><LanguageSwitch /><Link to="/guide" className="icon-button desktop-only" aria-label={c('Hướng dẫn', 'Help')}><CircleHelp size={20} /></Link><Link to="/app/settings" className="avatar" aria-label={c('Hồ sơ', 'Profile')}>{state.profile.name.slice(0, 1).toUpperCase() || 'L'}</Link></div></header>
+    <div className="workspace"><header className="topbar"><div className="breadcrumb"><button className="icon-button mobile-only" onClick={() => setOpen(!open)} aria-expanded={open} aria-label={c('Mở menu', 'Open menu')}><Menu size={22} /></button><span className="desktop-only">{c('Không gian học tập', 'Workspace')}</span><ChevronRight size={14} className="desktop-only" /><strong>{current?.label ?? c('Khám phá', 'Explore')}</strong></div><div className="topbar-actions"><ThemeToggle /><LanguageSwitch /><Link to="/guide" className="icon-button desktop-only" aria-label={c('Hướng dẫn', 'Help')}><CircleHelp size={20} /></Link><Link to="/app/settings" className="avatar" aria-label={c('Hồ sơ', 'Profile')}>{state.profile.name.slice(0, 1).toUpperCase() || 'L'}</Link>{user && <button className="icon-button desktop-only" aria-label={c('Đăng xuất', 'Sign out')} title={c('Đăng xuất', 'Sign out')} onClick={() => void signOut()}><LogOut size={19} /></button>}</div></header>
       <main id="main" className="main-content">{!isConfigured && <Notice error><div><strong>{c('Ứng dụng chưa được cấu hình máy chủ.', 'The app is not configured yet.')}</strong><p>{c('Thiếu biến môi trường VITE_SUPABASE_URL và VITE_SUPABASE_PUBLISHABLE_KEY khi build. Thêm chúng vào Environment Variables của Vercel rồi deploy lại.', 'The build was missing VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY. Add them to the Vercel environment variables and deploy again.')}</p></div></Notice>}{error && <Notice error>{error === 'conflict' ? c('Nháp đã đổi ở tab khác. Tải lại trang để mở phiên bản mới; sao chép nội dung hiện tại trước khi tải lại.', 'Draft changed in another tab. Copy your current text, then reload to open the latest version.') : c('Không thể truy cập bộ nhớ trình duyệt. Dữ liệu chưa được lưu; hãy giữ trang mở và sao chép bài viết.', 'Browser storage is unavailable. Data has not been saved; keep this page open and copy your writing.')}</Notice>}{ready ? <Outlet /> : !error && <div className="loading-state" role="status">{c('Đang mở không gian học tập…', 'Opening your workspace…')}</div>}</main>
       <footer className="main-footer"><span>IELTS Writing Studio</span><span><Lightbulb size={14} />{c('Tiến bộ bắt đầu từ một câu viết.', 'Progress begins with a single sentence.')}</span></footer>
     </div>
