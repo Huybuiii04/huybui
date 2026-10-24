@@ -30,7 +30,7 @@ import {
 export type { Card, CustomPrompt, Draft, Task, TaskImage }
 
 type State = { drafts: Draft[]; cards: Card[]; completed: string[]; prompts: CustomPrompt[]; profile: ProfileState }
-const initial: State = { drafts: [], cards: [], completed: [], prompts: [], profile: { name: '', target: '7.0', feedback: 'vi' } }
+const initial: State = { drafts: [], cards: [], completed: [], prompts: [], profile: { name: '', target: '7.0', feedback: 'en' } }
 
 /** Mỗi bản nháp: client id -> essay id + draft_version (optimistic concurrency). */
 type RemoteMeta = { essayId: string; version: number }

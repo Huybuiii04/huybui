@@ -78,7 +78,9 @@ test('target band is normalised to numeric(2,1) shape', () => {
 test('profile rows convert to app state and back', () => {
   const row = { id: 'u1', display_name: 'Lan', ui_locale: 'en', feedback_locale: 'en', timezone: 'Asia/Ho_Chi_Minh', target_band: 7.5 }
   assert.deepEqual(profileFromRow(row), { name: 'Lan', target: '7.5', feedback: 'en' })
-  assert.deepEqual(profileFromRow(null), { name: '', target: '7.0', feedback: 'vi' })
+  // Mặc định của app là tiếng Anh; chỉ khi hồ sơ ghi rõ 'vi' mới dùng tiếng Việt.
+  assert.deepEqual(profileFromRow(null), { name: '', target: '7.0', feedback: 'en' })
+  assert.deepEqual(profileFromRow({ ...row, feedback_locale: 'vi' }), { name: 'Lan', target: '7.5', feedback: 'vi' })
   const payload = profileToRow('u1', { name: '  Lan  ', target: '7.5', feedback: 'en' }, { uiLocale: 'en', timezone: 'Asia/Ho_Chi_Minh' })
   assert.deepEqual(payload, {
     id: 'u1',

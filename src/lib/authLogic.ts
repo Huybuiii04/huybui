@@ -129,7 +129,7 @@ export function profileFromRow(row: ProfileRow | null | undefined): ProfileState
   return {
     name: row?.display_name ?? '',
     target: normalizeBand(row?.target_band ?? '7.0'),
-    feedback: row?.feedback_locale === 'en' ? 'en' : 'vi',
+    feedback: row?.feedback_locale === 'vi' ? 'vi' : 'en',
   }
 }
 
