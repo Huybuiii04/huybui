@@ -406,6 +406,23 @@ button, a, input, textarea, select { transition: background-color .18s, border-c
 .target-select { flex-direction: row; align-items: center; gap: 10px; margin: 0; font-size: 12px; }
 .target-select select { width: 78px; padding: 9px; min-height: 40px; font-size: 13px; }
 .helper-text { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--text-subtle); line-height: 1.7; margin: 14px 0; }
+.feedback-block { padding: 0; margin-top: 18px; }
+.feedback-block > summary { display: flex; align-items: center; gap: 12px; padding: 18px 22px; cursor: pointer; list-style: none; }
+.feedback-block > summary::-webkit-details-marker { display: none; }
+.feedback-block > summary .eyebrow { display: inline-flex; align-items: center; gap: 7px; }
+.feedback-block > summary strong { margin-left: auto; color: var(--text-subtle); font-size: 13px; }
+.feedback-block > .grading-list { padding: 0 22px 20px; margin: 0; }
+.error-item, .vocab-item, .band-step, .structure-item { display: flex; flex-direction: column; gap: 6px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.error-item:last-child, .vocab-item:last-child, .band-step:last-child, .structure-item:last-child { border-bottom: none; }
+.error-quote { color: var(--text-muted); text-decoration: line-through; font-size: 13.5px; }
+.error-correction { color: var(--brand-ink); font-weight: 600; font-size: 14px; }
+.error-item em, .vocab-item em, .band-step em, .structure-item em { color: var(--text-muted); font-size: 13px; font-style: normal; }
+.error-meta { color: var(--text-subtle); font-size: 11.5px; }
+.vocab-suggestions { padding: 0 22px 14px; }
+.vocab-suggestions + .vocab-suggestions { border-top: 1px solid var(--border); padding-top: 14px; }
+.feedback-block-actions { padding: 0 22px 14px; }
+.button.small { min-height: 32px; padding: 6px 12px; font-size: 12px; }
+.structure-link { color: var(--brand-ink); }
 .upload-zone { border: 1px dashed var(--border-strong); background: var(--surface-soft); padding: 26px 14px; border-radius: var(--radius); text-align: center; align-items: center; color: var(--brand-ink); cursor: pointer; }
 .upload-zone:hover { border-color: var(--brand); background: var(--brand-soft); }
 .upload-zone > span { font-size: 11.5px; color: var(--text-subtle); }
