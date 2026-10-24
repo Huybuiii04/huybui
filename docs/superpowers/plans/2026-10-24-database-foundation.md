@@ -328,9 +328,11 @@ returns boolean language sql stable security definer set search_path = private, 
 $$;
 
 revoke execute on function private.is_active_user() from public, anon;
-revoke execute on function private.is_admin() from public, anon;
+revoke execute on function private.is_admin() from public;
+-- anon cần EXECUTE is_admin() vì policy `for select to anon` gọi hàm này lúc lập kế hoạch;
+-- hàm luôn trả false cho anon (auth.uid() null) nên không nới quyền
+grant execute on function private.is_admin() to anon, authenticated, service_role;
 grant execute on function private.is_active_user() to authenticated, service_role;
-grant execute on function private.is_admin() to authenticated, service_role;
 grant execute on function private.set_updated_at() to authenticated, service_role;
 
 create or replace function private.handle_new_user()
@@ -1273,7 +1275,7 @@ begin
   end if;
   v_days := case v_after
     when 0 then 1 when 1 then 1 when 2 then 3 when 3 then 7
-    when 4 then 14 when 5 when 30 else 60
+    when 4 then 14 when 5 then 30 else 60
   end;
   v_due := now() + make_interval(days => v_days);
 
