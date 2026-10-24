@@ -69,6 +69,7 @@ check('không còn thanh chuyển task', await page.locator('.editor-toolbar .se
 check('thanh công cụ chỉ hiện loại bài đang làm', (await page.locator('.editor-task').innerText()).includes('Task 1 Academic'))
 check('câu hỏi phải hiện ở cột trái', (await page.locator('.task-text').innerText()).includes('cinema ticket sales'))
 check('tiêu đề đề phải theo ngôn ngữ', (await page.locator('.task-title').innerText()).includes('Cinema ticket sales'))
+await page.waitForFunction(() => { const img = document.querySelector('.task-image img'); return Boolean(img && img.complete && img.naturalWidth > 0) }, null, { timeout: 30000 })
 check('ảnh đề phải tải được', await page.evaluate(() => { const img = document.querySelector('.task-image img'); return Boolean(img && img.complete && img.naturalWidth > 0) }))
 
 // 4. Đổi sang VI: tiêu đề đề bài đổi theo.
