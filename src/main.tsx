@@ -13,8 +13,10 @@ import '@fontsource/outfit/latin-500.css'
 import '@fontsource/outfit/latin-600.css'
 import '@fontsource/outfit/latin-700.css'
 import './i18n'
+import './theme'
 import './styles.css'
 import { routes } from './App'
+import { AuthProvider } from './lib/auth'
 import { StoreProvider } from './lib/store'
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
@@ -26,4 +28,4 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { failed: boolean
   }
 }
 const router = createBrowserRouter(routes())
-createRoot(document.getElementById('root')!).render(<StrictMode><ErrorBoundary><StoreProvider><RouterProvider router={router} /></StoreProvider></ErrorBoundary></StrictMode>)
+createRoot(document.getElementById('root')!).render(<StrictMode><ErrorBoundary><AuthProvider><StoreProvider><RouterProvider router={router} /></StoreProvider></AuthProvider></ErrorBoundary></StrictMode>)

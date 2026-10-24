@@ -1,80 +1,82 @@
 # IELTS — Design System
 
-Nguồn: hướng dẫn UI UX Pro Max + lựa chọn đã duyệt của người dùng. Phong cách Minimalism & Swiss, Teal + Amber, song ngữ VI/EN. Áp dụng toàn app.
+Nguồn: hướng dẫn UI UX Pro Max + lựa chọn đã duyệt. Phong cách **gradient mạnh + glassmorphism**, song ngữ VI/EN, hỗ trợ theme sáng và tối.
 
-## Màu semantic
+Toàn bộ màu, bo góc, shadow và blur đi qua biến CSS trong `src/styles.css`. Theme đổi bằng `data-theme` trên `<html>`: `light` hoặc `dark`.
 
-| Token | Giá trị | Dùng cho |
-|---|---|---|
-| background | `#F0FDFA` | Nền tổng thể |
-| surface | `#FFFFFF` | Card, editor, panel |
-| foreground | `#0F172A` | Nội dung chính |
-| muted-foreground | `#475569` | Chú thích, metadata |
-| brand | `#0D9488` | Nhận diện, trang trí |
-| primary | `#0F766E` | CTA có chữ trắng |
-| primary-foreground | `#FFFFFF` | Nhãn CTA |
-| primary-hover | `#115E59` | Hover/pressed |
-| secondary | `#CCFBF1` | Badge nhẹ, nền selected |
-| secondary-foreground | `#134E4A` | Chữ trên secondary |
-| accent | `#D97706` | Donate, điểm nhấn |
-| accent-foreground | `#0F172A` | Chữ trên amber |
-| border | `#CBD5E1` | Phân cách nhẹ |
-| input-border | `#64748B` | Ranh giới control cần nhận biết |
-| focus-ring | `#0F766E` | Focus có offset trắng |
-| destructive | `#DC2626` | Lỗi và hành động xóa |
-| destructive-foreground | `#FFFFFF` | Chữ trên nút đỏ |
+## Token
 
-Không dùng chữ trắng cỡ nhỏ trên brand teal `#0D9488` hoặc amber `#D97706`. Không truyền thông tin bằng màu đơn độc; kèm nhãn/icon. Contrast chữ thường tối thiểu 4.5:1, thành phần điều khiển/focus tối thiểu 3:1 theo ngữ cảnh.
+| Token | Sáng | Tối | Dùng cho |
+|---|---|---|---|
+| `--bg` | `#eaf2ef` | `#070b14` | Nền trang (kèm 3 lớp radial gradient cố định) |
+| `--surface` | `rgba(255,255,255,.66)` | `rgba(19,28,43,.68)` | Panel, card, sidebar, topbar |
+| `--surface-strong` | `rgba(255,255,255,.88)` | `rgba(24,35,53,.88)` | Input, nút outline, thanh điều hướng dưới |
+| `--surface-soft` | `rgba(255,255,255,.42)` | `rgba(28,40,60,.42)` | Nền phụ, chip, vùng editor |
+| `--border` | `rgba(13,94,88,.13)` | `rgba(148,180,220,.15)` | Viền mảnh |
+| `--border-strong` | `rgba(13,94,88,.30)` | `rgba(148,180,220,.32)` | Viền control cần nhận biết |
+| `--text` | `#0d2b27` | `#e9effb` | Nội dung chính |
+| `--text-muted` | `#45645b` | `#aab9cf` | Chú thích, mô tả |
+| `--text-subtle` | `#63847a` | `#8697b0` | Metadata, eyebrow |
+| `--brand` | `#0f766e` | `#2dd4bf` | Nhận diện, active, focus |
+| `--brand-ink` | `#0b5a54` | `#5eead4` | Chữ trên nền brand nhạt |
+| `--on-brand` | `#ffffff` | `#04211f` | Chữ trên nút primary |
+| `--accent` | `#b45309` | `#f5b544` | Donate, nhấn mạnh |
+| `--radius-lg` | `20px` | `20px` | Panel lớn |
+| `--radius` | `16px` | `16px` | Card, nút, badge |
+| `--radius-sm` | `11px` | `11px` | Input, chip nhỏ |
+| `--glass` | `saturate(165%) blur(20px)` | như nhau | Lớp kính |
+
+Bo góc lớn (16–20px) và pill cho nút/badge là dấu nhận dạng của sản phẩm; không dùng góc vuông.
+
+## Nền và lớp kính
+
+- Nền trang là gradient cố định: 3 vệt radial (teal, xanh, amber) trên `--bg`. Nền không đổi theo trang, nên lớp kính luôn nổi lên.
+- Mọi `.panel`, sidebar, topbar, thanh điều hướng dưới dùng `backdrop-filter: var(--glass)` + viền 1px + `--shadow-sm`.
+- Không dùng nền đục cho panel; nền đục chỉ dành cho hero, logo, avatar và nút primary.
+- Hero dùng gradient nhiều lớp: nền xanh sâu + vệt teal/amber radial. Chữ nhấn trong hero dùng gradient text.
 
 ## Typography
 
-- Heading tiếng Anh: Outfit 600/700; heading tiếng Việt và body: Work Sans 400/500/600. Tự host WOFF2, xác minh glyph tiếng Việt của font dùng khi build.
-- Fallback: `system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`.
-- Body 16px/1.6; editor 18px/1.8; caption tối thiểu 13px/1.5; h1 32–40px; h2 24–28px; h3 20px.
-- Bài viết và guide có chiều dài dòng khoảng 65–75 ký tự. Điểm dùng tabular numerals; không dùng font code làm body.
+- Outfit cho heading tiếng Anh; Work Sans cho body và heading tiếng Việt (`html[lang='vi']` đổi font heading).
+- Base 15px; body 13.5–14px; metadata 12px; eyebrow 10–11px không dưới 10px. Không dùng cỡ 9px.
+- `h1` clamp 28–38px, `h2` 19–25px, `h3` 16–19px; heading dùng `letter-spacing: -.03em`.
+- Số liệu dùng `font-variant-numeric: tabular-nums`.
 
 ## Layout
 
-- Khoảng cách: 4, 8, 12, 16, 24, 32, 48, 64px.
-- Sidebar desktop 248px; header 64px; nội dung tối đa 1440px; guide tối đa 760px cho phần đọc.
-- Mobile padding 16px, tablet 24px, desktop 32px. Touch target ít nhất 44×44px, khoảng cách tối thiểu 8px.
-- Card radius 12px, button/input 8px. Shadow nhẹ; dùng border trước khi thêm shadow.
-- Dưới 768px: một cột, navigation dưới 4 mục, editor/feedback dùng tab.
-- 768–1023px: navigation thu gọn; từ 1024px sidebar đầy đủ, editor hai cột.
-- Bảng dữ liệu trên mobile chuyển card hoặc vùng scroll có nhãn, không làm toàn trang cuộn ngang.
+- Sidebar 252px; topbar là pill kính dính ở trên cùng (margin 14px, bo tròn 999px); nội dung tối đa 1440px.
+- Mobile: sidebar trượt vào (`visibility` để loại khỏi tab order), thanh dưới 4 mục, editor/feedback dùng tab.
+- Dưới 768px: một cột; 768–1023px: sidebar thu gọn; từ 1024px: sidebar đầy đủ, editor hai cột.
 
-## Component dùng chung
+## Component
 
-AppShell, PageHeader, TaskTypePicker, EssayEditor, PromptPanel, UploadField, JobStatus, ScoreCard, CriterionPanel, AnnotatedEssay, StudyCard, ReviewSession, ContentCard, EmptyState, ErrorState, LanguageSwitcher.
+- Nút primary: gradient teal + `--shadow-brand`, hover nâng 1px. Nút outline: nền kính + viền. Nút white: dùng trong hero.
+- Card hover: nâng 3px + `--shadow-md` + viền đậm hơn.
+- Active của sidebar: nền `--brand-soft` + thanh trượt gradient 4px bên trái.
+- Thẻ thống kê: icon trong ô bo 12px nền màu, số 32px tabular, ghi chú 12px.
+- Thẻ hướng dẫn: ảnh nền gradient theo chủ đề (teal / amber / indigo) + số thứ tự góc phải.
+- Band điểm: khối gradient sâu, chữ trắng, số 72px.
+- Thẻ nhớ: bo 26px, shadow lớn, mặt trước/ sau.
+- Icon dùng SVG của Lucide, stroke 1.7–2.1, không dùng emoji.
 
-Đây là nhóm UI có hành vi dùng lại; không bắt buộc tạo abstraction trước khi có màn hình cần dùng. shadcn/ui cho dialog/tabs/select/dropdown; native textarea và input cho editor/form đơn giản.
+## Theme
 
-## Quy tắc từng màn hình
+- Lựa chọn: Sáng / Tối / Theo hệ thống. Lưu ở `localStorage` (`ielts-theme`), mặc định theo hệ thống.
+- Nút chuyển nhanh trên topbar (mặt trăng/mặt trời) và bộ chọn đầy đủ trong Cài đặt.
+- Theme áp trước khi render để không nháy trắng khi tải trang.
+- Cả hai theme phải pass axe WCAG 2.1 AA trên mọi route chính.
 
-- Landing: hero có CTA Viết bài, preview feedback có nhãn minh họa, ba bước sử dụng, giới thiệu tài liệu, donate nhẹ ở cuối. Không tạo testimonial/số liệu người dùng giả.
-- Dashboard: lời chào ngắn, CTA viết bài, thẻ ôn đến hạn, danh sách bài gần đây, biểu đồ tiến bộ theo task có bảng dữ liệu thay thế. Không có leaderboard.
-- Editor: bề mặt trắng, giảm trang trí, giữ đề/ảnh dễ đọc. Nút chấm có trạng thái gửi; luôn thấy trạng thái lưu nháp.
-- Feedback: điểm trước, bằng chứng sau, hành động sửa rõ; không nhét mọi nhận xét vào một modal dài.
-- Review: một thẻ mỗi lần, đáp án ẩn ban đầu, hai hành động Nhớ/Chưa nhớ dùng được bằng bàn phím; không dựa vào swipe.
-- Library: bộ lọc task/type/topic, search, card đơn giản; empty state hướng dẫn đổi bộ lọc.
-- Guide: mục lục desktop, drawer mobile; box cá nhân hóa tách rõ khỏi nội dung biên soạn.
-- Donate: một CTA nhẹ, thông tin chuyển khoản dễ copy, QR có mô tả văn bản tương đương.
-- Admin: bảng rõ trạng thái draft/published, preview trước publish, xác nhận xóa.
+## Accessibility
 
-## Tương tác và accessibility
-
-- Semantic HTML, skip link, thứ tự heading đúng, label thật cho input; icon-only button có accessible name.
-- Focus nhìn thấy, không bị sticky header/footer che; dialog quản lý và trả focus về nút mở.
-- Error summary và lỗi cạnh input; `aria-describedby` nối helper/error; job status dùng live region lịch sự, không đọc lại từng token.
-- Motion CSS 150–200ms, opacity/transform; reduced-motion bỏ motion không cần thiết. Không thêm GSAP cho hiệu ứng cơ bản.
-- Skeleton giữ kích thước; mạng lỗi có retry. Không tự mất dữ liệu form khi auth hết hạn.
-- VI/EN không dùng cờ quốc gia thay tên ngôn ngữ. Nhãn co giãn, cho xuống dòng; không hardcode width dựa trên tiếng Anh.
-- Light theme ở v1; dark mode chỉ thêm khi có yêu cầu và bảng màu được kiểm tra riêng.
+- Contrast: chữ thường ≥ 4.5:1, thành phần điều khiển và focus ≥ 3:1; kiểm bằng axe ở cả hai theme.
+- Focus luôn nhìn thấy: `outline: 3px solid var(--ring)` + offset 3px.
+- Vùng kính không được đặt chữ trực tiếp lên nền gradient tương phản thấp.
+- Icon-only button luôn có `aria-label`; nút chuyển theme có nhãn đầy đủ.
+- `prefers-reduced-motion` tắt toàn bộ transition.
 
 ## Checklist nghiệm thu UI
 
-- Viewport 375, 768, 1024, 1440px; zoom 200%; chuỗi VI dài; bài nhiều đoạn.
-- Keyboard đi hết editor, feedback annotations, upload, review, dialog.
-- Kiểm tra contrast các cặp semantic, visible focus, reduced motion và loading/error/empty.
-- Chưa có điểm/dữ liệu dùng nhãn trạng thái, không dùng số liệu giả.
-- Không có API key, provider error raw hoặc dữ liệu riêng của user khác trên UI.
+- Viewport 375 / 768 / 1024 / 1440px; không tràn ngang ở bất kỳ route nào.
+- Cả hai theme: axe WCAG 2.1 AA pass; chữ phụ vẫn đọc được.
+- Không hiển thị API key, lỗi provider raw hay dữ liệu người dùng khác.
+- Dữ liệu chưa có dùng nhãn trạng thái, không dùng số liệu giả.

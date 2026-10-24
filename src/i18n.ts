@@ -12,5 +12,11 @@ i18n.on('languageChanged', value => {
 
 export function useCopy() {
   const { i18n: instance } = useTranslation()
-  return { c: (vi: string, en: string) => instance.language === 'en' ? en : vi, language: instance.language, changeLanguage: (value: string) => instance.changeLanguage(value) }
+  const english = instance.language === 'en'
+  return {
+    c: (vi: string, en: string) => (english ? en : vi),
+    pick: (pair: [string, string] | readonly [string, string]) => (english ? pair[1] : pair[0]),
+    language: instance.language,
+    changeLanguage: (value: string) => instance.changeLanguage(value),
+  }
 }
