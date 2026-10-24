@@ -19,6 +19,8 @@ const PRICING_VERSION = 'anthropic-pricing-v1'
 const pricing = [
   { model: 'claude-sonnet-4-6', input: 3, output: 15, cacheWrite: 3.75, cacheRead: 0.3 },
   { model: 'claude-haiku-4-5', input: 1, output: 5, cacheWrite: 1.25, cacheRead: 0.1 },
+  // Model đang dùng hiện tại (bên thứ 3) — cùng bậc giá Haiku.
+  { model: 'claude-haiku-5-5', input: 1, output: 5, cacheWrite: 1.25, cacheRead: 0.1 },
 ]
 
 const headers = {

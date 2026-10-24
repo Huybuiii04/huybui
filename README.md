@@ -65,7 +65,7 @@ Lớp gọi AI (`supabase/functions/_shared/provider.ts`) hỗ trợ API chính 
 | `AI_API_KEY` | — | Khóa API. Rỗng thì lấy `ANTHROPIC_API_KEY` (giữ tương thích cấu hình cũ) |
 | `AI_API_PROTOCOL` | `auto` | `auto` tự nhận diện theo URL → `anthropic` · `openai` |
 | `AI_STRUCTURED_MODE` | `prompt` | `prompt` (mọi provider) · `native` (`output_config`, chỉ API chính thức) |
-| `AI_MODEL_GRADING` | — | Model chấm điểm (mặc định `claude-sonnet-4-6`) |
+| `AI_MODEL_GRADING` | — | Model chấm điểm (mặc định `claude-haiku-5-5`) |
 | `AI_MODEL_EXTRACTION` | — | Model rà soát lỗi/từ vựng (mặc định `claude-haiku-5-5`) |
 
 ```bash

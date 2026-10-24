@@ -34,10 +34,14 @@ Mọi endpoint trừ worker dùng `Authorization: Bearer <user JWT>`. Function x
 | `SUPABASE_URL` | có | URL API project; Edge runtime cung cấp sẵn |
 | `SUPABASE_ANON_KEY` hoặc `SUPABASE_PUBLISHABLE_KEY` | có | Xác minh user JWT; không cần quyền DB |
 | `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_SERVICE_KEY` hoặc `SUPABASE_SECRET_KEY` | có | Bypass RLS sau khi đã kiểm tra JWT/owner/admin |
-| `ANTHROPIC_API_KEY` | có | Gọi Anthropic Messages API |
+| `ANTHROPIC_API_KEY` | không | Key API chính thức của Anthropic. Dùng `AI_API_KEY` khi gọi provider khác |
+| `AI_API_BASE_URL` | không | Gốc endpoint của provider; mặc định `https://api.anthropic.com` |
+| `AI_API_KEY` | không | Key của provider bên thứ 3; thay cho `ANTHROPIC_API_KEY` |
+| `AI_API_PROTOCOL` | không | `auto` (tự nhận diện) · `anthropic` · `openai` |
+| `AI_STRUCTURED_MODE` | không | `prompt` (mọi provider) · `native` (`output_config`, chỉ API chính thức) |
 | `WORKER_SECRET` | có | Header nội bộ của `process-ai-jobs`; so sánh constant-time |
-| `AI_MODEL_GRADING` | có | Model chấm/stress-test/critical-thinking; khuyến nghị `claude-sonnet-4-6` |
-| `AI_MODEL_EXTRACTION` | có | Model enrichment/read-image/rewrite; khuyến nghị `claude-haiku-4-5` |
+| `AI_MODEL_GRADING` | có | Model chấm/stress-test/critical-thinking; đang dùng `claude-haiku-5-5` |
+| `AI_MODEL_EXTRACTION` | có | Model enrichment/read-image/rewrite; đang dùng `claude-haiku-5-5` |
 | `ALLOWED_ORIGINS` | không | CSV origin CORS; mặc định `*`, production nên đặt origin thật |
 
 Code không có fallback model: thiếu `AI_MODEL_GRADING`/`AI_MODEL_EXTRACTION` sẽ trả lỗi cấu hình, không hardcode model trong logic.
@@ -46,10 +50,10 @@ Code không có fallback model: thiếu `AI_MODEL_GRADING`/`AI_MODEL_EXTRACTION`
 
 ```bash
 supabase secrets set \
-  ANTHROPIC_API_KEY=... \
-  WORKER_SECRET=... \
-  AI_MODEL_GRADING=claude-sonnet-4-6 \
-  AI_MODEL_EXTRACTION=claude-haiku-4-5
+  AI_API_BASE_URL=https://api.example.dev \
+  AI_API_KEY=... \
+  AI_MODEL_GRADING=claude-haiku-5-5 \
+  AI_MODEL_EXTRACTION=claude-haiku-5-5
 ```
 
 Service key phải là secret của Edge runtime. Không đưa key vào `VITE_*`.
