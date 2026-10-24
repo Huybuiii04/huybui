@@ -1,7 +1,9 @@
 const url = process.env.SUPABASE_URL ?? 'https://fjlyjaomuxotqqjvugtv.supabase.co'
-const secret = process.env.SUPABASE_SECRET_KEY
+// API admin của Supabase chỉ nhận key dạng JWT (service_role legacy).
+// Key mới `sb_secret_...` dùng cho PostgREST/Storage nhưng bị Auth admin từ chối.
+const secret = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_SECRET_KEY
 if (!secret) {
-  console.error('Thiếu SUPABASE_SECRET_KEY')
+  console.error('Thiếu SUPABASE_SERVICE_ROLE_KEY hoặc SUPABASE_SECRET_KEY')
   process.exit(1)
 }
 

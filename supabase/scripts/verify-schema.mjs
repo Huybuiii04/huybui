@@ -1,8 +1,11 @@
-import { spawnSync } from 'node:child_process'
+import { spawnSync, execFileSync } from 'node:child_process'
 
 const url = process.env.DATABASE_URL
-if (!url) {
-  console.error('Thiếu DATABASE_URL')
+const accessToken = process.env.SUPABASE_ACCESS_TOKEN
+const projectRef = process.env.SUPABASE_PROJECT_REF ?? (/https:\/\/([a-z0-9-]+)\.supabase\.co/.exec(process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL ?? '') ?? [])[1] ?? ''
+
+if (!url && !(accessToken && projectRef)) {
+  console.error('Thiếu DATABASE_URL, hoặc SUPABASE_ACCESS_TOKEN + project ref.')
   process.exit(1)
 }
 
@@ -14,7 +17,7 @@ const expectedTables = [
   'ai_jobs', 'grading_results', 'essay_features', 'ai_tool_results', 'ai_usage',
   'study_cards', 'review_events', 'error_logs', 'guide_progress',
   'donation_settings', 'admin_audit_logs', 'rate_limit_buckets',
-  'ai_pricing'
+  'ai_pricing', 'user_prompts'
 ]
 
 const expectedFunctions = [
@@ -23,17 +26,36 @@ const expectedFunctions = [
   'submit_essay_job', 'estimate_ai_cost'
 ]
 
-const expectedBuckets = ['essay-images', 'content-media', 'donation-media']
+const expectedBuckets = ['essay-images', 'content-media', 'donation-media', 'prompt-media', 'user-prompt-media']
 
+/** Chạy SQL và trả về chuỗi kết quả (phân tách bằng |). */
 function query(sql) {
-  const result = spawnSync('psql', [url, '-t', '-A', '-F', '|', '-c', sql], { encoding: 'utf8' })
-  if (result.status !== 0) throw new Error(result.stderr || 'psql failed')
-  return result.stdout.trim()
+  if (url) {
+    const result = spawnSync('psql', [url, '-t', '-A', '-F', '|', '-c', sql], { encoding: 'utf8' })
+    if (result.status !== 0) throw new Error(result.stderr || 'psql failed')
+    return result.stdout.trim()
+  }
+  const response = execFileSync(process.execPath, ['-e', `
+    const sql = process.argv[1]
+    const res = await fetch('https://api.supabase.com/v1/projects/${projectRef}/database/query', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ${accessToken}', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: sql }),
+    })
+    const text = await res.text()
+    if (!res.ok) { console.error(text); process.exit(1) }
+    const rows = JSON.parse(text)
+    const flat = rows.map(r => Object.values(r).join('|')).join('\\n')
+    process.stdout.write(flat)
+  `, sql], { encoding: 'utf8' })
+  return response.trim()
 }
 
 let failures = 0
 function check(label, actual, expected) {
-  const ok = String(actual) === String(expected)
+  // psql trả 't'/'f', Management API trả true/false — chuẩn hoá về một dạng.
+  const normalize = value => String(value).toLowerCase().replace(/^true$/, 't').replace(/^false$/, 'f')
+  const ok = normalize(actual) === normalize(expected)
   if (!ok) failures += 1
   console.log(`${ok ? 'PASS' : 'FAIL'}  ${label}: ${actual}${ok ? '' : ` (expected ${expected})`}`)
 }
