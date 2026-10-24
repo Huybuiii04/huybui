@@ -77,19 +77,29 @@ export function buildGradingPrompt(input: GradingPromptInput): { system: string;
   };
 }
 
-export function buildEnrichmentPrompt(input: {
+export interface EnrichmentPromptInput {
   essayText: string;
   gradingFeedback: unknown;
   feedbackLocale: string;
-}): { system: string; messages: unknown[] } {
+  taskType: string;
+  targetBand: number | null;
+}
+
+export function buildEnrichmentPrompt(input: EnrichmentPromptInput): { system: string; messages: unknown[] } {
   const system = [
     "You extract learning features from an IELTS Writing snapshot and existing grader feedback.",
     UNTRUSTED_DATA_RULE,
     "Do not rescore the essay and do not change criterion scores.",
     "Return only JSON matching the supplied schema. Error suggestions must use exact quotes from the essay snapshot.",
+    "Report statements that are illogical, unnatural, repetitive or unsupported by the task under 'unnatural'; quote the exact source text.",
+    "Under 'vocabulary_plan' suggest words the learner should study for this topic and target band, not words already used in the essay.",
+    "Under 'band_plan' give concrete steps from the current band to the target band; each step names one IELTS criterion and the expected gain.",
+    `The essay is a ${input.taskType} response and the target band is ${input.targetBand ?? "unspecified"}.`,
     `Write explanations in ${input.feedbackLocale === "en" ? "English" : "Vietnamese"} while preserving quoted English text.`,
   ].join("\n");
   const snapshot = JSON.stringify({
+    task_type: input.taskType,
+    target_band: input.targetBand,
     essay: input.essayText,
     grading_feedback: input.gradingFeedback,
   });

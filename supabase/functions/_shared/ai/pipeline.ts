@@ -166,11 +166,12 @@ async function runEnrichment(service: SupabaseClient, job: ClaimedJob): Promise<
   if (!job.revision_id) throw new AppError(400, "invalid_job_input", "The enrichment job has no revision");
   const existing = await service
     .from("essay_features")
-    .select("revision_id")
+    .select("revision_id, schema_version")
     .eq("revision_id", job.revision_id)
     .maybeSingle();
   if (existing.error) throw databaseError("load the essay features");
-  if (existing.data) return;
+  // Chỉ bỏ qua khi đã có đúng phiên bản schema — bản cũ phải chạy lại để bổ sung nhóm mới.
+  if (existing.data && existing.data.schema_version === ENRICHMENT_SCHEMA_VERSION) return;
 
   const revision = await loadRevision(service, job);
   const grading = await service
@@ -186,13 +187,15 @@ async function runEnrichment(service: SupabaseClient, job: ClaimedJob): Promise<
     essayText: revision.essay_text,
     gradingFeedback: grading.data.feedback,
     feedbackLocale: revision.feedback_locale,
+    taskType: revision.task_type,
+    targetBand: revision.target_band,
   });
   const structured = await requestStructured({
     model,
     system: prompt.system,
     messages: prompt.messages,
     schema: ENRICHMENT_JSON_SCHEMA as Record<string, unknown>,
-    maxTokens: 4_000,
+    maxTokens: 6_000,
     repairInstruction: "Repair this enrichment output and return valid JSON only.",
     validate: validateEnrichmentOutput,
   });
@@ -204,6 +207,9 @@ async function runEnrichment(service: SupabaseClient, job: ClaimedJob): Promise<
     structure: structured.value.structure,
     lexical: structured.value.lexical,
     grammar: structured.value.grammar,
+    unnatural: structured.value.unnatural,
+    vocabulary_plan: structured.value.vocabulary_plan,
+    band_plan: structured.value.band_plan,
     schema_version: ENRICHMENT_SCHEMA_VERSION,
   }, { onConflict: "revision_id" });
   if (featureWrite.error) throw databaseError("save the essay features");
