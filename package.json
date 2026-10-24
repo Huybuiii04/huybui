@@ -10,9 +10,10 @@
     "test": "node --test tests/learning.test.ts",
     "db:migrate": "node --env-file-if-exists=.env.local supabase/scripts/migrate.mjs",
     "db:verify": "node --env-file-if-exists=.env.local supabase/scripts/verify-schema.mjs && node --env-file-if-exists=.env.local supabase/scripts/verify-rls.mjs",
-    "db:seed": "node --env-file-if-exists=.env.local supabase/seed/seed-content.ts && node --env-file-if-exists=.env.local supabase/seed/seed-prompts.mjs",
+    "db:seed": "node --env-file-if-exists=.env.local supabase/seed/seed-content.ts && node --env-file-if-exists=.env.local supabase/seed/seed-prompts.mjs && node --env-file-if-exists=.env.local supabase/seed/seed-library.mjs",
     "db:seed:prompts": "node --env-file-if-exists=.env.local supabase/seed/seed-prompts.mjs",
-    "db:seed:content": "node --env-file-if-exists=.env.local supabase/seed/seed-content.ts"
+    "db:seed:content": "node --env-file-if-exists=.env.local supabase/seed/seed-content.ts",
+    "db:seed:library": "node --env-file-if-exists=.env.local supabase/seed/seed-library.mjs"
   },
   "dependencies": {
     "@fontsource/outfit": "^5.2.0",
