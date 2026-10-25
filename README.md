@@ -17,11 +17,12 @@ npm run preview                # xem bản build
 ## Kiểm thử
 
 ```bash
-npm test                       # 28 test logic thuần: học tập, auth, đồng bộ, AI
-npm run test:edge              # 31 test hợp đồng của Edge Function
+npm test                       # 46 test logic thuần: học tập, auth, đồng bộ, AI, từ vựng
+npm run test:edge              # 70 test hợp đồng của Edge Function
 node tests/browser.mjs         # luồng trình duyệt thật (Playwright, cần dev server)
 node tests/accessibility.mjs   # axe WCAG 2.1 AA trên 6 route, cả theme sáng và tối
-node tests/i18n.mjs            # kiểm tra song ngữ VI/EN trên 19 route
+node tests/i18n.mjs            # kiểm tra song ngữ VI/EN trên 14 route
+node tests/vocabulary-library.mjs  # thư viện 25 chủ đề: chọn chủ đề, thêm từ vào sổ, lọc
 node tests/prompt-images.mjs   # ảnh đề Task 1: cuộn hết lưới rồi xác nhận không ảnh hỏng
 node tests/writing-space.mjs   # không gian viết: ảnh đề, tiêu đề theo ngôn ngữ, đăng ký
 node tests/auth-flow.mjs       # đăng ký → đăng xuất → đăng nhập lại (desktop + mobile)
@@ -43,6 +44,7 @@ TEST_URL=https://huybui.vercel.app node tests/browser.mjs       # toàn bộ lu�
 npm run db:migrate             # áp dụng 16 file migration (idempotent)
 npm run db:verify              # kiểm tra schema + RLS
 npm run db:seed                # nạp nội dung, đề bài và bảng giá AI
+npm run db:seed:vocabulary     # nạp thư viện từ vựng 25 chủ đề (5.000 mục)
 npm run db:prune               # dọn đề Task 1 trùng (dry-run, thêm --apply để xoá)
 npm run db:deploy              # deploy 10 Edge Function + set secrets
 npm run db:cron                # bật cron gọi worker mỗi 10 giây
@@ -134,6 +136,7 @@ Cần `SUPABASE_ACCESS_TOKEN` trong `.env.local`. Xem `supabase/README.md` cho t
 | `src/lib/sync.ts` | Ánh xạ dữ liệu Postgres ⇄ model của app |
 | `src/lib/ai.ts` · `aiLogic.ts` | Gọi Edge Function (chấm bài, công cụ AI, admin) + logic thuần đi kèm |
 | `src/lib/promptRepository.ts` | Đọc đề/chủ đề/dạng biểu đồ từ PostgREST |
+| `src/lib/vocabularyLogic.ts` · `vocabularyRepository.ts` | Thư viện từ vựng 25 chủ đề: map hàng, lọc, tạo thẻ ôn tập + đọc PostgREST |
 | `src/components/GradingResult.tsx` | Hiển thị kết quả chấm: 4 tiêu chí, dẫn chứng, hành động |
 | `src/components/ChartPreview.tsx` | Dựng biểu đồ SVG từ dữ liệu của đề |
 | `src/pages/` | Tổng quan, viết bài, bài viết, kho đề, từ vựng, ôn tập, thư viện, Master Guide, công cụ, donate, cài đặt, quản trị |
@@ -163,6 +166,7 @@ Cần `SUPABASE_ACCESS_TOKEN` trong `.env.local`. Xem `supabase/README.md` cho t
 - Nút *Chấm bài* đẩy bài vào hàng đợi AI và hiện kết quả theo 4 tiêu chí (Task Response/Task Achievement, Coherence, Lexical, Grammar) kèm dẫn chứng trích từ bài. Thiếu dữ liệu tham chiếu thì báo `needs_reference` — **không bịa điểm**.
 - **Phản hồi sâu hơn band**: sau khi có điểm, pipeline `enrich` rà soát tiếp và bổ sung 5 khối trong kết quả chấm — *Lỗi sai cần sửa* (quote → correction → giải thích), *Lộ trình lên band X* (từng bước kèm band dự kiến), *Điểm chưa hợp lý*, *Từ vựng nâng cao* (nâng cấp từ đang dùng + từ nên học theo chủ đề) và *Cấu trúc bài*. Từ gợi ý lưu thẳng vào sổ từ vựng, lỗi lưu vào sổ lỗi sai.
 - **Tự thêm từ vựng**: nút *+ Thêm từ của tôi* trong khối *Từ vựng nâng cao* (hoặc *Thêm thẻ mới* ở trang Sổ từ vựng) để nhập tay — lưu vào `study_cards` nên đồng bộ mọi thiết bị và ôn tập được.
+- **Thư viện từ vựng 25 chủ đề**: tab *Thư viện 25 chủ đề* trong trang Sổ từ vựng — 5.000 mục từ, cụm từ và thành ngữ xếp theo 25 chủ đề IELTS (mỗi chủ đề 200 mục). Mỗi mục có từ, từ loại, nghĩa, ghi chú cách dùng, 2 ví dụ tiếng Anh và IPA (khi có). Bấm *Thêm vào sổ* để đưa từ đó vào sổ cá nhân và ôn tập được. Dữ liệu nằm ở bảng `vocabulary_entries` (đọc công khai), nạp bằng `npm run db:seed:vocabulary`.
 - Bộ công cụ AI (Magic Rewrite, Argument Stress Test, Critical Thinking) và nút *Đọc dữ liệu từ ảnh* gọi Edge Function thật.
 - Trang *Quản trị* có 4 tab: nội dung, người dùng, hàng đợi AI và token/chi phí.
 - Đề tự nhập lưu vào bảng `user_prompts` (có RLS theo chủ sở hữu) kèm tệp đính kèm trong bucket `user-prompt-media`.
