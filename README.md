@@ -79,7 +79,7 @@ npm run db:deploy
 
 ### Frontend → Vercel
 
-Cấu hình sẵn trong `vercel.json` (SPA fallback + cache header). Vercel GitHub App tự deploy mỗi lần push lên `main`.
+Cấu hình sẵn trong `vercel.json` (SPA fallback + cache header). Project hiện tắt tự động deploy từ GitHub (`createDeployments: disabled`), nên **deploy bằng CLI**.
 
 Bản đang chạy: **https://huybui.vercel.app** (project `huybui04/huybui`, Node 24.x).
 
@@ -92,11 +92,26 @@ Bản đang chạy: **https://huybui.vercel.app** (project `huybui04/huybui`, No
    | `VITE_SUPABASE_URL` | `https://fjlyjaomuxotqqjvugtv.supabase.co` |
    | `VITE_SUPABASE_PUBLISHABLE_KEY` | `sb_publishable_...` (publishable key — an toàn cho frontend) |
 
-4. Deploy. Từ đó mỗ lần push lên `main` Vercel tự build và đổi URL production.
+4. Deploy:
 
-Vercel GitHub App tự deploy mỗi lần push lên `main` — không cần GitHub Actions riêng. Muốn deploy lại bản cũ thì bấm **Redeploy** trong Vercel dashboard.
+   ```bash
+   git push origin main          # bắt buộc: xem lưu ý bên dưới
+   npx vercel --prod --yes
+   ```
+
+Sau đó kiểm tra bản live:
+
+```bash
+TEST_URL=https://huybui.vercel.app node tests/production.mjs
+```
+
+Muốn deploy lại bản cũ thì bấm **Redeploy** trong Vercel dashboard.
 
 > **Lưu ý về email commit:** Vercel chặn deployment nếu không map được commit author với tài khoản GitHub. Commit phải dùng email **noreply** của GitHub (`<id>+<login>@users.noreply.github.com`), không dùng email cá nhân — nếu không sẽ báo *"The deployment was blocked because Vercel couldn't find a Git account for the commit author"*.
+
+> **Lưu ý về commit chưa push:** Vercel map author bằng cách tra commit trên GitHub. Commit chỉ có trong máy (chưa `git push`) sẽ bị chặn với thông báo *"The deployment was blocked because the commit author doesn't have permission to create deployments for this project"*. Luôn push commit lên `origin/main` **trước khi** chạy `vercel --prod`.
+
+> **Lưu ý về GitHub App:** `Settings → Git`**Connect GitHub repository** đang ở chế độ *"Disabled"* nên push lên `main` không tự build. Muốn bật lại thì vào Vercel Dashboard → Project → Settings → Git và chọn lại repo.
 
 ### Edge Functions → Supabase
 
