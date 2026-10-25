@@ -99,7 +99,11 @@ try {
   await page.locator('.usage-table .usage-row').first().waitFor({ timeout: 30000 })
   await page.getByRole('button', { name: /Nhật ký|Audit log/, exact: true }).click()
   await page.waitForTimeout(1500)
-  console.log('PASS: các tab đề bài, từ vựng, tác vụ AI, nhật ký đều mở được.')
+  await page.getByRole('button', { name: /Ủng hộ|Donate/, exact: true }).click()
+  await page.locator('.admin-donate').first().waitFor({ timeout: 30000 })
+  const qrPreview = await page.locator('.admin-donate-preview img').count()
+  assert.ok(qrPreview === 1, 'Tab ủng hộ phải hiện ảnh QR hiện tại')
+  console.log('PASS: các tab đề bài, từ vựng, tác vụ AI, nhật ký, ủng hộ đều mở được.')
 } finally {
   await browser.close()
 }

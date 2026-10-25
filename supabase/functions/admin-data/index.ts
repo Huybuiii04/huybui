@@ -230,6 +230,35 @@ async function retryFailedJobs(service: SupabaseClient, actorId: string) {
   return { retried: (retried.data ?? []).length };
 }
 
+async function updateDonation(service: SupabaseClient, actorId: string, payload: Body) {
+  const methods: { label: string; value: string; note: string }[] = [];
+  if (Array.isArray(payload.methods)) {
+    for (const item of payload.methods) {
+      const row = (item ?? {}) as { label?: unknown; value?: unknown; note?: unknown };
+      if (typeof row.label !== "string" || typeof row.value !== "string") continue;
+      methods.push({ label: row.label, value: row.value, note: typeof row.note === "string" ? row.note : "" });
+    }
+  }
+  const rawInstructions = (payload.instructions ?? {}) as { vi?: unknown; en?: unknown }
+  const instructions = {
+    vi: typeof rawInstructions.vi === 'string' ? rawInstructions.vi : '',
+    en: typeof rawInstructions.en === 'string' ? rawInstructions.en : '',
+  }
+  const qrPath = text(payload.qrPath)
+  const isConfigured = typeof payload.isConfigured === 'boolean' ? payload.isConfigured : Boolean(qrPath)
+  const updated = await service.from("donation_settings").upsert({
+    id: true,
+    methods,
+    instructions,
+    qr_path: qrPath,
+    is_configured: isConfigured,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: "id" }).select("qr_path,is_configured").maybeSingle();
+  if (updated.error) throw databaseError("update the donation settings");
+  await audit(service, actorId, "admin.donation.update", "donation", { qrPath, isConfigured, methodCount: methods.length });
+  return updated.data;
+}
+
 Deno.serve(async (request) => {
   const id = requestId();
   try {
@@ -259,6 +288,8 @@ Deno.serve(async (request) => {
         return jsonResponse(request, 202, await retryJob(service, context.userId, text(body.jobId)), { requestId: id });
       case "jobs_retry_failed":
         return jsonResponse(request, 202, await retryFailedJobs(service, context.userId), { requestId: id });
+      case "donation_update":
+        return jsonResponse(request, 200, await updateDonation(service, context.userId, body), { requestId: id });
       default:
         throw new AppError(400, "invalid_action", `Unknown admin action: ${action || "(empty)"}`);
     }

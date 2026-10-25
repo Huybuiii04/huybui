@@ -9,6 +9,7 @@ import { PromptsTab } from './admin/PromptsTab'
 import { VocabularyTab } from './admin/VocabularyTab'
 import { JobsTab } from './admin/JobsTab'
 import { AuditTab } from './admin/AuditTab'
+import { DonateTab } from './admin/DonateTab'
 import { ContentTab } from './admin/ContentTab'
 import { UsageTab } from './admin/UsageTab'
 
@@ -26,6 +27,7 @@ export function Admin() {
     ['vocabulary', c('Từ vựng', 'Vocabulary')],
     ['jobs', c('Tác vụ AI', 'AI jobs')],
     ['audit', c('Nhật ký', 'Audit log')],
+    ['donate', c('Ủng hộ', 'Donate')],
     ['content', c('Nội dung', 'Content')],
     ['usage', c('Token & chi phí', 'Tokens & costs')],
   ]
@@ -39,6 +41,7 @@ export function Admin() {
     {tab === 'vocabulary' && <VocabularyTab onError={setError} onBusy={setBusy} busy={busy} />}
     {tab === 'jobs' && <JobsTab onError={setError} onBusy={setBusy} busy={busy} />}
     {tab === 'audit' && <AuditTab />}
+    {tab === 'donate' && <DonateTab onError={setError} onBusy={setBusy} busy={busy} />}
     {tab === 'content' && <ContentTab onError={setError} onBusy={setBusy} busy={busy} />}
     {tab === 'usage' && <UsageTab onError={setError} onBusy={setBusy} busy={busy} />}
     {error && <p className="helper-text danger-text">{error}</p>}

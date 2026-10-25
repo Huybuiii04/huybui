@@ -1,4 +1,4 @@
-﻿import { useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { ArrowRight, ArrowUpRight, Check, CheckCircle2, ClipboardList, Coffee, Heart, Lightbulb, LogOut, Monitor, Moon, PenLine, ShieldCheck, Sparkles, Sun, Target } from 'lucide-react'
 import { Brand, LanguageSwitch } from '../components/Layout'
@@ -7,6 +7,7 @@ import { useCopy } from '../i18n'
 import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
 import { useTheme } from '../theme'
+import { loadDonationSettings, type DonationSettings } from '../lib/donationRepository'
 
 export function Landing() {
   const { c } = useCopy()
@@ -61,8 +62,15 @@ export function Landing() {
 }
 
 export function Donate() {
-  const { c } = useCopy()
-  return <><PageHeader eyebrow={c('CẢM ƠN VÌ BẠN Ở ĐÂY', 'THANK YOU FOR BEING HERE')} title={c('Cùng giữ tri thức mở', 'Keep learning open')} description={c('Một dự án nhỏ, một niềm tin lớn vào việc học.', 'A small project with a big belief in learning.')} /><section className="donate-card"><span className="donate-heart"><Heart size={45} strokeWidth={1.5} /></span><h2>{c('Một ly cà phê.', 'A cup of coffee.')}<br /><em>{c('Thêm nhiều cơ hội học tập.', 'More room for learning.')}</em></h2><p>{c('IELTS Writing Studio được xây dựng để mọi người có thể luyện viết miễn phí. Việc ủng hộ hoàn toàn tự nguyện, giúp duy trì hạ tầng và phát triển tài liệu.', 'IELTS Writing Studio is built to make writing practice free for everyone. Voluntary donations help maintain infrastructure and develop learning resources.')}</p><div className="donate-values"><span><CheckCircle2 size={18} />{c('Không mở khóa tính năng', 'No features to unlock')}</span><span><CheckCircle2 size={18} />{c('Không gói trả phí', 'No paid tiers')}</span></div><div className="donate-unconfigured"><Coffee size={25} /><h3>{c('Thông tin ủng hộ đang được chuẩn bị', 'Donation details are being prepared')}</h3><p>{c('Chưa cấu hình tài khoản hoặc mã QR nhận tiền. Bạn vẫn có thể dùng toàn bộ nội dung học tập.', 'No donation account or QR code has been configured. All learning content remains available.')}</p></div><Link className="text-link" to="/app">{c('Tiếp tục hành trình học', 'Back to learning')}<ArrowRight size={17} /></Link></section></>
+  const { c, language } = useCopy()
+  const [donation, setDonation] = useState<DonationSettings | null>(null)
+  useEffect(() => {
+    let active = true
+    void loadDonationSettings().then(value => { if (active) setDonation(value) })
+    return () => { active = false }
+  }, [])
+  const showQr = Boolean(donation?.isConfigured && donation.qrPath)
+  return <><PageHeader eyebrow={c('CẢM ƠN VÌ BẠN Ở ĐÂY', 'THANK YOU FOR BEING HERE')} title={c('Cùng giữ tri thức mở', 'Keep learning open')} description={c('Một dự án nhỏ, một niềm tin lớn vào việc học.', 'A small project with a big belief in learning.')} /><section className="donate-card"><span className="donate-heart"><Heart size={45} strokeWidth={1.5} /></span><h2>{c('Một ly cà phê.', 'A cup of coffee.')}<br /><em>{c('Thêm nhiều cơ hội học tập.', 'More room for learning.')}</em></h2><p>{c('IELTS Writing Studio được xây dựng để mọi người có thể luyện viết miễn phí. Việc ủng hộ hoàn toàn tự nguyện, giúp duy trì hạ tầng và phát triển tài liệu.', 'IELTS Writing Studio is built to make writing practice free for everyone. Voluntary donations help maintain infrastructure and develop learning resources.')}</p><div className="donate-values"><span><CheckCircle2 size={18} />{c('Không mở khóa tính năng', 'No features to unlock')}</span><span><CheckCircle2 size={18} />{c('Không gói trả phí', 'No paid tiers')}</span></div>{showQr ? <div className="donate-qr"><img className="donate-qr-image" src={donation!.qrPath} alt={c('Mã QR nhận ủng hộ', 'Donation QR code')} width={433} height={604} /><div className="donate-qr-info">{donation!.methods.map(method => <div className="donate-method" key={method.label}><span>{method.label}</span><strong>{method.value}</strong>{method.note && <small>{method.note}</small>}</div>)}{donation!.instructions.vi && <p>{language === 'en' ? donation!.instructions.en : donation!.instructions.vi}</p>}</div></div> : <div className="donate-unconfigured"><Coffee size={25} /><h3>{c('Thông tin ủng hộ đang được chuẩn bị', 'Donation details are being prepared')}</h3><p>{c('Chưa cấu hình tài khoản hoặc mã QR nhận tiền. Bạn vẫn có thể dùng toàn bộ nội dung học tập.', 'No donation account or QR code has been configured. All learning content remains available.')}</p></div>}<Link className="text-link" to="/app">{c('Tiếp tục hành trình học', 'Back to learning')}<ArrowRight size={17} /></Link></section></>
 }
 
 export function Settings() {
