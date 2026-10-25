@@ -25,6 +25,8 @@ export type Card = {
   meaning: string
   example: string
   kind: 'vocabulary' | 'structure' | 'error'
+  /** Tag chủ đề (ví dụ 'oceans') cho thẻ lấy từ thư viện từ vựng. */
+  tags: string[]
   level: number
   dueAt: number
 }
@@ -61,6 +63,7 @@ export type StudyCardRow = {
   front: string
   back: string
   example: string
+  tags: string[] | null
   level: number
   due_at: string
 }
@@ -173,6 +176,7 @@ export function studyCardRowToCard(row: StudyCardRow): Card {
     meaning: row.back,
     example: row.example ?? '',
     kind: dbCardKindToCard(row.kind),
+    tags: row.tags ?? [],
     level: row.level ?? 0,
     dueAt: Date.parse(row.due_at) || Date.now(),
   }

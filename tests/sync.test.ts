@@ -73,11 +73,16 @@ test('save_draft arguments follow the RPC contract', () => {
 })
 
 test('study card rows map to the app card shape', () => {
-  const card = studyCardRowToCard({ id: 'c1', kind: 'structure', front: 'in addition', back: 'hơn nữa', example: 'x', level: 2, due_at: '2026-10-25T00:00:00Z' })
-  assert.deepEqual(card, { id: 'c1', term: 'in addition', meaning: 'hơn nữa', example: 'x', kind: 'structure', level: 2, dueAt: Date.parse('2026-10-25T00:00:00Z') })
+  const card = studyCardRowToCard({ id: 'c1', kind: 'structure', front: 'in addition', back: 'hơn nữa', example: 'x', tags: null, level: 2, due_at: '2026-10-25T00:00:00Z' })
+  assert.deepEqual(card, { id: 'c1', term: 'in addition', meaning: 'hơn nữa', example: 'x', kind: 'structure', tags: [], level: 2, dueAt: Date.parse('2026-10-25T00:00:00Z') })
   assert.equal(dbCardKindToCard('collocation'), 'vocabulary')
   assert.equal(dbCardKindToCard('error'), 'error')
   assert.equal(cardKindToDb('error'), 'error')
+})
+
+test('study card rows keep their topic tags', () => {
+  const card = studyCardRowToCard({ id: 'c2', kind: 'vocabulary', front: 'tide', back: 'thuỷ triều', example: '', tags: ['oceans'], level: 0, due_at: '2026-10-26T00:00:00Z' })
+  assert.deepEqual(card.tags, ['oceans'])
 })
 
 test('unsynced images stay local and are labelled as not synced', () => {

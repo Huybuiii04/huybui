@@ -40,7 +40,7 @@ type Store = {
   signedIn: boolean
   update: (fn: (state: State) => State) => Promise<void>
   saveDraft: (draft: Draft, expected: number) => Promise<number>
-  addCard: (card: Pick<Card, 'term' | 'meaning' | 'example' | 'kind'>) => Promise<void>
+  addCard: (card: Pick<Card, 'term' | 'meaning' | 'example' | 'kind'> & { tags?: string[] }) => Promise<void>
   review: (id: string, remembered: boolean) => Promise<void>
   addPrompt: (prompt: Omit<CustomPrompt, 'id' | 'createdAt'>) => Promise<CustomPrompt>
   removePrompt: (id: string) => Promise<void>
@@ -408,9 +408,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return { synced, all }
   }
 
-  async function addCard(card: Pick<Card, 'term' | 'meaning' | 'example' | 'kind'>) {
+  async function addCard(card: Pick<Card, 'term' | 'meaning' | 'example' | 'kind'> & { tags?: string[] }) {
+    const tags = card.tags ?? []
     if (!userId) {
-      const next = { ...current.current, cards: current.current.cards.some(item => item.term.trim().toLocaleLowerCase() === card.term.trim().toLocaleLowerCase() && item.kind === card.kind) ? current.current.cards : [...current.current.cards, { ...card, term: card.term.trim(), id: crypto.randomUUID(), level: 0, dueAt: Date.now() }] }
+      const next = { ...current.current, cards: current.current.cards.some(item => item.term.trim().toLocaleLowerCase() === card.term.trim().toLocaleLowerCase() && item.kind === card.kind) ? current.current.cards : [...current.current.cards, { ...card, tags, term: card.term.trim(), id: crypto.randomUUID(), level: 0, dueAt: Date.now() }] }
       commit(next)
       try { await cache(next) } catch (failure) { fail(failure) }
       announce()
@@ -422,7 +423,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       p_back: card.meaning,
       p_example: card.example,
       p_dedupe_key: null,
-      p_tags: [],
+      p_tags: tags,
     })
     if (failure) handleRemoteError(failure)
     const result = data as { card_id: string; level: number; due_at: string }
@@ -432,6 +433,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       meaning: card.meaning,
       example: card.example,
       kind: card.kind,
+      tags,
       level: result.level ?? 0,
       dueAt: Date.parse(result.due_at) || Date.now(),
     }
