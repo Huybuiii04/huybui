@@ -17,7 +17,7 @@ export function corsHeaders(origin: string | null, configured: string): Headers 
   headers.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   headers.set(
     "Access-Control-Allow-Headers",
-    "authorization, apikey, content-type, x-client-info, x-worker-secret",
+    "authorization, apikey, content-type, x-client-info, x-worker-secret, x-admin-token",
   );
   headers.set("Access-Control-Expose-Headers", "x-request-id, retry-after");
   headers.set("Access-Control-Max-Age", "86400");

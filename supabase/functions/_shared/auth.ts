@@ -2,6 +2,7 @@ import { createClient, type SupabaseClient, type User } from "@supabase/supabase
 
 import { AppError, getEnv } from "./http.ts";
 import { constantTimeEqual } from "./security.ts";
+import { verifyAdminToken } from "./adminSession.ts";
 
 export interface AuthenticatedContext {
   user: User;
@@ -92,6 +93,19 @@ export async function requireWorkerSecret(request: Request): Promise<void> {
   if (!provided || !(await constantTimeEqual(provided, expected))) {
     throw new AppError(401, "invalid_worker_secret", "The worker secret is invalid");
   }
+}
+
+/**
+ * Lớp bảo vệ thứ hai của cổng quản trị: header `x-admin-token` ký bằng
+ * ADMIN_PASSWORD. Phải gọi sau requireAdmin (đã kiểm tra role admin).
+ */
+export async function requireAdminToken(request: Request, context: AuthenticatedContext): Promise<void> {
+  const secret = getEnv("ADMIN_PASSWORD");
+  if (!secret) throw new AppError(503, "server_misconfigured", "The admin password is not configured");
+  const token = request.headers.get("x-admin-token");
+  if (!token) throw new AppError(401, "invalid_admin_token", "The admin session token is missing");
+  const valid = await verifyAdminToken(token, context.userId, Date.now(), secret);
+  if (!valid) throw new AppError(401, "invalid_admin_token", "The admin session token is invalid or expired");
 }
 
 async function assertActiveUser(

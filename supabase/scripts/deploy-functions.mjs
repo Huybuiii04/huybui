@@ -26,6 +26,8 @@ const FUNCTIONS = [
   'admin-content',
   'admin-users',
   'admin-usage',
+  'admin-session',
+  'admin-data',
   'process-ai-jobs',
 ]
 
@@ -99,6 +101,7 @@ const secretValues = [
   ['AI_API_PROTOCOL', env.AI_API_PROTOCOL],
   ['AI_STRUCTURED_MODE', env.AI_STRUCTURED_MODE],
   ['WORKER_SECRET', env.WORKER_SECRET],
+  ['ADMIN_PASSWORD', env.ADMIN_PASSWORD],
   ['AI_MODEL_GRADING', env.AI_MODEL_GRADING],
   ['AI_MODEL_EXTRACTION', env.AI_MODEL_EXTRACTION],
   ['ALLOWED_ORIGINS', env.ALLOWED_ORIGINS],
