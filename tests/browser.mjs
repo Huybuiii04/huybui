@@ -66,14 +66,17 @@ try {
 
     await page.goto(`${base}/app`)
     await page.locator('.dashboard-hero').waitFor()
+    // Theme mặc định có thể là sáng hoặc tối — toggle phải đảo trạng thái hiện tại.
+    const themeBefore = await page.evaluate(() => document.documentElement.dataset.theme)
+    const themeAfter = themeBefore === 'dark' ? 'light' : 'dark'
     await page.locator('.theme-toggle').click()
-    await page.waitForFunction(() => document.documentElement.dataset.theme === 'dark')
-    assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), 'dark')
+    await page.waitForFunction(value => document.documentElement.dataset.theme === value, themeAfter)
+    assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), themeAfter)
     await page.reload()
     await page.locator('.dashboard-hero').waitFor()
-    assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), 'dark', 'Theme choice must persist across reloads')
+    assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), themeAfter, 'Theme choice must persist across reloads')
     await page.locator('.theme-toggle').click()
-    await page.waitForFunction(() => document.documentElement.dataset.theme === 'light')
+    await page.waitForFunction(value => document.documentElement.dataset.theme === value, themeBefore)
     await page.screenshot({ path: 'test-results/dashboard-desktop.png', fullPage: true })
     await page.getByRole('button', { name: 'EN', exact: true }).click()
     await page.getByRole('heading', { name: /^Hello .*, let’s write better\.$/ }).waitFor()

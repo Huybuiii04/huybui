@@ -15,6 +15,10 @@ supabase/.branches/
 # Worktrees
 .worktrees/
 
+# Log cua dev server
+dev-server.log
+baseline-dev.log
+
 # Công cụ IDE/MCP
 .serena/
 .agents/
