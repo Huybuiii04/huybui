@@ -15,5 +15,13 @@ supabase/.branches/
 # Worktrees
 .worktrees/
 
+# Công cụ IDE/MCP
+.serena/
+.agents/
+skills-lock.json
+
+# Tài liệu tham khảo tải về (không commit file nặng)
+docs/research/_pdf/
+
 .vercel
 .env*

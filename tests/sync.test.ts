@@ -2,12 +2,10 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   cardKindToDb,
-  completedSlugs,
   dbCardKindToCard,
   draftClientId,
   draftToSaveArgs,
   essayRowToDraft,
-  guideSlugMap,
   mergeImages,
   splitImages,
   studyCardRowToCard,
@@ -80,13 +78,6 @@ test('study card rows map to the app card shape', () => {
   assert.equal(dbCardKindToCard('collocation'), 'vocabulary')
   assert.equal(dbCardKindToCard('error'), 'error')
   assert.equal(cardKindToDb('error'), 'error')
-})
-
-test('guide progress maps entry ids back to slugs', () => {
-  const bySlug = guideSlugMap([{ id: 'g1', slug: 'understand-the-rubric' }, { id: 'g2', slug: 'self-editing' }])
-  assert.equal(bySlug.get('self-editing'), 'g2')
-  const slugByEntryId = new Map([...bySlug].map(([slug, id]) => [id, slug]))
-  assert.deepEqual(completedSlugs(['g2', 'missing'], slugByEntryId), ['self-editing'])
 })
 
 test('unsynced images stay local and are labelled as not synced', () => {

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Smoke test bản deploy: app phải nối được Supabase và hiện kho đề bài.
  *
  *   TEST_URL=https://huybui.vercel.app node tests/production.mjs
@@ -45,7 +45,7 @@ assert.ok(state.topicCards > 0, 'Không có nhóm chủ đề nào được tả
 assert.ok(state.academicCards > 0, 'Không có đề nào được tải')
 
 // Route sâu phải trả về index.html (SPA fallback).
-for (const route of ['/app/write', '/app/essays', '/guide/understand-the-rubric', '/auth']) {
+for (const route of ['/app/write', '/app/essays', '/auth']) {
   const response = await page.goto(`${base}${route}`, { waitUntil: 'domcontentloaded' })
   assert.equal(response?.status(), 200, `Route ${route} phải trả 200`)
 }

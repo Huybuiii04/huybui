@@ -1,17 +1,17 @@
-import assert from 'node:assert/strict'
+﻿import assert from 'node:assert/strict'
 import { chromium } from 'playwright'
 
 const base = process.env.TEST_URL ?? 'http://127.0.0.1:5173'
-const routes = ['/', '/app', '/app/write', '/app/essays', '/app/essays/demo', '/app/prompts', '/app/prompts?task=academic_task1', '/app/vocabulary', '/app/review', '/app/errors', '/library', '/library/template/opinion-framework', '/guide', '/guide/understand-the-rubric', '/app/tools', '/donate', '/app/settings', '/admin', '/auth']
+const routes = ['/', '/app', '/app/write', '/app/essays', '/app/essays/demo', '/app/prompts', '/app/prompts?task=academic_task1', '/app/vocabulary', '/app/review', '/app/errors', '/donate', '/app/settings', '/admin', '/auth']
 
 // Dấu tiếng Việt đặc trưng. Không kiểm tra "é" vì thường là chữ mượn trong dữ liệu
 // biểu đồ tiếng Anh (café, cliché) — đề thi luôn dùng nhãn tiếng Anh.
 const vietnameseChars = /[àáảãạằắẳẵặầấẩẫậèẻẽẹềếểễệìíỉĩịòóỏõọồốổỗộờớởỡợùúủũụừứửữựỳýỷỹỵđĐăĂÂơƠưƯ]/i
 const englishUiPhrases = [
   'Choose a topic', 'Ready prompts', 'Your attempts', 'Writing space', 'My writing', 'Prompt library',
-  'Vocabulary', 'Error logbook', 'AI toolkit', 'Open menu', 'Close menu', 'Save draft', 'Get feedback',
-  'Add a card', 'Save to collection', 'Mark as completed', 'Your workspace', 'Review', 'Library',
-  'Settings', 'Explore Master Guide', 'New essay', 'Search prompts', 'Bring your own question',
+  'Vocabulary', 'Error logbook', 'Open menu', 'Close menu', 'Save draft', 'Get feedback',
+  'Add a card', 'Save to collection', 'Your workspace', 'Review',
+  'Settings', 'New essay', 'Search prompts', 'Bring your own question',
 ]
 
 const browser = await chromium.launch()

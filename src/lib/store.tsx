@@ -1,15 +1,13 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { scheduleReview } from './learning'
-import { isConfigured, supabase } from './supabase'
+import { supabase } from './supabase'
 import { useSession } from './session'
 import { classifyRemoteError, parseRemotePayload, profileFromRow, type ProfileState } from './authLogic'
 import { saveProfileRow } from './profile'
 import { deleteEssay, deleteEssayDirect } from './ai'
 import {
-  completedSlugs,
   draftToSaveArgs,
   essayRowToDraft,
-  guideSlugMap,
   mergeImages,
   splitImages,
   studyCardRowToCard,
@@ -20,7 +18,6 @@ import {
   type CustomPrompt,
   type Draft,
   type EssayRow,
-  type GuideEntryRow,
   type StudyCardRow,
   type Task,
   type TaskImage,
@@ -29,8 +26,8 @@ import {
 
 export type { Card, CustomPrompt, Draft, Task, TaskImage }
 
-type State = { drafts: Draft[]; cards: Card[]; completed: string[]; prompts: CustomPrompt[]; profile: ProfileState }
-const initial: State = { drafts: [], cards: [], completed: [], prompts: [], profile: { name: '', target: '7.0', feedback: 'en' } }
+type State = { drafts: Draft[]; cards: Card[]; prompts: CustomPrompt[]; profile: ProfileState }
+const initial: State = { drafts: [], cards: [], prompts: [], profile: { name: '', target: '7.0', feedback: 'en' } }
 
 /** Mỗi bản nháp: client id -> essay id + draft_version (optimistic concurrency). */
 type RemoteMeta = { essayId: string; version: number }
@@ -103,21 +100,6 @@ async function sha256(bytes: Uint8Array): Promise<string> {
   return [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, '0')).join('')
 }
 
-/** slug của guide -> content_entries.id (RPC complete_guide cần uuid). */
-let guidePromise: Promise<{ bySlug: Map<string, string>; byId: Map<string, string> }> | undefined
-function loadGuides() {
-  guidePromise ??= Promise.resolve(supabase
-    .from('content_entries')
-    .select('id,slug')
-    .eq('kind', 'guide')
-    .then(({ data }) => {
-      const rows = (data ?? []) as GuideEntryRow[]
-      const bySlug = guideSlugMap(rows)
-      return { bySlug, byId: new Map(rows.map(row => [row.id, row.slug])) }
-    }))
-  return guidePromise
-}
-
 /** Tạo signed URL ngắn hạn cho tệp đính kèm của đề tự nhập. */
 async function hydrateUserPrompts(rows: UserPromptRow[]): Promise<CustomPrompt[]> {
   return Promise.all(rows.map(async row => {
@@ -134,8 +116,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [suspended, setSuspended] = useState(false)
   const current = useRef<State>(initial)
   const meta = useRef(new Map<string, RemoteMeta>())
-  const guides = useRef(new Map<string, string>())
-  const guideSlugs = useRef(new Map<string, string>())
   const migrated = useRef('')
   const userId = session?.user.id ?? null
 
@@ -159,27 +139,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     throw failure
   }, [])
 
-  // Hồ sơ guide (slug -> content_entries.id) để gọi RPC complete_guide.
-  useEffect(() => {
-    if (!isConfigured) return
-    let active = true
-    void loadGuides().then(({ bySlug, byId }) => {
-      if (!active) return
-      guides.current = bySlug
-      guideSlugs.current = byId
-    })
-    return () => { active = false }
-  }, [userId])
-
   // Nguồn sự thật: Supabase khi đã đăng nhập, IndexedDB khi chưa.
   const loadRemote = useCallback(async (local?: State): Promise<State> => {
-    const guide = await loadGuides()
-    guides.current = guide.bySlug
-    guideSlugs.current = guide.byId
-    const [essayRows, cardRows, progressRows, profileRow, promptRows] = await Promise.all([
+    const [essayRows, cardRows, profileRow, promptRows] = await Promise.all([
       supabase.from('essays').select('*').then(({ data }) => (data ?? []) as EssayRow[]),
       supabase.from('study_cards').select('*').then(({ data }) => (data ?? []) as StudyCardRow[]),
-      supabase.from('guide_progress').select('entry_id').then(({ data }) => (data ?? []) as { entry_id: string }[]),
       supabase.from('profiles').select('*').eq('id', userId ?? '').maybeSingle().then(({ data }) => data),
       supabase.from('user_prompts').select('*').then(({ data }) => (data ?? []) as UserPromptRow[]),
     ])
@@ -199,10 +163,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
     }
     const cards = cardRows.map(studyCardRowToCard)
-    const completed = completedSlugs(progressRows.map(row => row.entry_id), guide.byId)
     const profile = profileFromRow(profileRow as Parameters<typeof profileFromRow>[0])
     const prompts = await hydrateUserPrompts(promptRows)
-    return { drafts, cards, completed, prompts, profile }
+    return { drafts, cards, prompts, profile }
   }, [userId])
 
   /** Đẩy dữ liệu chỉ có trong IndexedDB lên Supabase (chạy một lần khi đăng nhập). */
@@ -228,11 +191,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         p_dedupe_key: null,
         p_tags: [],
       })
-    }
-    const remoteCompleted = new Set(remote.completed)
-    for (const slug of local.completed.filter(item => !remoteCompleted.has(item))) {
-      const entryId = guides.current.get(slug)
-      if (entryId) await supabase.rpc('complete_guide', { p_entry_id: entryId, p_completed: true })
     }
     // Đề tự nhập chỉ có trong IndexedDB → đẩy lên bảng user_prompts.
     const remotePromptIds = new Set(remote.prompts.map(prompt => prompt.id))
@@ -285,7 +243,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       .channel(`ielts-studio-${userId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'essays', filter: `user_id=eq.${userId}` }, () => { void load() })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'study_cards', filter: `user_id=eq.${userId}` }, () => { void load() })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'guide_progress', filter: `user_id=eq.${userId}` }, () => { void load() })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'user_prompts', filter: `user_id=eq.${userId}` }, () => { void load() })
       .subscribe()
     return () => { void supabase.removeChannel(channel) }
@@ -341,18 +298,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   /** Đẩy phần thay đổi của state lên Supabase (dùng cho route không có RPC riêng). */
   async function syncDiff(previous: State, next: State) {
-    for (const slug of next.completed.filter(item => !previous.completed.includes(item))) {
-      const entryId = guides.current.get(slug)
-      if (!entryId) continue
-      const { error: failure } = await supabase.rpc('complete_guide', { p_entry_id: entryId, p_completed: true })
-      if (failure) handleRemoteError(failure)
-    }
-    for (const slug of previous.completed.filter(item => !next.completed.includes(item))) {
-      const entryId = guides.current.get(slug)
-      if (!entryId) continue
-      const { error: failure } = await supabase.rpc('complete_guide', { p_entry_id: entryId, p_completed: false })
-      if (failure) handleRemoteError(failure)
-    }
     if (next.profile.name !== previous.profile.name || next.profile.target !== previous.profile.target || next.profile.feedback !== previous.profile.feedback) {
       try {
         await saveProfileRow(userId ?? '', next.profile)

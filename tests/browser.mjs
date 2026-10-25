@@ -1,12 +1,12 @@
-import assert from 'node:assert/strict'
+﻿import assert from 'node:assert/strict'
 import { mkdir } from 'node:fs/promises'
 import { chromium } from 'playwright'
 
 const base = process.env.TEST_URL ?? 'http://127.0.0.1:5173'
 const email = process.env.TEST_EMAIL
 const password = process.env.TEST_PASSWORD
-const publicRoutes = ['/', '/library', '/library/template/opinion-framework', '/guide', '/guide/understand-the-rubric', '/donate', '/app/prompts', '/app/prompts?task=academic_task1', '/auth']
-const guardedRoutes = ['/app', '/app/write', '/app/essays', '/app/vocabulary', '/app/review', '/app/errors', '/app/tools', '/app/settings', '/admin']
+const publicRoutes = ['/', '/donate', '/app/prompts', '/app/prompts?task=academic_task1', '/auth']
+const guardedRoutes = ['/app', '/app/write', '/app/essays', '/app/vocabulary', '/app/review', '/app/errors', '/app/settings', '/admin']
 
 const browser = await chromium.launch()
 const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } })
@@ -123,11 +123,11 @@ try {
     await page.getByRole('button', { name: 'Save to collection', exact: true }).click()
     await page.locator('dialog').waitFor({ state: 'hidden' })
 
-    await page.goto(`${base}/guide/understand-the-rubric`)
-    await page.getByRole('button', { name: 'Mark as completed', exact: true }).click()
-    await page.getByRole('button', { name: 'Completed · Undo', exact: true }).waitFor()
+    await page.goto(`${base}/app/prompts`)
+    await page.getByRole('radio', { name: /Task 2/ }).click()
+    await page.locator('.topic-card').first().waitFor()
   } else {
-    console.log('SKIP: các luồng cần đăng nhập (viết bài, thẻ ôn tập, guide) — đặt TEST_EMAIL/TEST_PASSWORD để chạy.')
+    console.log('SKIP: các luồng cần đăng nhập (viết bài, thẻ ôn tập) — đặt TEST_EMAIL/TEST_PASSWORD để chạy.')
   }
 
   // ---------- Responsive: mọi route không tràn ngang ----------

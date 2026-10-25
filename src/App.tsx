@@ -3,13 +3,11 @@ import { createRoutesFromElements, Route } from 'react-router'
 import Layout from './components/Layout'
 import { RouteGuard } from './components/RouteGuard'
 import Dashboard from './pages/Dashboard'
-import { Landing, Tools, Donate, Settings, NotFound } from './pages/Other'
+import { Landing, Donate, Settings, NotFound } from './pages/Other'
 import { Auth } from './pages/Auth'
 import { Admin } from './pages/Admin'
 import { Essays, EssayDetail } from './pages/Essays'
 import { Vocabulary, Review, Errors } from './pages/Learning'
-import { Library, LibraryDetail } from './pages/Library'
-import Guide from './pages/Guide'
 
 const Prompts = lazy(() => import('./pages/Prompts'))
 import { useCopy } from './i18n'
@@ -29,10 +27,6 @@ export function routes() {
       <Route path="/auth/callback" element={<Auth />} />
       <Route path="/auth/reset-password" element={<Auth />} />
       <Route element={<Layout />}>
-        <Route path="/library" element={<Library />} />
-        <Route path="/library/:kind/:slug" element={<LibraryDetail />} />
-        <Route path="/guide" element={<Guide />} />
-        <Route path="/guide/:slug" element={<Guide />} />
         <Route path="/donate" element={<Donate />} />
         <Route path="/app/prompts" element={<Suspense fallback={<AppFallback />}><Prompts /></Suspense>} />
         <Route element={<RouteGuard />}>
@@ -43,7 +37,6 @@ export function routes() {
           <Route path="/app/vocabulary" element={<Vocabulary />} />
           <Route path="/app/review" element={<Review />} />
           <Route path="/app/errors" element={<Errors />} />
-          <Route path="/app/tools" element={<Tools />} />
           <Route path="/app/settings" element={<Settings />} />
           <Route path="/admin" element={<Admin />} />
         </Route>

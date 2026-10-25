@@ -15,9 +15,7 @@ const SHOTS = [
   { name: 'prompts-task1', path: '/app/prompts?task=academic_task1' },
   { name: 'writing', path: '/app/write' },
   { name: 'essays', path: '/app/essays' },
-  { name: 'library', path: '/library' },
-  { name: 'guide', path: '/guide' },
-  { name: 'tools', path: '/app/tools' },
+  { name: 'vocabulary', path: '/app/vocabulary' },
   { name: 'auth', path: '/auth' },
 ]
 

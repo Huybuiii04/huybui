@@ -76,11 +76,7 @@ Thêm 3 cột `jsonb` vào `public.essay_features` (mặc định `null`, không
 
 - `ENRICHMENT_SCHEMA_VERSION` → `enrichment-v2`.
 - `ENRICHMENT_JSON_SCHEMA` thêm 3 property (`unnatural`, `vocabulary_plan`, `band_plan`) với `required` tương ứng; các property cũ giữ nguyên.
-- `validateEnrichmentOutput` validate thêm:
-  - `unnatural`: mảng, mỗi phần tử có 4 field đúng kiểu, `severity` ∈ {minor, major}.
-  - `vocabulary_plan`: object có `topic` (string) + `words` (mảng, mỗi phần tử 4 field string).
-  - `band_plan`: object có `current_band`/`target_band` (number|null) + `steps` (mảng, mỗi phần tử 4 field string).
-  - Sai kiểu → `AiContractError("invalid_enrichment")`, y như hiện tại.
+- **`coerceEnrichmentOutput`** (thay cho `validateEnrichmentOutput`): chuẩn hoá output thay vì ném lỗi — nhóm model không trả về thì coi như rỗng, phần tử thiếu field bắt buộc thì bỏ, field còn thiếu thì điền `""`. Lý do: model hay bỏ bớt field, và mất cả bài phân tích chỉ vì một `severity` ghi sai là không chấp nhận được.
 
 `supabase/functions/_shared/prompts.ts`:
 
@@ -114,7 +110,7 @@ Hiện `supabase/functions/_shared/anthropic.ts` hardcode cho API chính thức:
 | `AI_API_BASE_URL` | `https://api.anthropic.com` | Gốc của endpoint. Có thể là sẵn có `/v1/messages` hoặc `/v1/chat/completions` — client tự nhận diện, không ghép thêm |
 | `AI_API_KEY` | — | Khóa API. Nếu rỗng thì lấy `ANTHROPIC_API_KEY` (giữ tương thích cấu hình cũ) |
 | `AI_API_PROTOCOL` | `auto` | `auto` \| `anthropic` \| `openai` |
-| `AI_STRUCTURED_MODE` | `prompt` | `prompt` (JSON trong prompt + validate + repair) \| `native` (`output_config.format.json_schema`, chỉ dùng khi provider là API chính thức) |
+| `AI_STRUCTURED_MODE` | `tool` | `tool` (Anthropic tool-use) \| `prompt` (JSON trong prompt) \| `native` (`output_config.format.json_schema`, chỉ dùng khi provider là API chính thức) |
 
 **Quy tắc nhận diện** (`auto`):
 
@@ -134,13 +130,13 @@ Hiện `supabase/functions/_shared/anthropic.ts` hardcode cho API chính thức:
 | Token đã dùng | `usage.input_tokens` / `output_tokens` / `cache_creation_input_tokens` / `cache_read_input_tokens` | `usage.prompt_tokens` / `completion_tokens` / `prompt_tokens_details.cached_tokens` |
 | Dừng output | `stop_reason === "max_tokens"` | `choices[0].finish_reason === "length"` |
 
-**Structured output kiểu prompt** (`AI_STRUCTURED_MODE = "prompt`, mặc định):
+**Structured output bằng tool-use** (`AI_STRUCTURED_MODE = "tool"`, mặc định):
 
-- Không gửi `output_config`. Thay bằng phần system prompt bắt buộc: schema JSON + yêu cầu trả về **đúng một** JSON object, không bọc code fence, không thêm chữ.
-- **Bóc JSON** từ raw text: bỏ code fence ```json, cắt từ `{` đầu tiên đến `}` cuối cùng, `JSON.parse`; không hợp lệ → `null` để gọi repair.
-- Giữ nguyên cơ chế hiện có: validate → hỏng thì 1 lượt *repair* → vẫn hỏng thì `invalid_model_output`.
-
-**Lý do chọn prompt-based**: một đường code duy nhất, chạy được với API chính thức và mọi proxy; đánh đổi là model đôi khi trả kèm prose → đã xử lý bằng bóc JSON + repair.
+- Request Anthropic kèm `tools: [{ name: "result", input_schema: schema }]` + `tool_choice: { type: "tool", name: "result" }`.
+- Response có block `tool_use`; JSON nằm ở `block.input` → parse thẳng, không cần bóc text.
+- **Lý do chọn tool-use thay vì prompt:** ép JSON bằng prompt khiến model khoảng một nửa số lần trả về văn xuôi ("Let me work through each section…") hoặc bỏ field; tool-use ép được ngay và luôn khớp schema.
+- Chế độ `prompt` (JSON trong system prompt + bóc code fence + prose) giữ lại cho provider không hỗ trợ tool; chế độ `native` dùng `output_config.format.json_schema` của API chính thức.
+- Cơ chế repair giữ nguyên: validate/hợp thứ hóa → hỏng thì 1 lượt *repair* → vẫn hỏng thì `invalid_model_output` (nay **retry được**, tối đa 3 lần theo `fail_ai_job`).
 
 **Mức độ tương thích còn lại**: không phải mọi proxy đều hỗ trợ `tools`/`response_format`; vì vậy code **không** dùng tool-use để ép structured output. Nếu provider báo lỗi 400 kèm thông báo về `output_config`/`response_format`, client tự hạ xuống prompt-based trong cùng lần gọi (không cần deploy lại).
 
@@ -310,8 +306,8 @@ Sau khi có key (kể cả key của bên thứ 3) → `npm run db:deploy` là c
 
 ## 10. Rủi ro
 
-- **Chưa verify với model thật.** Schema JSON của Anthropic có thể từ chối cấu trúc lồng nhau phức tạp → cần `repairInstruction` và có thể phải nới `maxTokens` của `enrich` (hiện 4.000) khi thêm 3 nhóm mới. Đây là rủi ro lớn nhất, chỉ phát hiện được khi có key.
-- **Provider bên thứ 3 không tương đương API chính thức.** Có thể đổi tên model theo thời gian, giới hạn `max_tokens`, hoặc không trả `usage` chi tiết → phần đo chi phí (`ai_usage`) sẽ thiếu số liệu cache. Adapter đã chịu thiếu `usage` (coi như 0) nhưng không tự sửa được model id hỏng.
-- **Độ trễ:** người dùng phải chờ thêm vài giây sau khi có điểm mới thấy phần rà soát. Đã xử lý bằng trạng thái chờ + poll 45s.
+- **Provider bên thứ 3 không tương đương API chính thức.** Có thể đổi tên model theo thời gian, giới hạn `max_tokens`, hoặc trả rác. Đã giảm thiểu bằng tool-use + coerce + retry; nhưng không thể loại trừ hoàn toàn việc provider đổi tên model (`AI_MODEL_*` phải cập nhật theo).
+- **Độ trễ:** người dùng phải chờ thêm vài giây sau khi có điểm mới thấy phần rà soát (cron 10s + một lượt gọi model 20–30s). Đã xử lý bằng trạng thái chờ + poll 90s.
 - **Chi phí:** không tăng số lượt gọi model, nhưng output của `enrich` lớn hơn → token tăng một chút.
 - **Bài cũ:** các `essay_features` v1 không có 3 cột mới → các khối tương ứng ẩn cho tới khi bài được chấm lại (job `v2` chạy lại nhờ đổi `cacheKey`).
+- **Chưa có `ANTHROPIC_API_KEY` chính thức:** dự án đang dùng provider bên thứ 3 (`https://api.apiz.vn`) qua `AI_API_BASE_URL`. Khi có key chính thức chỉ cần đổi `AI_API_BASE_URL`/`AI_API_KEY`.

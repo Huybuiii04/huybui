@@ -65,8 +65,6 @@ export type StudyCardRow = {
   due_at: string
 }
 
-export type GuideEntryRow = { id: string; slug: string }
-
 /** Hàng của bảng `user_prompts` — đề bài do chính người dùng nhập. */
 export type UserPromptRow = {
   id: string
@@ -178,16 +176,6 @@ export function studyCardRowToCard(row: StudyCardRow): Card {
     level: row.level ?? 0,
     dueAt: Date.parse(row.due_at) || Date.now(),
   }
-}
-
-/** slug của guide -> content_entries.id (RPC complete_guide cần uuid). */
-export function guideSlugMap(rows: GuideEntryRow[]): Map<string, string> {
-  return new Map(rows.map(row => [row.slug, row.id]))
-}
-
-/** entry_id trong guide_progress -> slug để hiển thị. */
-export function completedSlugs(entryIds: string[], slugByEntryId: Map<string, string>): string[] {
-  return entryIds.map(id => slugByEntryId.get(id)).filter((slug): slug is string => Boolean(slug))
 }
 
 /** Khoá so sánh để biết ảnh đã thử đồng bộ chưa. */

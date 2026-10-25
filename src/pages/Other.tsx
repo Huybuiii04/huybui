@@ -1,46 +1,63 @@
 ﻿import { useState } from 'react'
 import { Link } from 'react-router'
-import { ArrowRight, ArrowUpRight, BookOpen, Check, CheckCircle2, Coffee, Heart, Lightbulb, LogOut, Monitor, Moon, PenLine, ShieldCheck, Sparkles, Sun, Target } from 'lucide-react'
+import { ArrowRight, ArrowUpRight, Check, CheckCircle2, ClipboardList, Coffee, Heart, Lightbulb, LogOut, Monitor, Moon, PenLine, ShieldCheck, Sparkles, Sun, Target } from 'lucide-react'
 import { Brand, LanguageSwitch } from '../components/Layout'
-import { Empty, Notice, PageHeader } from '../components/ui'
+import { Empty, PageHeader } from '../components/ui'
 import { useCopy } from '../i18n'
 import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
 import { useTheme } from '../theme'
-import { AI_ERROR_MESSAGES } from '../lib/aiLogic.ts'
-import { pollToolResult, runWritingTool } from '../lib/ai.ts'
 
 export function Landing() {
   const { c } = useCopy()
-  return <div className="landing"><header className="landing-nav"><Brand /><nav><Link to="/library">{c('Thư viện', 'Library')}</Link><Link to="/guide">Master Guide</Link><LanguageSwitch /><Link className="button primary" to="/app">{c('Vào học ngay', 'Open studio')}<ArrowUpRight size={17} /></Link></nav></header><main><section className="landing-hero"><span className="badge teal"><span className="small-dot" />{c('MIỄN PHÍ. TỪNG BƯỚC. MỖI NGÀY.', 'FREE TO LEARN. ROOM TO GROW.')}</span><h1>{c('Ý tưởng của bạn xứng đáng', 'Your ideas deserve')}<br /><em>{c('được diễn đạt tốt hơn.', 'to be beautifully expressed.')}</em></h1><p>{c('Không gian luyện IELTS Writing của riêng bạn. Viết, khám phá và ghi nhớ — từ câu đầu tiên đến bài viết bạn tự hào.', 'Your own space to practise IELTS Writing. Write, explore and remember — from your first sentence to an essay you are proud of.')}</p><div className="button-row"><Link className="button primary large" to="/app/write">{c('Bắt đầu hành trình', 'Start your journey')}<ArrowRight size={19} /></Link><Link className="button outline large" to="/app/essays/demo">{c('Xem kết quả minh họa', 'Explore sample feedback')}</Link></div><div className="landing-perks"><span><Check size={16} />Task 1 & Task 2</span><span><Check size={16} />{c('Học theo nhịp của bạn', 'At your own pace')}</span><span><Check size={16} />VI / EN</span></div></section><section className="landing-preview"><div className="preview-dots"><i /><i /><i /><span>{c('KHÔNG GIAN VIẾT CỦA BẠN', 'YOUR WRITING STUDIO')}</span></div><div className="preview-content"><div><span className="eyebrow">{c('MỘT KHÔNG GIAN ĐỂ LỚN LÊN', 'A SPACE TO GROW')}</span><h2>{c('Một trang trắng.', 'A blank page.')}<br />{c('Vô vàn khả năng.', 'Endless possibilities.')}</h2><p>{c('Bắt đầu bằng một ý tưởng. Chúng ta đi tiếp từ đó.', 'Start with an idea. We will take it from there.')}</p><Link className="text-link" to="/app">{c('Khám phá không gian học tập', 'Explore your workspace')}<ArrowRight size={18} /></Link></div><div className="preview-note"><PenLine size={30} /><blockquote>{c('“Bí quyết để đi xa là bắt đầu ngay.”', '“The secret of getting ahead is getting started.”')}</blockquote><span>{c('Viết câu đầu tiên của bạn hôm nay.', 'Write your first sentence today.')}</span></div></div></section><section className="landing-features">{[{ icon: PenLine, title: c('Viết với mục đích', 'Write with purpose'), body: c('Luyện biểu đồ, thư và luận. Giữ ý tưởng an toàn với nháp tự lưu.', 'Practise charts, letters and essays. Keep your ideas safe with autosaved drafts.') }, { icon: BookOpen, title: c('Học từ những điều hay', 'Learn from good writing'), body: c('Khung bài linh hoạt, bài mẫu và hướng dẫn giúp bạn hiểu bản chất.', 'Flexible frameworks, original samples and guides that explain the why.') }, { icon: Lightbulb, title: c('Biến từ mới thành vốn riêng', 'Make new words yours'), body: c('Lưu cụm từ, cấu trúc và ôn lại theo lịch để ghi nhớ lâu hơn.', 'Save phrases and structures, then review them over time to remember more.') }].map(item => <div key={item.title}><span className="task-icon teal"><item.icon size={25} /></span><h3>{item.title}</h3><p>{item.body}</p></div>)}</section><section className="landing-cta"><Heart size={26} /><h2>{c('Tri thức tốt hơn khi được sẻ chia.', 'Learning is better when it is shared.')}</h2><p>{c('Không gói Premium. Không rào cản học tập. Nếu thấy hữu ích, bạn có thể ủng hộ dự án.', 'No premium tiers. No learning paywalls. If this helps you, you can support the project.')}</p><Link className="button outline" to="/donate">{c('Tìm hiểu về donate', 'About supporting us')}<ArrowUpRight size={17} /></Link></section></main><footer className="landing-footer"><Brand /><span>© 2026 IELTS Writing Studio</span><Link to="/app">{c('Bắt đầu học', 'Start learning')}<ArrowRight size={16} /></Link></footer></div>
-}
-
-export function Tools() {
-  const { c } = useCopy()
-  const { state, signedIn } = useStore()
-  const [tool, setTool] = useState('rewrite')
-  const [text, setText] = useState('')
-  const [prompt, setPrompt] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
-  const [result, setResult] = useState<string[]>([])
-  const tools = [{ id: 'rewrite', title: 'Magic Rewrite', icon: PenLine, body: c('Thử cách diễn đạt rõ ràng hơn, giữ nguyên ý của bạn.', 'Explore clearer phrasing while keeping your original meaning.') }, { id: 'stress', title: 'Argument Stress Test', icon: ShieldCheck, body: c('Tìm điểm yếu và phản biện trong lập luận Task 2.', 'Find weak points and counterarguments in your Task 2 reasoning.') }, { id: 'critical', title: 'Critical Thinking', icon: Lightbulb, body: c('Mở rộng góc nhìn bằng những câu hỏi đúng trọng tâm.', 'Explore perspectives through focused questions.') }]
-  const operation = tool === 'rewrite' ? 'magic-rewrite' : tool === 'stress' ? 'argument-stress-test' : 'critical-thinking'
-
-  async function run() {
-    setError('')
-    setResult([])
-    if (!signedIn) { setError(c('Hãy đăng nhập để dùng công cụ AI.', 'Sign in to use the AI tools.')); return }
-    setBusy(true)
-    const started = await runWritingTool({ operation, text: text.trim(), prompt: prompt.trim() || undefined })
-    if (!started.ok) { setBusy(false); setError(c(...AI_ERROR_MESSAGES[started.code])); return }
-    const finished = await pollToolResult(started.value.jobId, operation)
-    setBusy(false)
-    if (!finished.ok) { setError(c(...AI_ERROR_MESSAGES[finished.code])); return }
-    setResult(finished.value)
-  }
-
-  return <><PageHeader eyebrow={c('THÊM MỘT GÓC NHÌN CHO Ý TƯỞNG', 'A FRESH PERSPECTIVE ON YOUR IDEAS')} title={c('Bộ công cụ AI', 'Your AI toolkit')} description={c('Giữ tiếng nói của bạn. Làm rõ cách diễn đạt và lập luận.', 'Keep your voice. Sharpen your expression and reasoning.')} /><div className="tool-grid">{tools.map(item => <button className={`panel tool-card ${tool === item.id ? 'selected' : ''}`} key={item.id} aria-pressed={tool === item.id} onClick={() => { setTool(item.id); setError(''); setResult([]) }}><span className="task-icon teal"><item.icon size={24} /></span><h3>{item.title}</h3><p>{item.body}</p></button>)}</div><div className="panel tool-workspace"><h2>{tools.find(item => item.id === tool)?.title}</h2><label>{c('Chọn từ bài đã lưu', 'Use a saved draft')}<select defaultValue="" onChange={event => { const draft = state.drafts.find(item => item.id === event.target.value); if (draft) { setText(draft.text); setPrompt(draft.prompt) } }}><option value="">{c('Hoặc tự nhập bên dưới…', 'Or enter text below…')}</option>{state.drafts.map(draft => <option key={draft.id} value={draft.id}>{draft.title || c('Bài viết chưa đặt tên', 'Untitled draft')}</option>)}</select></label>{tool !== 'rewrite' && <label>{c('Đề bài / câu hỏi', 'Task prompt / question')}<textarea rows={3} value={prompt} onChange={event => setPrompt(event.target.value)} maxLength={6000} /></label>}<label>{tool === 'rewrite' ? c('Đoạn muốn viết lại', 'Passage to rewrite') : c('Lập luận của bạn', 'Your argument')}<textarea rows={8} maxLength={30000} value={text} onChange={event => setText(event.target.value)} placeholder={c('Dán nội dung tiếng Anh tại đây…', 'Paste your English text here…')} /></label><button className="button primary" disabled={!text.trim() || (tool !== 'rewrite' && !prompt.trim()) || busy} onClick={() => void run()}><Sparkles size={17} />{busy ? c('Đang xử lý…', 'Working…') : c('Khám phá cùng AI', 'Explore with AI')}</button>{error && <Notice error>{error}</Notice>}{result.length > 0 && <section className="panel grading-panel"><span className="eyebrow">{c('KẾT QUẢ', 'RESULT')}</span><ul className="grading-list">{result.map((line, index) => <li key={`${line}-${index}`}>{line}</li>)}</ul></section>}<p className="helper-text">{c('Nội dung bạn nhập sẽ được gửi tới nhà cung cấp AI để xử lý.', 'The text you enter is sent to the AI provider for processing.')}</p></div></>
+  return <div className="landing">
+    <a href="#landing-main" className="skip-link">{c('Đến nội dung', 'Skip to content')}</a>
+    <header className="landing-nav">
+      <Brand />
+      <nav aria-label={c('Điều hướng chính', 'Main navigation')}>
+        <Link to="/app/prompts">{c('Kho đề bài', 'Prompt library')}</Link>
+        <LanguageSwitch />
+        <Link className="button outline" to="/app">{c('Vào học ngay', 'Open studio')}<ArrowUpRight size={16} /></Link>
+      </nav>
+    </header>
+    <main id="landing-main">
+      <div className="landing-stage">
+        <section className="landing-intro">
+          <span className="landing-kicker"><span className="small-dot" />{c('KHÔNG GIAN CHO BƯỚC TIẾN MỚI', 'A LITTLE BETTER. EVERY DAY.')}</span>
+          <h1>{c('Ý tưởng của bạn.', 'Your ideas.')}<br />{c('Diễn đạt ', 'Beautifully ')}<em>{c('tốt hơn.', 'expressed.')}</em></h1>
+          <p>{c('Từ ý tưởng đầu tiên đến bài viết bạn tự hào. Luyện IELTS Writing, khám phá cách viết hay và xây dựng vốn từ của riêng bạn.', 'From your first idea to an essay you are proud of. Practise IELTS Writing, discover great writing and build a vocabulary of your own.')}</p>
+          <div className="button-row">
+            <Link className="button primary large" to="/app/write">{c('Bắt đầu viết', 'Start writing')}<ArrowRight size={18} /></Link>
+            <Link className="button outline large" to="/app/essays/demo">{c('Xem bài mẫu', 'Explore sample feedback')}<ArrowUpRight size={17} /></Link>
+          </div>
+          <div className="landing-perks"><span><Check size={15} />{c('Miễn phí học tập', 'Free to learn')}</span><span><Check size={15} />Task 1 & Task 2</span><span><Check size={15} />VI / EN</span></div>
+          <a className="landing-explore" href="#learning-path">{c('Khám phá cách học', 'Find your learning flow')}<ArrowRight size={16} /></a>
+        </section>
+        <section className="studio-preview" aria-label={c('Xem trước không gian viết', 'Writing studio preview')}>
+          <div className="studio-toolbar"><span><i /><i /><i /></span><span>WRITING STUDIO</span><PenLine size={15} /></div>
+          <div className="studio-body">
+            <div className="studio-meta"><span>ACADEMIC · TASK 2</span><span>{c('Bài viết minh họa', 'Sample essay')}</span></div>
+            <h2>{c('Một trang trắng.', 'A blank page.')}<br /><span>{c('Vô vàn khả năng.', 'Endless possibilities.')}</span></h2>
+            <p className="studio-prompt">{c('Giáo dục trực tuyến có thể thay thế lớp học truyền thống?', 'Can online education replace the traditional classroom?')}</p>
+            <div className="studio-excerpt" lang="en">Education is no longer confined to the classroom. <mark>As technology continues to evolve,</mark> learners have more opportunities to shape their own journey.</div>
+            <div className="studio-insight"><Sparkles size={19} /><div><strong>{c('Mỗi câu viết, một bước tiến.', 'One sentence. One step forward.')}</strong><p>{c('Luyện cách nối ý, chọn từ và diễn đạt rõ ràng hơn.', 'Practise connecting ideas, choosing words and writing with clarity.')}</p></div></div>
+            <Link className="button primary full" to="/app/write">{c('Viết câu đầu tiên của bạn', 'Write your first sentence')}<ArrowRight size={17} /></Link>
+          </div>
+          <div className="studio-bottom"><span><ShieldCheck size={14} />{c('Học theo nhịp của bạn', 'Learn at your own pace')}</span><span>IELTS Writing</span></div>
+        </section>
+      </div>
+      <section className="landing-learning" id="learning-path">
+        <div className="landing-section-heading"><span className="eyebrow">{c('TỪNG BƯỚC, MỖI NGÀY', 'BUILD YOUR WRITING RITUAL')}</span><h2>{c('Một nơi. Trọn vẹn hành trình.', 'Your whole journey, in one place.')}</h2><p>{c('Viết, khám phá, ghi nhớ. Chọn bước tiếp theo của bạn.', 'Write, explore, remember. Choose your next step.')}</p></div>
+        <div className="landing-features">{[
+          { icon: PenLine, path: '/app/write', title: c('Viết với mục đích', 'Write with purpose'), body: c('Luyện biểu đồ, thư và luận. Giữ dòng ý tưởng với nháp tự lưu.', 'Practise charts, letters and essays. Keep your ideas flowing with autosaved drafts.'), action: c('Mở không gian viết', 'Open your writing space') },
+          { icon: ClipboardList, path: '/app/prompts', title: c('Chọn đề ngay', 'Pick a prompt'), body: c('Kho đề bài sẵn có đề Task 1 và Task 2 kèm hình ảnh và đề bài đầy đủ.', 'The prompt library holds ready Task 1 and Task 2 questions with charts and full task text.'), action: c('Mở kho đề bài', 'Open the prompt library') },
+          { icon: Lightbulb, path: '/app/vocabulary', title: c('Biến từ mới thành vốn riêng', 'Make new words yours'), body: c('Lưu cụm từ, cấu trúc và ôn tập theo lịch để ghi nhớ lâu hơn.', 'Save phrases and structures, then revisit them over time to remember more.'), action: c('Mở sổ từ vựng', 'Build your vocabulary') },
+        ].map((item, index) => <Link to={item.path} className="landing-feature" key={item.path}><div className="feature-top"><item.icon size={23} /><span>0{index + 1}</span></div><h3>{item.title}</h3><p>{item.body}</p><span className="feature-action">{item.action}<ArrowUpRight size={17} /></span></Link>)}</div>
+      </section>
+      <section className="landing-cta"><Heart size={24} /><span className="eyebrow">{c('CÙNG NHAU TIẾN XA', 'ROOM FOR EVERYONE')}</span><h2>{c('Tri thức tốt hơn khi được sẻ chia.', 'Learning is better when it is shared.')}</h2><p>{c('Không gói Premium. Không rào cản học tập. Một không gian để bạn tiến bộ mỗi ngày.', 'No premium tiers. No learning paywalls. A space to grow a little every day.')}</p><Link className="button outline" to="/donate">{c('Ủng hộ dự án', 'Support the project')}<ArrowUpRight size={16} /></Link></section>
+    </main>
+    <footer className="landing-footer"><Brand /><span>© 2026 IELTS Writing Studio</span><Link to="/app">{c('Bắt đầu học', 'Start learning')}<ArrowUpRight size={16} /></Link></footer>
+  </div>
 }
 
 export function Donate() {

@@ -1,4 +1,4 @@
-import { chromium } from 'playwright'
+﻿import { chromium } from 'playwright'
 import AxeBuilder from '@axe-core/playwright'
 import assert from 'node:assert/strict'
 
@@ -9,7 +9,7 @@ const page = await context.newPage()
 const failures = []
 try {
   for (const theme of ['light', 'dark']) {
-    for (const route of ['/app', '/app/write', '/app/prompts', '/library', '/app/vocabulary', '/guide', '/auth']) {
+    for (const route of ['/app', '/app/write', '/app/prompts', '/app/vocabulary', '/app/essays', '/auth']) {
       await page.goto(`${base}${route}`)
       await page.evaluate(value => { localStorage.setItem('ielts-theme', value) }, theme)
       await page.reload()

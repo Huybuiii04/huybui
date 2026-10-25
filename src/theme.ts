@@ -5,12 +5,12 @@ export type ResolvedTheme = 'light' | 'dark'
 
 const storageKey = 'ielts-theme'
 const listeners = new Set<() => void>()
-let preference: ThemePreference = 'system'
+let preference: ThemePreference = 'dark'
 
 try {
   const stored = localStorage.getItem(storageKey)
   if (stored === 'light' || stored === 'dark' || stored === 'system') preference = stored
-} catch { /* Browser storage may be disabled; fall back to the system theme. */ }
+} catch { /* Browser storage may be disabled; use the default dark theme. */ }
 
 function systemTheme(): ResolvedTheme {
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
