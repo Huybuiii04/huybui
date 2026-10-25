@@ -38,7 +38,7 @@ const publicUrl = `${url}/storage/v1/object/public/donation-media/${name}`
 const settings = {
   id: true,
   methods: [
-    { label: 'MB Bank · VietQR', value: '8888282222', note: 'BUI DINH ANH HUY' },
+    { label: 'MB Bank · VietQR', value: '88882822222', note: 'BUI DINH ANH HUY' },
   ],
   instructions: {
     vi: 'Mở ứng dụng ngân hàng, chọn quét mã QR và kiểm tra đúng số tài khoản trước khi chuyển. Mọi đóng góp đều tự nguyện.',
