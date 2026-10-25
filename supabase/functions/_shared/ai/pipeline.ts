@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { AnthropicError, PRICING_VERSION, requestStructured } from "../anthropic.ts";
 import { AppError, databaseError } from "../http.ts";
-import { buildCacheKey, sha256Hex } from "../jobs.ts";
+import { buildCacheKey, findQuote, sha256Hex } from "../jobs.ts";
 import { buildEnrichmentPrompt, buildGradingPrompt, buildToolPrompt, ENRICHMENT_PROMPT_VERSION, GRADING_PROMPT_VERSION, RUBRIC_VERSION, TOOL_PROMPT_VERSION } from "../prompts.ts";
 import type { WritingToolOperation } from "../schemas.ts";
 import { loadAssetImages, type EssayAssetRow } from "../storage.ts";
@@ -147,7 +147,7 @@ async function runGrading(service: SupabaseClient, job: ClaimedJob): Promise<str
       system: prompt.system,
       messages: prompt.messages,
       schema: GRADING_JSON_SCHEMA as Record<string, unknown>,
-      maxTokens: 6_000,
+      maxTokens: 8_000,
       repairInstruction: "Repair this grading output. Return exactly four task-appropriate criteria and valid JSON only.",
       validate: (value) => buildGradingResult(value as GradingModelOutput, {
         taskType: revision.task_type,
@@ -201,6 +201,17 @@ async function runEnrichment(service: SupabaseClient, job: ClaimedJob): Promise<
   });
   await insertUsageRows(service, job.job_id, structured.calls);
 
+  // Nhật ký số lượng phản hồi theo nhóm — giúp chẩn đoán nhanh khi khối
+  // "Lỗi sai cần sửa" hoặc "Từ vựng nâng cao" bị trống.
+  console.log(JSON.stringify({
+    event: "enrich_output",
+    jobId: job.job_id,
+    errors: structured.value.errors.length,
+    grammar: structured.value.grammar.examples.length,
+    lexical: structured.value.lexical.examples.length,
+    unnatural: structured.value.unnatural.length,
+  }));
+
   const featureWrite = await service.from("essay_features").upsert({
     revision_id: job.revision_id,
     model,
@@ -215,19 +226,28 @@ async function runEnrichment(service: SupabaseClient, job: ClaimedJob): Promise<
   if (featureWrite.error) throw databaseError("save the essay features");
 
   for (const error of structured.value.errors) {
-    if (!revision.essay_text.includes(error.quote)) continue;
-    const fingerprint = await sha256Hex(`${error.criterion}|${error.category}|${error.quote}`);
-    const errorWrite = await service.from("error_logs").upsert({
-      user_id: job.user_id,
-      revision_id: job.revision_id,
-      fingerprint,
-      criterion: error.criterion,
-      category: error.category,
-      quote: error.quote,
-      correction: error.correction,
-      explanation: error.explanation,
-      skill_tags: error.skill_tags,
-    }, { onConflict: "revision_id,fingerprint" });
+    // Quote phải là đoạn thật trong bài. Model hay trích gần đúng (khác
+    // khoảng trắng/hoa thường) nên so khớp tuyệt đối thường rơi lỗi —
+    // dùng `findQuote` để chấp nhận cả biến thể gần đúng.
+    const found = findQuote(revision.essay_text, error.quote);
+    if (!found) continue;
+    const quote = revision.essay_text.slice(found.start, found.end);
+    const fingerprint = await sha256Hex(`${error.criterion}|${error.category}|${quote}`);
+    const errorWrite = await service
+      .from("error_logs")
+      .upsert({
+        user_id: job.user_id,
+        revision_id: job.revision_id,
+        fingerprint,
+        criterion: error.criterion,
+        category: error.category,
+        quote,
+        correction: error.correction,
+        explanation: error.explanation,
+        skill_tags: error.skill_tags,
+      }, { onConflict: "revision_id,fingerprint" })
+      .select("id")
+      .maybeSingle();
     if (errorWrite.error) throw databaseError("save the error suggestions");
   }
 }
@@ -338,20 +358,27 @@ async function useCachedResult(
     if (features.error) throw databaseError("load the cached essay features");
     if (!features.data) return null;
     if (!job.revision_id) return null;
+    const sourceErrors = await service
+      .from("error_logs")
+      .select("fingerprint,criterion,category,quote,correction,explanation,skill_tags")
+      .eq("revision_id", source.data.revision_id);
+    if (sourceErrors.error) throw databaseError("load the cached error suggestions");
+    // Bản cache tạo trước khi sửa lỗi không có error_logs — dùng làm nguồn
+    // sao chép thì bài mới cũng mất góp ý. Bỏ qua cache, chạy lại model.
+    if (!(sourceErrors.data ?? []).length) return null;
     const copy = await service.from("essay_features").upsert({
       revision_id: job.revision_id,
       model: features.data.model,
       structure: features.data.structure,
       lexical: features.data.lexical,
       grammar: features.data.grammar,
+      // Ba nhóm phản hồi sâu — thiếu chúng thì bản sao cache mất dữ liệu.
+      unnatural: features.data.unnatural,
+      vocabulary_plan: features.data.vocabulary_plan,
+      band_plan: features.data.band_plan,
       schema_version: features.data.schema_version,
     }, { onConflict: "revision_id" }).select("model").maybeSingle();
     if (copy.error) throw databaseError("copy the cached essay features");
-    const sourceErrors = await service
-      .from("error_logs")
-      .select("fingerprint,criterion,category,quote,correction,explanation,skill_tags")
-      .eq("revision_id", source.data.revision_id);
-    if (sourceErrors.error) throw databaseError("load the cached error suggestions");
     for (const sourceError of sourceErrors.data ?? []) {
       const copiedError = await service.from("error_logs").upsert({
         user_id: job.user_id,
@@ -756,9 +783,15 @@ function requiredModel(environment: string): string {
   return model;
 }
 
+/**
+ * Task 2 không bao giờ cần "reference data" — dữ liệu tham chiếu chỉ dùng cho
+ * Task 1 (số liệu biểu đồ). Trước đây điều kiện này áp dụng cho mọi loại bài
+ * nên Task 2 có reference_data rỗng vẫn bị coi là thiếu dữ liệu.
+ */
 function missingReference(revision: RevisionRow, assets: EssayAssetRow[]): boolean {
+  if (revision.task_type !== "academic_task1") return false;
   if (!revision.prompt_text.trim() && assets.length === 0) return true;
-  if (revision.task_type === "academic_task1" && !revision.reference_data.trim() && assets.length === 0) return true;
+  if (!revision.reference_data.trim() && assets.length === 0) return true;
   return false;
 }
 

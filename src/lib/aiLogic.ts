@@ -125,11 +125,18 @@ export function isTerminalJobStatus(status: JobStatus): boolean {
 
 export type CriterionName = 'task_achievement' | 'task_response' | 'coherence_ability' | 'lexical_resource' | 'grammatical_range'
 
+/**
+ * Một dẫn chứng trong bài. Backend lưu kèm vị trí để tô đậm; bản cũ chỉ có chuỗi.
+ */
+export type EvidenceQuote = { text: string; start: number; end: number; paragraphIndex: number }
+
 export type CriterionFeedback = {
   score: number
   rationale: string
-  evidence: string[]
+  evidence: Array<EvidenceQuote | string>
   improvements: string[]
+  /** Vì sao chưa đạt band cao hơn — do cơ chế "band floor" của IELTS sinh ra. */
+  floorReasoning?: string
 }
 
 export type TaskCheck = { requirement: string; status: 'met' | 'partial' | 'not_met' | 'not_applicable'; note: string }
@@ -184,6 +191,16 @@ export const CRITERION_SHORT: Record<CriterionName, string> = {
   grammatical_range: 'GRA',
 }
 
+/** Lấy phần chữ của dẫn chứng — chấp nhận cả object (bản mới) và string (bản cũ). */
+export function evidenceText(evidence: Array<EvidenceQuote | string> | undefined): string[] {
+  if (!Array.isArray(evidence)) return []
+  return evidence.flatMap(item => {
+    if (typeof item === 'string') return item ? [item] : []
+    if (!item || typeof item !== 'object') return []
+    return typeof item.text === 'string' && item.text ? [item.text] : []
+  })
+}
+
 /** Chuyển hàng `grading_results` thành model hiển thị. */
 export function gradingViewFromRow(row: GradingRow | null | undefined, _task = 'task2'): GradingView | null {
   if (!row) return null
@@ -202,7 +219,7 @@ export function gradingViewFromRow(row: GradingRow | null | undefined, _task = '
     overallDisplay: row.overall_display ?? null,
     overallRaw: row.overall_raw ?? null,
     scores,
-    criteria,
+    criteria: normalizeCriteria(criteria),
     summary: typeof feedback.summary === 'string' ? feedback.summary : '',
     strengths: stringArray(feedback.strengths),
     priorityActions: stringArray(feedback.priority_actions),
@@ -211,6 +228,24 @@ export function gradingViewFromRow(row: GradingRow | null | undefined, _task = '
     model: row.model,
     createdAt: row.created_at ?? null,
   }
+}
+
+/** Đổi `floor_reasoning` (snake_case trong DB) sang `floorReasoning`. */
+function normalizeCriteria(criteria: Record<string, CriterionFeedback>): Record<string, CriterionFeedback> {
+  const output: Record<string, CriterionFeedback> = {}
+  for (const [name, detail] of Object.entries(criteria)) {
+    if (!detail || typeof detail !== 'object') continue
+    const record = detail as unknown as Record<string, unknown>
+    const floor = record.floorReasoning ?? record.floor_reasoning
+    output[name] = {
+      score: typeof detail.score === 'number' ? detail.score : 0,
+      rationale: typeof detail.rationale === 'string' ? detail.rationale : '',
+      evidence: Array.isArray(detail.evidence) ? detail.evidence : [],
+      improvements: stringArray(detail.improvements),
+      floorReasoning: typeof floor === 'string' && floor ? floor : undefined,
+    }
+  }
+  return output
 }
 
 function stringArray(value: unknown): string[] {

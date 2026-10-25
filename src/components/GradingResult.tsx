@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { BookMarked, CheckCircle2, CircleAlert, Lightbulb, ListChecks, Route, Sparkles, Target, TriangleAlert } from 'lucide-react'
 import { useCopy } from '../i18n'
-import { CRITERION_LABELS, CRITERION_SHORT, criteriaForTask, type CriterionName, type ErrorLogEntry, type EssayFeatures, type GradingView, type TaskCheck } from '../lib/aiLogic.ts'
+import { CRITERION_LABELS, CRITERION_SHORT, criteriaForTask, evidenceText, type CriterionName, type ErrorLogEntry, type EssayFeatures, type GradingView, type TaskCheck } from '../lib/aiLogic.ts'
 import { VocabularyCardDialog, type NewCardValues } from './VocabularyCardDialog'
 
 const CHECK_LABEL: Record<TaskCheck['status'], readonly [string, string]> = {
@@ -165,8 +165,9 @@ export function GradingResult({
               <span className="grading-criterion-score">{detail.score.toFixed(1)}</span>
             </button>
             {expanded && <div className="grading-criterion-body">
-              {detail.evidence.length > 0 && <div><span className="eyebrow">{c('DẪN CHỨNG TRONG BÀI', 'EVIDENCE FROM YOUR WRITING')}</span><ul className="grading-list">{detail.evidence.map(item => <li key={item}><CheckCircle2 size={15} />{item}</li>)}</ul></div>}
+              {evidenceText(detail.evidence).length > 0 && <div><span className="eyebrow">{c('DẪN CHỨNG TRONG BÀI', 'EVIDENCE FROM YOUR WRITING')}</span><ul className="grading-list">{evidenceText(detail.evidence).map((item, index) => <li key={index}><CheckCircle2 size={15} />{item}</li>)}</ul></div>}
               {detail.improvements.length > 0 && <div><span className="eyebrow">{c('CẢI THIỆN ĐỀ XUẤT', 'SUGGESTED IMPROVEMENTS')}</span><ul className="grading-list">{detail.improvements.map(item => <li key={item}><CircleAlert size={15} />{item}</li>)}</ul></div>}
+              {detail.floorReasoning && <div><span className="eyebrow">{c('VÌ SAO CHƯA ĐẠT BAND CAO HƠN', 'WHY NOT A HIGHER BAND')}</span><p className="grading-rationale">{detail.floorReasoning}</p></div>}
             </div>}
           </article>
         })}

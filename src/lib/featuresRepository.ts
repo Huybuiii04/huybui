@@ -41,7 +41,7 @@ export async function fetchAllErrorLogs(limit = 200): Promise<ErrorLogEntry[]> {
  */
 export async function pollEssayFeatures(
   revisionId: string,
-  timeoutMs = 45_000,
+  timeoutMs = 90_000,
   intervalMs = 3_000,
 ): Promise<{ features: EssayFeatures | null; errors: ErrorLogEntry[] }> {
   const deadline = Date.now() + timeoutMs

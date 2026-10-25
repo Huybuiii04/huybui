@@ -6,6 +6,7 @@ import {
   buildStructuredSystemPrompt,
   classifyProviderError,
   extractTextContent,
+  parseProviderBody,
   parseRetryAfter,
 } from "../anthropic.ts";
 
@@ -34,6 +35,23 @@ describe("Anthropic response handling", () => {
       { type: "text", text: "{\"ok\":true}" },
     ]);
     assert.equal(text, "{\"ok\":true}");
+  });
+
+  it("parses a plain JSON body", () => {
+    assert.deepEqual(parseProviderBody('{"ok":true}'), { ok: true });
+  });
+
+  it("skips the proxy heartbeat that precedes the JSON body", () => {
+    const body = parseProviderBody(': PING\n\n{"content":[{"type":"text","text":"hi"}]}');
+    assert.deepEqual(body, { content: [{ type: "text", text: "hi" }] });
+  });
+
+  it("throws when there is no JSON at all", () => {
+    assert.throws(() => parseProviderBody(": PING"), SyntaxError);
+  });
+
+  it("treats an empty body as an empty object", () => {
+    assert.deepEqual(parseProviderBody(""), {});
   });
 });
 

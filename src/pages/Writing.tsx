@@ -9,9 +9,9 @@ import { Notice, PageHeader } from '../components/ui'
 import { GradingResult } from '../components/GradingResult'
 import { ChartPreview, type ChartSpec } from '../components/ChartPreview'
 import { AI_ERROR_MESSAGES, type GradingView } from '../lib/aiLogic.ts'
-import { pollEssayFeatures } from '../lib/featuresRepository'
+import { pollEssayFeatures, fetchEssayFeatures, fetchErrorLogs, fetchLatestRevisionId } from '../lib/featuresRepository'
 import type { ErrorLogEntry, EssayFeatures } from '../lib/aiLogic.ts'
-import { pollGrading, pollToolResult, retryJob, runWritingTool, submitEssay } from '../lib/ai.ts'
+import { pollGrading, pollToolResult, retryJob, runWritingTool, submitEssay, fetchLatestGrading } from '../lib/ai.ts'
 
 /**
  * Đề bài đã chọn. Cột trái của không gian viết hiển thị read-only
@@ -86,6 +86,7 @@ function Editor({ id, existing, task, promptSlug, customId, mode }: { id: string
   const [features, setFeatures] = useState<EssayFeatures | null>(null)
   const [errorLogs, setErrorLogs] = useState<ErrorLogEntry[]>([])
   const [reviewing, setReviewing] = useState(false)
+  const [restoring, setRestoring] = useState(false)
   const [lastJobId, setLastJobId] = useState<string | null>(null)
   const version = useRef(existing?.updatedAt ?? 0)
   const latest = useRef(draft)
@@ -94,6 +95,10 @@ function Editor({ id, existing, task, promptSlug, customId, mode }: { id: string
   const persisted = useRef(false)
   /** Người dùng đã tự đặt tên bài → không tự đổi tiêu đề theo ngôn ngữ nữa. */
   const renamed = useRef(false)
+  /** Revision mà kết quả đang hiện lên màn hình — dùng để biết kết quả là của bản nào. */
+  const shownRevision = useRef<string | null>(null)
+  /** Tăng mỗi lần người dùng bấm "Chấm bài" — để kết quả cũ không đè lên kết quả mới. */
+  const gradingEpoch = useRef(0)
   latest.current = draft
 
   /**
@@ -101,7 +106,10 @@ function Editor({ id, existing, task, promptSlug, customId, mode }: { id: string
    * false khi lỗi hoặc có một lần lưu khác đang chạy.
    */
   async function save() {
-    if (!dirty.current) return true
+    // Ảnh đề chưa đồng bộ vẫn phải được thử lại: nếu lần lưu trước thất bại
+    // (chưa có essayId) thì bỏ qua sẽ khiến Task 1 không có ảnh để chấm.
+    const pendingImages = latest.current.images.some(image => !image.synced)
+    if (!dirty.current && !pendingImages) return true
     if (saving.current) return false
     saving.current = true
     const snapshot = latest.current
@@ -137,6 +145,41 @@ function Editor({ id, existing, task, promptSlug, customId, mode }: { id: string
     persisted.current = true
     void persistInitial()
   }, [ready, existing])
+
+  /**
+   * Mở lại bài đã chấm: nạp kết quả + phản hồi sâu đã lưu trong database.
+   * Không có bước này thì kết quả chỉ hiện trong phiên chấm vừa rồi —
+   * tải lại trang là mất, dù dữ liệu vẫn còn trong DB.
+   */
+  useEffect(() => {
+    if (!ready || !signedIn || !existing) return
+    const ref = remoteRef(id)
+    if (!ref) return
+    // StrictMode chạy effect hai lần: lần một bị huỷ, lần hai phải chạy lại
+    // được. Vì vậy không chặn bằng cờ "đã nạp", mà so epoch để không đè
+    // lên kết quả mới hơn khi người dùng vừa bấm "Chấm bài".
+    const epoch = gradingEpoch.current
+    let active = true
+    setRestoring(true)
+    void (async () => {
+      const view = await fetchLatestGrading(ref.essayId, existing.task)
+      const revisionId = await fetchLatestRevisionId(ref.essayId)
+      if (!active || epoch !== gradingEpoch.current) return
+      if (view) {
+        setGrading(view)
+        setGradingState('done')
+        shownRevision.current = revisionId
+      }
+      if (revisionId) {
+        const [loadedFeatures, loadedErrors] = await Promise.all([fetchEssayFeatures(revisionId), fetchErrorLogs(revisionId)])
+        if (!active || epoch !== gradingEpoch.current) return
+        setFeatures(loadedFeatures)
+        setErrorLogs(loadedErrors)
+      }
+      setRestoring(false)
+    })()
+    return () => { active = false }
+  }, [ready, signedIn, existing?.id, state.drafts.length, remoteRef, id])
 
   async function persistInitial() {
     if (saving.current) return
@@ -237,6 +280,7 @@ function Editor({ id, existing, task, promptSlug, customId, mode }: { id: string
     setAiError('')
     if (!signedIn) { setAiError(c('Hãy đăng nhập để nhận nhận xét.', 'Sign in to receive feedback.')); return }
     if (!draft.text.trim() || !draft.prompt.trim()) { setAiError(c('Cần có cả đề bài và nội dung bài viết.', 'Both the task prompt and your writing are needed.')); return }
+    gradingEpoch.current += 1
     setGradingState('saving')
     const saved = await saveWhenIdle()
     if (!saved) { setGradingState('error'); setAiError(c('Chưa lưu được bài viết. Hãy lưu lại rồi thử.', 'The essay could not be saved. Save it and try again.')); return }
@@ -250,6 +294,7 @@ function Editor({ id, existing, task, promptSlug, customId, mode }: { id: string
     if (!result.ok) { setGradingState('error'); setAiError(c(...AI_ERROR_MESSAGES[result.code])); return }
     setGrading(result.value.view)
     setGradingState('done')
+    shownRevision.current = submitted.value.revisionId
     // Pipeline enrich chạy sau vài giây — chờ để có lỗi sai, lộ trình lên band và từ vựng.
     setReviewing(true)
     void pollEssayFeatures(submitted.value.revisionId).then(payload => {
@@ -288,6 +333,8 @@ function Editor({ id, existing, task, promptSlug, customId, mode }: { id: string
 
   const words = countWords(draft.text)
   const minimum = draft.task === 'task2' ? 250 : 150
+  /** Kết quả đang hiện là của bản cũ hơn nội dung hiện tại. */
+  const staleResult = Boolean(grading && shownRevision.current && dirty.current)
   const taskLabel = TASK_LABELS[draft.task] ?? 'Task 2'
   const taskImage = activeSeed?.chart?.kind === 'image' ? activeSeed.chart.url : activeSeed?.image
   const chartSpec = activeSeed?.chart && activeSeed.chart.kind !== 'image' ? activeSeed.chart : undefined
@@ -325,8 +372,10 @@ function Editor({ id, existing, task, promptSlug, customId, mode }: { id: string
     {gradingState === 'error' && lastJobId && <button className="button outline" onClick={() => void retry()}><RefreshCw size={16} />{c('Thử lại', 'Try again')}</button>}
     {imageReading === 'done' && imageData.length > 0 && <section className="panel grading-panel"><span className="eyebrow">{c('DỮ LIỆU ĐỌC TỪ ẢNH', 'DATA READ FROM THE IMAGE')}</span><ul className="grading-list">{imageData.map((line, index) => <li key={`${line}-${index}`}>{line}</li>)}</ul><button className="button outline full" onClick={() => change({ reference: imageData.join('\n') })}><Check size={16} />{c('Chèn vào dữ liệu tham chiếu', 'Insert into reference data')}</button></section>}
     {gradingState === 'queued' && <Notice>{c('Bài đang được chấm. Kết quả sẽ hiện ngay sau khi AI xử lý xong.', 'Your essay is being assessed. The result appears as soon as the AI finishes.')}</Notice>}
+    {restoring && <p className="helper-text" role="status"><Sparkles size={14} />{c('Đang tải kết quả đã chấm…', 'Loading your saved feedback…')}</p>}
     {reviewing && <p className="helper-text" role="status"><Sparkles size={14} />{c('Đang rà soát lỗi và từ vựng…', 'Reviewing mistakes and vocabulary…')}</p>}
-    {grading && !features && !reviewing && <p className="helper-text">{c('Chưa có dữ liệu rà soát thêm cho bài này.', 'No extra review data is available for this essay yet.')}</p>}
+    {grading && !features && !reviewing && !restoring && <p className="helper-text">{c('Chưa có dữ liệu rà soát thêm cho bài này.', 'No extra review data is available for this essay yet.')}</p>}
+    {grading && staleResult && <p className="helper-text"><Save size={14} />{c('Đây là kết quả của lần chấm trước. Bấm "Chấm bài" để chấm lại bản vừa sửa.', 'This is the result of your previous assessment. Use "Get feedback" to assess the version you just edited.')}</p>}
     {grading && <GradingResult view={grading} task={draft.task} features={features} errors={errorLogs} onAddCard={addCard} />}
     <p className="helper-text">{signedIn ? c('Nháp được đồng bộ tới tài khoản của bạn.', 'Drafts are synced to your account.') : c('Nháp và ảnh chỉ lưu trên trình duyệt này. Hãy đăng nhập để đồng bộ và nhận nhận xét.', 'Drafts and images are stored only in this browser. Sign in to sync and receive feedback.')}</p>
     {zoom && <div className="modal-backdrop image-lightbox" role="dialog" aria-modal="true" aria-label={c('Ảnh đề bài', 'Task image')} onClick={() => setZoom('')}><button type="button" className="icon-button image-lightbox-close" aria-label={c('Đóng', 'Close')} onClick={() => setZoom('')}><X size={20} /></button><img src={zoom} alt={seedTitle || c('Ảnh đề bài', 'Task image')} /></div>}

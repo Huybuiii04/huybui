@@ -5,6 +5,7 @@ import {
   buildCacheKey,
   computeOverall,
   countWords,
+  findQuote,
   sha256Hex,
   stableStringify,
   verifyEvidence,
@@ -80,5 +81,45 @@ describe("job helpers", () => {
         paragraphIndex: 1,
       },
     ]);
+  });
+});
+
+const essay = `The rise of remote work has transformed the modern workplace.
+
+Workers no longer need to spend hours travelling to an office every day.
+
+On balance, I believe that the advantages outweigh the drawbacks.`;
+
+describe("finding quotes inside the essay", () => {
+  it("finds an exact quote", () => {
+    const found = findQuote(essay, "spend hours travelling");
+    assert.ok(found);
+    assert.equal(essay.slice(found.start, found.end), "spend hours travelling");
+  });
+
+  it("finds a quote that differs only in capitalisation", () => {
+    const found = findQuote(essay, "ON BALANCE, I BELIEVE");
+    assert.ok(found);
+    assert.equal(essay.slice(found.start, found.end).startsWith("On balance"), true);
+  });
+
+  it("finds a quote that differs only in whitespace", () => {
+    const found = findQuote(essay, "On balance,   I believe that the advantages outweigh the drawbacks.");
+    assert.ok(found);
+    assert.equal(
+      essay.slice(found.start, found.end),
+      "On balance, I believe that the advantages outweigh the drawbacks.",
+    );
+  });
+
+  it("returns null for a quote that is not in the essay", () => {
+    assert.equal(findQuote(essay, "completely different sentence"), null);
+    assert.equal(findQuote(essay, "   "), null);
+  });
+
+  it("keeps the real essay text as the evidence", () => {
+    const locations = verifyEvidence(essay, ["ON BALANCE, I BELIEVE"]);
+    assert.equal(locations.length, 1);
+    assert.equal(locations[0].text, "On balance, I believe");
   });
 });

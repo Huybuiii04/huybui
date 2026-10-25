@@ -151,9 +151,9 @@ export const ENRICHMENT_JSON_SCHEMA = {
       items: {
         type: "object",
         additionalProperties: false,
-        required: ["fingerprint", "criterion", "category", "quote", "correction", "explanation", "skill_tags"],
+        // `fingerprint` do server tự tính — không bắt model bịa ra.
+        required: ["criterion", "category", "quote", "correction", "explanation", "skill_tags"],
         properties: {
-          fingerprint: { type: "string" },
           criterion: { type: "string" },
           category: { type: "string" },
           quote: { type: "string" },
@@ -331,12 +331,39 @@ export function coerceEnrichmentOutput(value: unknown): EnrichmentOutput {
   };
 }
 
+/**
+ * Một số model (và proxy ở giữa) trả mảng/object dưới dạng **chuỗi JSON**.
+ * Thử parse một lần; hỏng thì coi như không có dữ liệu — không throw.
+ */
 function asArray(value: unknown): unknown[] {
-  return Array.isArray(value) ? value : [];
+  if (Array.isArray(value)) return value;
+  const parsed = tryParseJson(value);
+  return Array.isArray(parsed) ? parsed : [];
 }
 
 function asRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+  if (value && typeof value === "object" && !Array.isArray(value)) return value as Record<string, unknown>;
+  const parsed = tryParseJson(value);
+  return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : {};
+}
+
+function tryParseJson(value: unknown): unknown {
+  if (typeof value !== "string") return undefined;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(value.trim());
+  } catch {
+    return undefined;
+  }
+  // Model đôi khi bọc hai lần: chuỗi trong chuỗi. Bóc tiếp nếu còn.
+  if (typeof parsed === "string") {
+    try {
+      return JSON.parse(parsed.trim());
+    } catch {
+      return undefined;
+    }
+  }
+  return parsed;
 }
 
 function asString(value: unknown): string | undefined {

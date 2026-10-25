@@ -5,6 +5,7 @@ import {
   classifyAiError,
   criteriaForTask,
   errorLogsFromRows,
+  evidenceText,
   featuresFromRow,
   gradingViewFromRow,
   isTerminalJobStatus,
@@ -93,6 +94,54 @@ test('a grading row becomes a view with scores, feedback and task checks', () =>
   assert.equal(view.taskChecks[0].status, 'met')
   assert.equal(view.criteria.task_response?.evidence[0], 'a real quote')
   assert.equal(view.model, 'claude-sonnet-4-6')
+})
+
+test('evidence quotes are read whether they are objects or plain strings', () => {
+  const withObjects = gradingViewFromRow(row({
+    feedback: {
+      status: 'ok',
+      summary: 's',
+      strengths: [],
+      priority_actions: [],
+      task_checks: [],
+      criteria: {
+        task_response: {
+          score: 7,
+          rationale: 'r',
+          evidence: [{ text: 'a real quote', start: 10, end: 21, paragraphIndex: 1 }],
+          improvements: [],
+        },
+      },
+    },
+  }))
+  assert.deepEqual(evidenceText(withObjects?.criteria.task_response?.evidence), ['a real quote'])
+
+  const withStrings = gradingViewFromRow(row())
+  assert.deepEqual(evidenceText(withStrings?.criteria.task_response?.evidence), ['a real quote'])
+  assert.deepEqual(evidenceText(undefined), [])
+  assert.deepEqual(evidenceText([{ text: '', start: 0, end: 0, paragraphIndex: 0 }]), [])
+})
+
+test('the floor reasoning explains why a criterion did not reach a higher band', () => {
+  const view = gradingViewFromRow(row({
+    feedback: {
+      status: 'ok',
+      summary: 's',
+      strengths: [],
+      priority_actions: [],
+      task_checks: [],
+      criteria: {
+        task_response: {
+          score: 6,
+          rationale: 'r',
+          evidence: [],
+          improvements: [],
+          floor_reasoning: 'Band 7 rejected: the conclusion repeats the introduction.',
+        },
+      },
+    },
+  }))
+  assert.equal(view?.criteria.task_response?.floorReasoning, 'Band 7 rejected: the conclusion repeats the introduction.')
 })
 
 test('a missing reference result has no overall band', () => {

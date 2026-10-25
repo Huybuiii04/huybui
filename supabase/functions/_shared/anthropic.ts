@@ -12,7 +12,7 @@ import {
 
 export { extractTextContent };
 
-export const ANTHROPIC_TIMEOUT_MS = 90_000;
+export const ANTHROPIC_TIMEOUT_MS = 180_000;
 export const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 export const PRICING_VERSION = "anthropic-pricing-v1";
 
@@ -71,6 +71,31 @@ export interface StructuredRequest<T> {
 export interface StructuredCall<T> {
   value: T;
   calls: AnthropicCall[];
+}
+
+/**
+ * Đọc body của provider. Một số proxy chen heartbeat (`: PING`) hoặc dòng
+ * trống vào trước JSON — `JSON.parse` thẳng sẽ ném lỗi và làm job fail với
+ * `network_error` dù provider đã trả lời đúng. Vì vậy bỏ mọi dòng tiền tố
+ * không phải JSON rồi mới parse.
+ */
+export function parseProviderBody(text: string): unknown {
+  const raw = (text ?? "").trim();
+  if (!raw) return {};
+  try {
+    return JSON.parse(raw);
+  } catch {
+    // Tìm dòng đầu tiên bắt đầu bằng `{` hoặc `[` — bỏ qua heartbeat của proxy.
+    const lines = raw.split("\n");
+    const start = lines.findIndex(line => line.trimStart().startsWith("{") || line.trimStart().startsWith("["));
+    if (start < 0) throw new SyntaxError("Provider response is not JSON");
+    const candidate = lines.slice(start).join("\n").trim();
+    try {
+      return JSON.parse(candidate);
+    } catch {
+      throw new SyntaxError("Provider response is not JSON");
+    }
+  }
 }
 
 export function classifyProviderError(error: number | Error | AnthropicError): AnthropicError {
@@ -198,7 +223,7 @@ export async function callAnthropic(
         throw lastError;
       }
 
-      const body = await response.json();
+      const body = await parseProviderBody(await response.text());
       const parsed = parseProviderResponse(body, response.headers);
       if (!parsed.rawText) {
         // Provider đôi khi trả rác — cho job thử lại thay vì bỏ luôn.

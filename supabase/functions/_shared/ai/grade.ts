@@ -104,7 +104,7 @@ export const GRADING_JSON_SCHEMA = {
         required: ["criterion", "score", "rationale", "evidence", "improvements"],
         properties: {
           criterion: { type: "string", enum: ALL_CRITERIA },
-          score: { type: "number", minimum: 0, maximum: 9 },
+          score: { type: "integer", minimum: 0, maximum: 9 },
           rationale: { type: "string" },
           evidence: { type: "array", items: { type: "string" } },
           improvements: { type: "array", items: { type: "string" } },
@@ -189,8 +189,10 @@ export function buildGradingResult(
     if (!Number.isFinite(criterion.score) || criterion.score < 0 || criterion.score > 9) {
       throw new AiContractError("invalid_score", "Criterion scores must be between 0 and 9");
     }
-    if (!Number.isInteger(criterion.score * 2)) {
-      throw new AiContractError("invalid_score", "Criterion scores must use half-band increments");
+    // Rubric chính thức định nghĩa band nguyên 0–9 cho từng tiêu chí; nửa
+    // điểm chỉ xuất hiện ở overall (do trung bình). Model trả 6.5 là bịa số.
+    if (!Number.isInteger(criterion.score)) {
+      throw new AiContractError("invalid_score", "Criterion scores must be whole bands from 0 to 9");
     }
     if (typeof criterion.rationale !== "string" || criterion.rationale.trim().length === 0) {
       throw new AiContractError("invalid_rationale", "Every criterion requires a rationale");

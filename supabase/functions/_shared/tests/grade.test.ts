@@ -12,7 +12,7 @@ const validTask2Output: GradingModelOutput = {
   criteria: [
     {
       criterion: "task_response",
-      score: 6.5,
+      score: 6,
       rationale: "The position is clear and mostly developed.",
       evidence: ["I agree with this view."],
       improvements: ["Develop the second body paragraph."],
@@ -26,7 +26,7 @@ const validTask2Output: GradingModelOutput = {
     },
     {
       criterion: "lexical_resource",
-      score: 6.5,
+      score: 7,
       rationale: "The vocabulary is flexible.",
       evidence: ["This has a significant impact."],
       improvements: ["Avoid repeated generic nouns."],
@@ -60,7 +60,7 @@ describe("grading contract", () => {
     });
 
     assert.equal(result.status, "ok");
-    assert.equal(result.scores.task_response, 6.5);
+    assert.equal(result.scores.task_response, 6);
     assert.equal(result.scores.task_achievement, null);
     assert.equal(result.overallRaw, 6.25);
     assert.equal(result.overallDisplay, 6.5);
@@ -94,9 +94,18 @@ describe("grading contract", () => {
     );
   });
 
-  it("rejects partial scores and unsupported half-band values", () => {
+  it("rejects partial scores", () => {
     const invalid = structuredClone(validTask2Output);
     invalid.criteria[0].score = 6.25;
+    assert.throws(
+      () => buildGradingResult(invalid, { taskType: "task2", essayText: "Essay" }),
+      (error: unknown) => error instanceof AiContractError && error.code === "invalid_score",
+    );
+  });
+
+  it("rejects half-band criterion scores, which the official rubric does not define", () => {
+    const invalid = structuredClone(validTask2Output);
+    invalid.criteria[0].score = 6.5;
     assert.throws(
       () => buildGradingResult(invalid, { taskType: "task2", essayText: "Essay" }),
       (error: unknown) => error instanceof AiContractError && error.code === "invalid_score",

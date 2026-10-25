@@ -123,18 +123,62 @@ export function verifyEvidence(text: string, evidence: string[]): EvidenceLocati
   const locations: EvidenceLocation[] = [];
   for (const quote of evidence) {
     if (typeof quote !== "string" || quote.length === 0) continue;
-    const start = text.indexOf(quote);
-    if (start < 0) continue;
-    const end = start + quote.length;
+    const found = findQuote(text, quote);
+    if (!found) continue;
+    const { start, end } = found;
     const separators = text.slice(0, start).match(/\n\s*\n/g);
     locations.push({
-      text: quote,
+      text: text.slice(start, end),
       start,
       end,
       paragraphIndex: separators?.length ?? 0,
     });
   }
   return locations;
+}
+
+/**
+ * Tìm một câu trích trong bài. Model thường trích gần đúng (khác khoảng trắng,
+ * khác chữ hoa, dấu nháy cong) nên so khớp tuyệt đối thường thất bại và góp ý
+ * bị bỏ mất. Thử lần lượt: khớp tuyệt đối → không phân biệt hoa thường →
+ * bỏ khoảng trắng thừa. Luôn trả về đoạn text THẬT trong bài.
+ */
+export function findQuote(text: string, quote: string): { start: number; end: number } | null {
+  if (typeof quote !== "string" || !quote.trim()) return null;
+
+  const direct = text.indexOf(quote);
+  if (direct >= 0) return { start: direct, end: direct + quote.length };
+
+  const lowerText = text.toLowerCase();
+  const lowerQuote = quote.toLowerCase();
+  const ci = lowerText.indexOf(lowerQuote);
+  if (ci >= 0) return { start: ci, end: ci + quote.length };
+
+  const collapsedText = collapseSpaces(text);
+  const collapsedQuote = collapseSpaces(quote);
+  if (!collapsedQuote) return null;
+  const collapsed = collapsedText.indexOf(collapsedQuote);
+  if (collapsed < 0) return null;
+
+  // Ánh xạ vị trí trong bản đã gộp khoảng trắng về vị trí trong bản gốc.
+  const collapsedIndex = collapsed;
+  let originalIndex = 0;
+  let seen = 0;
+  while (originalIndex < text.length && seen < collapsedIndex) {
+    if (/\s/.test(text[originalIndex])) {
+      while (originalIndex < text.length && /\s/.test(text[originalIndex])) originalIndex += 1;
+      seen += 1;
+      continue;
+    }
+    originalIndex += 1;
+    seen += 1;
+  }
+  const originalEnd = Math.min(text.length, originalIndex + collapsedQuote.length);
+  return { start: originalIndex, end: originalEnd };
+}
+
+function collapseSpaces(value: string): string {
+  return value.replace(/\s+/g, " ").trim();
 }
 
 function failSerialization(message: string): never {

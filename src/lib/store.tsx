@@ -387,7 +387,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       announce()
       return timestamp
     }
-    const remote = meta.current.get(draft.id)
+    let remote = meta.current.get(draft.id)
+    // Bài mới chưa có hàng trong DB mà đang có ảnh chưa đồng bộ: tạo hàng trước
+    // để ảnh có essayId để gắn vào. Không có bước này, lần lưu đầu tiên sẽ
+    // bỏ mất ảnh và Task 1 không chấm được.
+    if (!remote?.essayId && draft.images.some(image => !image.synced)) {
+      const created = await createRemote(draft)
+      remote = { essayId: created.essay_id, version: created.draft_version }
+      meta.current.set(draft.id, remote)
+    }
     const images = await syncImages(draft, remote?.essayId)
     const { data, error: failure } = await supabase.rpc('save_draft', {
       ...draftToSaveArgs(draft, remote?.version ?? null, current.current.profile.feedback),
@@ -402,6 +410,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     try { await cache(next) } catch (problem) { fail(problem) }
     announce()
     return timestamp
+  }
+
+  /** Tạo hàng bài viết mới trong DB — chỉ dùng để lấy essay_id cho ảnh gắn vào. */
+  async function createRemote(draft: Draft): Promise<{ essay_id: string; draft_version: number }> {
+    const { data, error: failure } = await supabase.rpc('save_draft', {
+      ...draftToSaveArgs(draft, null, current.current.profile.feedback),
+      p_essay_id: null,
+      p_draft: { client_id: draft.id, images: [] },
+    })
+    if (failure) handleRemoteError(failure)
+    return data as { essay_id: string; draft_version: number }
   }
 
   /**
