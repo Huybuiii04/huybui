@@ -77,7 +77,6 @@ export function VocabularyLibrary() {
           <button type="button" className="button outline full" disabled={added || saving === entry.id} onClick={() => void save(entry)}>{added ? <><Check size={16} />{c('Đã có trong sổ', 'In your notebook')}</> : <><Plus size={16} />{c('Thêm vào sổ', 'Add to notebook')}</>}</button>
         </article>
       })}</div> : <Empty title={c('Không tìm thấy từ nào', 'No words found')} description={c('Thử một từ khác trong chủ đề này.', 'Try another word in this topic.')} />}
-      <p className="helper-text centered">{c('Nguồn dữ liệu: ForumFlash.', 'Data source: ForumFlash.')}</p>
     </section> : null}
   </>
 }
