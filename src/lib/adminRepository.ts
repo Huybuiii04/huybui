@@ -52,6 +52,24 @@ export async function fetchMyAdminRole(): Promise<'admin' | 'user' | null> {
   return role === 'admin' ? 'admin' : 'user'
 }
 
+export type AdminOverview = { users: number; essays: number; queued: number; failed: number }
+
+/** Số liệu nhanh cho thẻ quản trị trên dashboard (đọc bằng RLS admin). */
+export async function fetchAdminOverview(): Promise<AdminOverview> {
+  const [users, essays, queued, failed] = await Promise.all([
+    supabase.from('profiles').select('id', { count: 'exact', head: true }),
+    supabase.from('essays').select('id', { count: 'exact', head: true }),
+    supabase.from('ai_jobs').select('id', { count: 'exact', head: true }).in('status', ['queued', 'processing']),
+    supabase.from('ai_jobs').select('id', { count: 'exact', head: true }).eq('status', 'failed'),
+  ])
+  return {
+    users: users.count ?? 0,
+    essays: essays.count ?? 0,
+    queued: queued.count ?? 0,
+    failed: failed.count ?? 0,
+  }
+}
+
 export async function fetchAdminUsers(): Promise<{ profiles: AdminProfileRow[]; access: AdminAccessRow[] }> {
   const [profileResult, accessResult] = await Promise.all([
     supabase.from('profiles').select('id,display_name,created_at').order('created_at', { ascending: false }).limit(500),

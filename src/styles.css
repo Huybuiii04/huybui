@@ -570,6 +570,11 @@ button, a, input, textarea, select { transition: background-color .18s, border-c
 .admin-inline-tabs { margin: 0 0 14px; border: none; }
 .admin-inline-tabs button { padding: 8px 12px; font-size: 12.5px; }
 .admin-vocab-form { margin-bottom: 18px; }
+.admin-quick-panel { margin-bottom: 22px; }
+.admin-mini-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+.admin-mini-stat { display: grid; gap: 3px; padding: 12px 14px; border-radius: var(--radius-sm); background: var(--surface-soft); }
+.admin-mini-stat strong { font-size: 22px; font-weight: 600; letter-spacing: -.02em; }
+.admin-mini-stat span { color: var(--text-muted); font-size: 12px; }
 .admin-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
 .admin-form-grid input { width: 100%; }
 @media (max-width: 900px) {

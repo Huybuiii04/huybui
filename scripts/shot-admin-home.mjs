@@ -1,0 +1,16 @@
+import { chromium } from 'playwright'
+const base = process.env.TEST_URL ?? 'http://127.0.0.1:5173'
+const browser = await chromium.launch()
+const context = await browser.newContext({ viewport: { width: 1440, height: 1100 } })
+const page = await context.newPage()
+await page.goto(`${base}/auth`)
+await page.getByLabel('Email').fill(process.env.ADMIN_EMAIL ?? 'admin@gmail.com')
+await page.getByLabel(/^Mật khẩu|Password/).fill(process.env.ADMIN_PASSWORD ?? 'admin123')
+await page.getByRole('button', { name: /Đăng nhập|Sign in/ }).click()
+await page.waitForURL(u => !u.pathname.startsWith('/auth'), { timeout: 30000 })
+await page.goto(`${base}/app`)
+await page.locator('.admin-quick-panel').waitFor({ timeout: 30000 })
+await page.waitForTimeout(2500)
+await page.screenshot({ path: 'test-results/admin-home-dashboard.png', fullPage: false })
+console.log('da chup anh dashboard chinh')
+await browser.close()

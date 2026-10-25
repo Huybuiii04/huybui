@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router'
-import { ArrowUpRight, BookOpen, ChevronRight, CircleHelp, ClipboardList, FileText, Heart, LayoutDashboard, Lightbulb, LogOut, Menu, Moon, NotebookPen, PanelLeftClose, PenLine, RotateCcw, Settings, Sun, X } from 'lucide-react'
+import { ArrowUpRight, BookOpen, ChevronRight, CircleHelp, ClipboardList, FileText, Heart, LayoutDashboard, Lightbulb, LogOut, Menu, Moon, NotebookPen, PanelLeftClose, PenLine, RotateCcw, Settings, ShieldCheck, Sun, X } from 'lucide-react'
 import { useCopy } from '../i18n'
 import { useStore } from '../lib/store'
+import { useAdminRole } from '../lib/adminRole'
 import { useTheme } from '../theme'
 import { isConfigured } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
@@ -34,14 +35,16 @@ export default function Layout() {
     return () => document.removeEventListener('keydown', close)
   }, [open])
   const due = state.cards.filter(card => card.dueAt <= Date.now()).length
+  const isAdmin = useAdminRole()
   const nav = [
-    { path: '/app', icon: LayoutDashboard, label: c('Tổng quan', 'Overview'), end: true },
+    { group: c('LUYỆN VIẾT', 'PRACTICE'), path: '/app', icon: LayoutDashboard, label: c('Tổng quan', 'Overview'), end: true },
     { path: '/app/write', icon: PenLine, label: c('Không gian viết', 'Writing space') },
     { path: '/app/prompts', icon: ClipboardList, label: c('Kho đề bài', 'Prompt library') },
     { path: '/app/essays', icon: FileText, label: c('Bài viết của tôi', 'My writing') },
-    { path: '/app/vocabulary', icon: BookOpen, label: c('Sổ từ vựng', 'Vocabulary') },
+    { group: c('GÓC HỌC TẬP', 'MY LEARNING'), path: '/app/vocabulary', icon: BookOpen, label: c('Sổ từ vựng', 'Vocabulary') },
     { path: '/app/review', icon: RotateCcw, label: c('Ôn tập', 'Review'), badge: due },
     { path: '/app/errors', icon: NotebookPen, label: c('Sổ lỗi sai', 'Error logbook') },
+    ...(isAdmin ? [{ group: c('QUẢN TRỊ', 'ADMINISTRATION'), path: '/admin', icon: ShieldCheck, label: c('Bảng quản trị', 'Administration') }] : []),
   ]
   const current = nav.find(item => item.end ? location.pathname === item.path : location.pathname.startsWith(item.path))
   return <div className="app-shell">
@@ -49,7 +52,7 @@ export default function Layout() {
     {open && <button className="sidebar-scrim" aria-label={c('Đóng menu', 'Close menu')} onClick={() => setOpen(false)} />}
     <aside className={`sidebar ${open ? 'is-open' : ''}`}><div className="sidebar-brand"><Brand /><button className="icon-button mobile-only" onClick={() => setOpen(false)} aria-label={c('Đóng menu', 'Close menu')}><X size={20} /></button></div>
       <div className="workspace-label"><span className="workspace-icon"><NotebookPen size={16} /></span><div>{c('Không gian học tập', 'Your workspace')}<small>{c('Từng chút, mỗi ngày', 'A little better, every day')}</small></div></div>
-      <nav aria-label={c('Điều hướng chính', 'Main navigation')} className="side-nav">{nav.map((item, index) => <div key={item.path}>{(index === 0 || index === 4) && <p className="nav-label">{index === 0 ? c('LUYỆN VIẾT', 'PRACTICE') : c('GÓC HỌC TẬP', 'MY LEARNING')}</p>}<NavLink to={item.path} end={item.end} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}><item.icon size={19} /><span>{item.label}</span>{!!item.badge && <span className="nav-count">{item.badge}</span>}</NavLink></div>)}</nav>
+      <nav aria-label={c('Điều hướng chính', 'Main navigation')} className="side-nav">{nav.map(item => <div key={item.path}>{'group' in item && item.group && <p className="nav-label">{item.group}</p>}<NavLink to={item.path} end={item.end} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}><item.icon size={19} /><span>{item.label}</span>{!!item.badge && <span className="nav-count">{item.badge}</span>}</NavLink></div>)}</nav>
       <div className="sidebar-bottom"><div className="support-card"><span className="support-icon"><Heart size={18} /></span><strong>{c('Cùng nuôi dưỡng tri thức', 'Keep learning open')}</strong><p>{c('Miễn phí để bạn tiến xa hơn.', 'Free learning. More possibilities.')}</p><Link to="/donate">{c('Ủng hộ dự án', 'Support the project')}<ArrowUpRight size={15} /></Link></div><NavLink to="/app/settings" className="nav-item"><Settings size={18} />{c('Cài đặt', 'Settings')}</NavLink><div className="sidebar-footer"><span>© 2026 IELTS Studio</span><PanelLeftClose size={15} /></div></div>
     </aside>
     <div className="workspace"><header className="topbar"><div className="breadcrumb"><button className="icon-button mobile-only" onClick={() => setOpen(!open)} aria-expanded={open} aria-label={c('Mở menu', 'Open menu')}><Menu size={22} /></button><span className="desktop-only">{c('Không gian học tập', 'Workspace')}</span><ChevronRight size={14} className="desktop-only" /><strong>{current?.label ?? c('Không gian học tập', 'Workspace')}</strong></div><div className="topbar-actions"><ThemeToggle /><LanguageSwitch /><Link to="/app/prompts" className="icon-button desktop-only" aria-label={c('Kho đề bài', 'Prompt library')}><CircleHelp size={20} /></Link><Link to="/app/settings" className="avatar" aria-label={c('Hồ sơ', 'Profile')}>{state.profile.name.slice(0, 1).toUpperCase() || 'L'}</Link>{user && <button className="icon-button desktop-only" aria-label={c('Đăng xuất', 'Sign out')} title={c('Đăng xuất', 'Sign out')} onClick={() => void signOut()}><LogOut size={19} /></button>}</div></header>
