@@ -1,4 +1,4 @@
-﻿import { chromium } from 'playwright'
+import { chromium } from 'playwright'
 import AxeBuilder from '@axe-core/playwright'
 import assert from 'node:assert/strict'
 
@@ -17,7 +17,7 @@ try {
       const applied = await page.evaluate(() => document.documentElement.dataset.theme)
       assert.equal(applied, theme, `Theme not applied on ${route}`)
       // Chờ tới khi theme thực sự được vẽ: attribute có thể đã đổi trước khi CSS áp xong.
-      const expectedBackground = theme === 'light' ? 'rgb(247, 247, 247)' : 'rgb(8, 8, 8)'
+      const expectedBackground = theme === 'light' ? 'rgb(247, 245, 239)' : 'rgb(9, 10, 11)'
       await page.waitForFunction(value => getComputedStyle(document.body).backgroundColor === value, expectedBackground, { timeout: 15000 })
       const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze()
       for (const violation of violations) {
