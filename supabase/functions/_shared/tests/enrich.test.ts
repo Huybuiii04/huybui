@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { AiContractError, ENRICHMENT_SCHEMA_VERSION, validateEnrichmentOutput } from "../ai/enrich.ts";
+import { AiContractError, ENRICHMENT_SCHEMA_VERSION, coerceEnrichmentOutput } from "../ai/enrich.ts";
 
 const base = {
   structure: { paragraphs: [] },
@@ -15,7 +15,7 @@ const base = {
 
 describe("enrichment contract", () => {
   it("accepts features and verifiable error suggestions", () => {
-    const output = validateEnrichmentOutput({
+    const output = coerceEnrichmentOutput({
       structure: {
         paragraphs: [{ index: 0, role: "introduction", summary: "Introduces the position", link_to_next: "First body paragraph" }],
       },
@@ -43,53 +43,65 @@ describe("enrichment contract", () => {
 
     assert.equal(output.structure.paragraphs.length, 1);
     assert.equal(output.errors.length, 1);
+    assert.equal(output.errors[0].quote, "significant impact");
   });
 
-  it("rejects malformed feature shapes", () => {
-    assert.throws(
-      () => validateEnrichmentOutput({ structure: {}, lexical: {}, grammar: {}, errors: [] }),
-      (error: unknown) => error instanceof AiContractError && error.code === "invalid_enrichment",
-    );
-  });
-});
+  it("keeps the parts that are usable when the model drops a group", () => {
+    const output = coerceEnrichmentOutput({
+      unnatural: [{ quote: "q", issue: "i", suggestion: "s", severity: "major" }],
+      vocabulary_plan: { topic: "Education", words: [{ word: "curriculum", meaning: "m", example: "e", why: "w" }] },
+      band_plan: { current_band: 6, target_band: 7.5, steps: [{ title: "t", detail: "d", criterion: "lexical_resource", expected_gain: "+0.5" }] },
+    });
 
-describe("enrichment v2 contract", () => {
-  it("accepts the three new groups", () => {
-    const output = validateEnrichmentOutput(base);
     assert.equal(output.unnatural.length, 1);
-    assert.equal(output.vocabulary_plan.words[0].word, "curriculum");
+    assert.equal(output.vocabulary_plan.words.length, 1);
     assert.equal(output.band_plan.steps.length, 1);
+    assert.deepEqual(output.structure.paragraphs, []);
+    assert.deepEqual(output.errors, []);
   });
 
-  it("rejects an unknown severity", () => {
-    assert.throws(
-      () => validateEnrichmentOutput({ ...base, unnatural: [{ ...base.unnatural[0], severity: "huge" }] }),
-      (error: unknown) => error instanceof AiContractError && error.code === "invalid_enrichment",
-    );
+  it("drops only the broken items instead of the whole analysis", () => {
+    const output = coerceEnrichmentOutput({
+      ...base,
+      unnatural: [
+        { quote: "q", issue: "i", suggestion: "s", severity: "major" },
+        { issue: "thiếu quote" },
+      ],
+      band_plan: { current_band: 6, target_band: 7.5, steps: [{ detail: "thiếu title" }] },
+    });
+
+    assert.equal(output.unnatural.length, 1);
+    assert.equal(output.band_plan.steps.length, 0);
+    assert.equal(output.band_plan.current_band, 6);
   });
 
-  it("rejects a band plan without steps", () => {
-    assert.throws(
-      () => validateEnrichmentOutput({ ...base, band_plan: { current_band: 6, target_band: 7, steps: "none" } }),
-      (error: unknown) => error instanceof AiContractError && error.code === "invalid_enrichment",
-    );
+  it("falls back to safe values for missing or malformed fields", () => {
+    const output = coerceEnrichmentOutput({
+      ...base,
+      unnatural: [{ quote: "q", issue: "i", suggestion: "s", severity: "không rõ" }],
+      band_plan: { current_band: "sáu", target_band: 7.5, steps: [{ title: "t" }] },
+    });
+
+    assert.equal(output.unnatural[0].severity, "minor");
+    assert.equal(output.band_plan.current_band, null);
+    assert.equal(output.band_plan.steps[0].detail, "");
   });
 
-  it("rejects a missing vocabulary plan", () => {
-    assert.throws(
-      () => validateEnrichmentOutput({ ...base, vocabulary_plan: undefined }),
-      (error: unknown) => error instanceof AiContractError && error.code === "invalid_enrichment",
-    );
-  });
-
-  it("rejects a band plan with a non-numeric band", () => {
-    assert.throws(
-      () => validateEnrichmentOutput({ ...base, band_plan: { ...base.band_plan, current_band: "six" } }),
-      (error: unknown) => error instanceof AiContractError && error.code === "invalid_enrichment",
-    );
+  it("never throws on garbage input", () => {
+    const output = coerceEnrichmentOutput(null);
+    assert.deepEqual(output.errors, []);
+    assert.deepEqual(output.band_plan.steps, []);
+    assert.equal(coerceEnrichmentOutput("nonsense").vocabulary_plan.topic, "");
   });
 
   it("bumps the schema version", () => {
     assert.equal(ENRICHMENT_SCHEMA_VERSION, "enrichment-v2");
+  });
+
+  it("still exposes a contract error type for other callers", () => {
+    assert.throws(
+      () => { throw new AiContractError("invalid_enrichment", "x"); },
+      (error: unknown) => error instanceof AiContractError && error.code === "invalid_enrichment",
+    );
   });
 });

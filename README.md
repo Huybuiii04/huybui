@@ -64,7 +64,7 @@ Lớp gọi AI (`supabase/functions/_shared/provider.ts`) hỗ trợ API chính 
 | `AI_API_BASE_URL` | `https://api.anthropic.com` | Gốc endpoint. Có sẵn `/v1/messages` hoặc `/v1/chat/completions` đều được |
 | `AI_API_KEY` | — | Khóa API. Rỗng thì lấy `ANTHROPIC_API_KEY` (giữ tương thích cấu hình cũ) |
 | `AI_API_PROTOCOL` | `auto` | `auto` tự nhận diện theo URL → `anthropic` · `openai` |
-| `AI_STRUCTURED_MODE` | `prompt` | `prompt` (mọi provider) · `native` (`output_config`, chỉ API chính thức) |
+| `AI_STRUCTURED_MODE` | `tool` | `tool` (Anthropic tool-use — model trả JSON đúng schema) · `prompt` (JSON trong system prompt) · `native` (`output_config`, chỉ API chính thức) |
 | `AI_MODEL_GRADING` | — | Model chấm điểm (mặc định `claude-haiku-5-5`) |
 | `AI_MODEL_EXTRACTION` | — | Model rà soát lỗi/từ vựng (mặc định `claude-haiku-5-5`) |
 
@@ -73,7 +73,7 @@ supabase secrets set AI_API_BASE_URL=https://api.third-party.dev AI_API_KEY=sk-.
 npm run db:deploy
 ```
 
-Ở chế độ `prompt`, model được yêu cầu trả về đúng một JSON object; client bóc JSON ra khỏi code fence và prose, và có một lượt *repair* nếu output không khớp schema.
+Ở chế độ `tool` (mặc định), model được ép trả kết quả đúng schema bằng **tool-use** — không cần ép bằng prompt nên không bị "rơi" sang trả văn xuôi. Chế độ `prompt` dùng cho provider không hỗ trợ tool.
 
 ## Deploy
 

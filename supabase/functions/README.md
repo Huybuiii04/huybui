@@ -38,7 +38,7 @@ Mọi endpoint trừ worker dùng `Authorization: Bearer <user JWT>`. Function x
 | `AI_API_BASE_URL` | không | Gốc endpoint của provider; mặc định `https://api.anthropic.com` |
 | `AI_API_KEY` | không | Key của provider bên thứ 3; thay cho `ANTHROPIC_API_KEY` |
 | `AI_API_PROTOCOL` | không | `auto` (tự nhận diện) · `anthropic` · `openai` |
-| `AI_STRUCTURED_MODE` | không | `prompt` (mọi provider) · `native` (`output_config`, chỉ API chính thức) |
+| `AI_STRUCTURED_MODE` | không | `tool` (tool-use của Anthropic — mặc định) · `prompt` · `native` (`output_config`, chỉ API chính thức) |
 | `WORKER_SECRET` | có | Header nội bộ của `process-ai-jobs`; so sánh constant-time |
 | `AI_MODEL_GRADING` | có | Model chấm/stress-test/critical-thinking; đang dùng `claude-haiku-5-5` |
 | `AI_MODEL_EXTRACTION` | có | Model enrichment/read-image/rewrite; đang dùng `claude-haiku-5-5` |

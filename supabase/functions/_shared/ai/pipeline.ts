@@ -7,7 +7,7 @@ import { buildEnrichmentPrompt, buildGradingPrompt, buildToolPrompt, ENRICHMENT_
 import type { WritingToolOperation } from "../schemas.ts";
 import { loadAssetImages, type EssayAssetRow } from "../storage.ts";
 import { GRADING_JSON_SCHEMA, GRADING_SCHEMA_VERSION, buildGradingResult, type GradingModelOutput, type GradingResult } from "./grade.ts";
-import { ENRICHMENT_JSON_SCHEMA, ENRICHMENT_SCHEMA_VERSION, validateEnrichmentOutput } from "./enrich.ts";
+import { ENRICHMENT_JSON_SCHEMA, ENRICHMENT_SCHEMA_VERSION, coerceEnrichmentOutput } from "./enrich.ts";
 import { TOOL_JSON_SCHEMAS, TOOL_SCHEMA_VERSION, validateToolOutput } from "./tools.ts";
 
 interface ClaimedJob {
@@ -195,9 +195,9 @@ async function runEnrichment(service: SupabaseClient, job: ClaimedJob): Promise<
     system: prompt.system,
     messages: prompt.messages,
     schema: ENRICHMENT_JSON_SCHEMA as Record<string, unknown>,
-    maxTokens: 6_000,
+    maxTokens: 16_000,
     repairInstruction: "Repair this enrichment output and return valid JSON only.",
-    validate: validateEnrichmentOutput,
+    validate: coerceEnrichmentOutput,
   });
   await insertUsageRows(service, job.job_id, structured.calls);
 

@@ -225,107 +225,124 @@ export const ENRICHMENT_JSON_SCHEMA = {
   },
 } as const;
 
-export function validateEnrichmentOutput(value: unknown): EnrichmentOutput {
-  if (!value || typeof value !== "object" || Array.isArray(value)) invalid();
-  const output = value as Record<string, unknown>;
-  const structure = output.structure as Record<string, unknown> | undefined;
-  const lexical = output.lexical as Record<string, unknown> | undefined;
-  const grammar = output.grammar as Record<string, unknown> | undefined;
-  if (!structure || !lexical || !grammar || !Array.isArray(output.errors)) invalid();
 
-  const paragraphs = structure.paragraphs;
-  const lexicalExamples = lexical.examples;
-  const grammarExamples = grammar.examples;
-  if (!Array.isArray(paragraphs) || !Array.isArray(lexicalExamples) || !Array.isArray(grammarExamples)) invalid();
+/**
+ * Làm sạch output của model: giữ lại phần đúng, bỏ phần hỏng.
+ * Model đôi khi bỏ bớt field hoặc bỏ cả một nhóm — không nên vì vậy mất
+ * toàn bộ phần tích đã có, nên ta chuẩn hoá thay vì ném lỗi.
+ */
+export function coerceEnrichmentOutput(value: unknown): EnrichmentOutput {
+  const output = asRecord(value);
+  const structure = asRecord(output.structure);
+  const lexical = asRecord(output.lexical);
+  const grammar = asRecord(output.grammar);
+  const vocabularyPlan = asRecord(output.vocabulary_plan);
+  const bandPlan = asRecord(output.band_plan);
 
-  for (const paragraph of paragraphs) {
-    if (
-      !paragraph ||
-      typeof paragraph !== "object" ||
-      !Number.isInteger((paragraph as { index?: unknown }).index) ||
-      typeof (paragraph as { role?: unknown }).role !== "string" ||
-      typeof (paragraph as { summary?: unknown }).summary !== "string" ||
-      typeof (paragraph as { link_to_next?: unknown }).link_to_next !== "string"
-    ) invalid();
-  }
-  for (const example of lexicalExamples) {
-    if (
-      !example ||
-      typeof example !== "object" ||
-      typeof (example as { term?: unknown }).term !== "string" ||
-      typeof (example as { meaning?: unknown }).meaning !== "string" ||
-      typeof (example as { evidence?: unknown }).evidence !== "string" ||
-      typeof (example as { correction?: unknown }).correction !== "string"
-    ) invalid();
-  }
-  for (const example of grammarExamples) {
-    if (
-      !example ||
-      typeof example !== "object" ||
-      typeof (example as { error?: unknown }).error !== "string" ||
-      typeof (example as { correction?: unknown }).correction !== "string"
-    ) invalid();
-  }
-  for (const error of output.errors) {
-    if (
-      !error ||
-      typeof error !== "object" ||
-      typeof (error as { fingerprint?: unknown }).fingerprint !== "string" ||
-      typeof (error as { criterion?: unknown }).criterion !== "string" ||
-      typeof (error as { category?: unknown }).category !== "string" ||
-      typeof (error as { quote?: unknown }).quote !== "string" ||
-      typeof (error as { correction?: unknown }).correction !== "string" ||
-      typeof (error as { explanation?: unknown }).explanation !== "string" ||
-      !Array.isArray((error as { skill_tags?: unknown }).skill_tags) ||
-      (error as { skill_tags: unknown[] }).skill_tags.some((tag) => typeof tag !== "string")
-    ) invalid();
-  }
-
-  const unnatural = output.unnatural;
-  const vocabularyPlan = output.vocabulary_plan as Record<string, unknown> | undefined;
-  const bandPlan = output.band_plan as Record<string, unknown> | undefined;
-  if (!Array.isArray(unnatural) || !vocabularyPlan || !bandPlan) invalid();
-
-  for (const point of unnatural) {
-    if (
-      !point ||
-      typeof point !== "object" ||
-      typeof (point as { quote?: unknown }).quote !== "string" ||
-      typeof (point as { issue?: unknown }).issue !== "string" ||
-      typeof (point as { suggestion?: unknown }).suggestion !== "string" ||
-      !["minor", "major"].includes((point as { severity?: unknown }).severity as string)
-    ) invalid();
-  }
-
-  if (typeof vocabularyPlan.topic !== "string" || !Array.isArray(vocabularyPlan.words)) invalid();
-  for (const word of vocabularyPlan.words) {
-    if (
-      !word ||
-      typeof word !== "object" ||
-      typeof (word as { word?: unknown }).word !== "string" ||
-      typeof (word as { meaning?: unknown }).meaning !== "string" ||
-      typeof (word as { example?: unknown }).example !== "string" ||
-      typeof (word as { why?: unknown }).why !== "string"
-    ) invalid();
-  }
-
-  if (!Array.isArray(bandPlan.steps)) invalid();
-  for (const step of bandPlan.steps) {
-    if (
-      !step ||
-      typeof step !== "object" ||
-      typeof (step as { title?: unknown }).title !== "string" ||
-      typeof (step as { detail?: unknown }).detail !== "string" ||
-      typeof (step as { criterion?: unknown }).criterion !== "string" ||
-      typeof (step as { expected_gain?: unknown }).expected_gain !== "string"
-    ) invalid();
-  }
-  if (bandPlan.current_band !== null && typeof bandPlan.current_band !== "number") invalid();
-  if (bandPlan.target_band !== null && typeof bandPlan.target_band !== "number") invalid();
-
-  return output as unknown as EnrichmentOutput;
+  return {
+    structure: {
+      paragraphs: asArray(structure.paragraphs).flatMap(item => {
+        const entry = asRecord(item);
+        const role = asString(entry.role);
+        if (!role) return [];
+        return [{
+          index: asNumber(entry.index) ?? 0,
+          role,
+          summary: asString(entry.summary) ?? "",
+          link_to_next: asString(entry.link_to_next) ?? "",
+        }];
+      }),
+    },
+    lexical: {
+      examples: asArray(lexical.examples).flatMap(item => {
+        const entry = asRecord(item);
+        const term = asString(entry.term);
+        if (!term) return [];
+        return [{
+          term,
+          meaning: asString(entry.meaning) ?? "",
+          evidence: asString(entry.evidence) ?? "",
+          correction: asString(entry.correction) ?? "",
+        }];
+      }),
+    },
+    grammar: {
+      examples: asArray(grammar.examples).flatMap(item => {
+        const entry = asRecord(item);
+        const error = asString(entry.error);
+        if (!error) return [];
+        return [{ error, correction: asString(entry.correction) ?? "" }];
+      }),
+    },
+    errors: asArray(output.errors).flatMap(item => {
+      const entry = asRecord(item);
+      const quote = asString(entry.quote);
+      if (!quote) return [];
+      return [{
+        fingerprint: asString(entry.fingerprint) ?? "",
+        criterion: asString(entry.criterion) ?? "",
+        category: asString(entry.category) ?? "",
+        quote,
+        correction: asString(entry.correction) ?? "",
+        explanation: asString(entry.explanation) ?? "",
+        skill_tags: asArray(entry.skill_tags).filter((tag): tag is string => typeof tag === "string"),
+      }];
+    }),
+    unnatural: asArray(output.unnatural).flatMap(item => {
+      const entry = asRecord(item);
+      const quote = asString(entry.quote);
+      if (!quote) return [];
+      return [{
+        quote,
+        issue: asString(entry.issue) ?? "",
+        suggestion: asString(entry.suggestion) ?? "",
+        severity: entry.severity === "major" ? "major" : "minor",
+      }];
+    }),
+    vocabulary_plan: {
+      topic: asString(vocabularyPlan.topic) ?? "",
+      words: asArray(vocabularyPlan.words).flatMap(item => {
+        const entry = asRecord(item);
+        const word = asString(entry.word);
+        if (!word) return [];
+        return [{
+          word,
+          meaning: asString(entry.meaning) ?? "",
+          example: asString(entry.example) ?? "",
+          why: asString(entry.why) ?? "",
+        }];
+      }),
+    },
+    band_plan: {
+      current_band: asNumber(bandPlan.current_band) ?? null,
+      target_band: asNumber(bandPlan.target_band) ?? null,
+      steps: asArray(bandPlan.steps).flatMap(item => {
+        const entry = asRecord(item);
+        const title = asString(entry.title);
+        if (!title) return [];
+        return [{
+          title,
+          detail: asString(entry.detail) ?? "",
+          criterion: asString(entry.criterion) ?? "",
+          expected_gain: asString(entry.expected_gain) ?? "",
+        }];
+      }),
+    },
+  };
 }
 
-function invalid(): never {
-  throw new AiContractError("invalid_enrichment", "Invalid enrichment output");
+function asArray(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : [];
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
+
+function asString(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim().length > 0 ? value : undefined;
+}
+
+function asNumber(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }

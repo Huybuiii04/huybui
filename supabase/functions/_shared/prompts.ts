@@ -94,6 +94,7 @@ export function buildEnrichmentPrompt(input: EnrichmentPromptInput): { system: s
     "Report statements that are illogical, unnatural, repetitive or unsupported by the task under 'unnatural'; quote the exact source text.",
     "Under 'vocabulary_plan' suggest words the learner should study for this topic and target band, not words already used in the essay.",
     "Under 'band_plan' give concrete steps from the current band to the target band; each step names one IELTS criterion and the expected gain.",
+    "Keep every list to at most 5 items and every text field under 40 words, so the whole answer stays short.",
     `The essay is a ${input.taskType} response and the target band is ${input.targetBand ?? "unspecified"}.`,
     `Write explanations in ${input.feedbackLocale === "en" ? "English" : "Vietnamese"} while preserving quoted English text.`,
   ].join("\n");

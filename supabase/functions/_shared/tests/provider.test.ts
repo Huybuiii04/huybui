@@ -20,7 +20,7 @@ describe("provider configuration", () => {
     const resolved = config();
     assert.equal(resolved.baseUrl, "https://api.anthropic.com");
     assert.equal(resolved.protocol, "auto");
-    assert.equal(resolved.structuredMode, "prompt");
+    assert.equal(resolved.structuredMode, "tool");
   });
 
   it("falls back to ANTHROPIC_API_KEY when AI_API_KEY is absent", () => {
@@ -90,6 +90,18 @@ describe("provider request shaping", () => {
   });
 
   it("omits structured-output hints in prompt mode", () => {
+    const body = providerBody(config({ AI_STRUCTURED_MODE: "prompt" }), "anthropic", {
+      model: "m",
+      system: "",
+      messages: [],
+      schema: { type: "object" },
+      maxTokens: 10,
+    });
+    assert.equal(body.output_config, undefined);
+    assert.equal(body.tools, undefined);
+  });
+
+  it("asks for a tool call that carries the schema in tool mode", () => {
     const body = providerBody(config(), "anthropic", {
       model: "m",
       system: "",
@@ -98,6 +110,11 @@ describe("provider request shaping", () => {
       maxTokens: 10,
     });
     assert.equal(body.output_config, undefined);
+    const tools = body.tools as Array<{ name: string; input_schema: unknown }>;
+    assert.equal(tools.length, 1);
+    assert.equal(tools[0].name, "result");
+    assert.deepEqual(tools[0].input_schema, { type: "object" });
+    assert.deepEqual(body.tool_choice, { type: "tool", name: "result" });
   });
 });
 
@@ -143,6 +160,20 @@ describe("provider response parsing", () => {
       new Headers(),
     );
     assert.equal(parsed.truncated, true);
+  });
+
+  it("reads the json carried by an anthropic tool_use block", () => {
+    const parsed = parseProviderResponse(
+      {
+        id: "msg_2",
+        model: "claude-x",
+        content: [{ type: "tool_use", name: "result", input: { band: 7, steps: [] } }],
+        stop_reason: "tool_use",
+        usage: { input_tokens: 5, output_tokens: 9 },
+      },
+      new Headers(),
+    );
+    assert.deepEqual(JSON.parse(parsed.rawText), { band: 7, steps: [] });
   });
 
   it("returns empty text for an unknown shape", () => {

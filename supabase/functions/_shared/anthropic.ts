@@ -125,13 +125,13 @@ export async function requestStructured<T>(request: StructuredRequest<T>): Promi
       content: [
         {
           type: "text",
-          text: request.repairInstruction ?? "Repair the malformed JSON and return only schema-valid JSON.",
+          text: `${request.repairInstruction ?? "Repair the malformed JSON and return only schema-valid JSON."} Reply with the JSON object only: it must start with { and end with }, with no commentary and no code fence.`,
         },
       ],
     };
     const remaining = deadline - Date.now();
     if (remaining <= 1_000) {
-      throw new AnthropicError("The AI provider returned invalid structured output", "invalid_model_output", false);
+      throw new AnthropicError("The AI provider returned invalid structured output", "invalid_model_output", true);
     }
     const repaired = await callAnthropic(
       request.model,
@@ -146,7 +146,7 @@ export async function requestStructured<T>(request: StructuredRequest<T>): Promi
       const value = request.validate(extractJson(repaired.rawText));
       return { value, calls };
     } catch {
-      throw new AnthropicError("The AI provider returned invalid structured output", "invalid_model_output", false);
+      throw new AnthropicError("The AI provider returned invalid structured output", "invalid_model_output", true);
     }
   }
 }
@@ -201,10 +201,11 @@ export async function callAnthropic(
       const body = await response.json();
       const parsed = parseProviderResponse(body, response.headers);
       if (!parsed.rawText) {
-        throw new AnthropicError("The AI provider returned no text output", "empty_model_output", false);
+        // Provider đôi khi trả rác — cho job thử lại thay vì bỏ luôn.
+        throw new AnthropicError("The AI provider returned no text output", "empty_model_output", true);
       }
       if (parsed.truncated) {
-        throw new AnthropicError("The AI provider output was truncated", "truncated_model_output", false);
+        throw new AnthropicError("The AI provider output was truncated", "truncated_model_output", true);
       }
       if (parsed.refusal) {
         throw new AnthropicError("The AI provider refused the request", "provider_refusal", false);

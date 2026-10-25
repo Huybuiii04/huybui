@@ -4,12 +4,18 @@
 
 export type ProviderProtocol = "anthropic" | "openai";
 export type ProviderMode = "auto" | ProviderProtocol;
+/**
+ * - `tool`: Anthropic tool-use — model trả đúng JSON theo schema (chế độ mặc định)
+ * - `prompt`: JSON nằm trong system prompt, dùng cho provider không hỗ trợ tool
+ * - `native`: `output_config.format.json_schema` của API chính thức Anthropic
+ */
+export type StructuredMode = "tool" | "prompt" | "native";
 
 export type ProviderConfig = {
   baseUrl: string;
   apiKey: string;
   protocol: ProviderMode;
-  structuredMode: "prompt" | "native";
+  structuredMode: StructuredMode;
 };
 
 export type ProviderUsage = {
@@ -44,8 +50,13 @@ export function resolveProviderConfig(env: Record<string, string | undefined>): 
   const apiKey = (env.AI_API_KEY ?? env.ANTHROPIC_API_KEY ?? "").trim();
   const declared = (env.AI_API_PROTOCOL ?? "auto").trim().toLowerCase();
   const protocol: ProviderMode = declared === "anthropic" || declared === "openai" ? declared : "auto";
-  const mode = (env.AI_STRUCTURED_MODE ?? "prompt").trim().toLowerCase();
-  return { baseUrl, apiKey, protocol, structuredMode: mode === "native" ? "native" : "prompt" };
+  const mode = (env.AI_STRUCTURED_MODE ?? "tool").trim().toLowerCase();
+  return {
+    baseUrl,
+    apiKey,
+    protocol,
+    structuredMode: mode === "prompt" || mode === "native" ? mode : "tool",
+  };
 }
 
 /** Thứ tự protocol sẽ thử. `auto` đoán theo URL, còn lại thử cả hai. */
@@ -109,9 +120,23 @@ export function providerBody(
   };
   if (config.structuredMode === "native") {
     body.output_config = { format: { type: "json_schema", schema: input.schema } };
+  } else if (config.structuredMode === "tool") {
+    // Tool-use: model trả về đúng JSON theo schema, không cần ép bằng prompt.
+    const required = Object.keys((input.schema.properties ?? {}) as Record<string, unknown>);
+    body.tools = [{
+      name: RESULT_TOOL_NAME,
+      description: required.length
+        ? `Return the analysis as one JSON object. Required top-level keys: ${required.join(", ")}.`
+        : "Return the analysis as one JSON object.",
+      input_schema: input.schema,
+    }];
+    body.tool_choice = { type: "tool", name: RESULT_TOOL_NAME };
   }
   return body;
 }
+
+/** Tên tool dùng để ép model trả về JSON đúng schema. */
+export const RESULT_TOOL_NAME = "result";
 
 /** Đổi khối ảnh kiểu Anthropic sang `image_url` kiểu OpenAI. */
 function toOpenAiMessages(messages: unknown[]): unknown[] {
@@ -156,8 +181,17 @@ export function parseProviderResponse(body: unknown, headers: Headers): Provider
 
   if (Array.isArray(record.content)) {
     const usage = record.usage as Record<string, unknown> | undefined;
+    // Tool-use: JSON nằm trong block tool_use.input.
+    const toolUse = record.content.find((block) =>
+      Boolean(block) &&
+      typeof block === "object" &&
+      (block as { type?: unknown }).type === "tool_use"
+    ) as { input?: unknown } | undefined;
+    const rawText = toolUse
+      ? JSON.stringify(toolUse.input ?? {})
+      : extractTextContent(record.content);
     return {
-      rawText: extractTextContent(record.content),
+      rawText,
       usage: {
         input_tokens: numberOrZero(usage?.input_tokens),
         output_tokens: numberOrZero(usage?.output_tokens),
@@ -198,7 +232,8 @@ export function parseProviderResponse(body: unknown, headers: Headers): Provider
 export function structuredInstruction(schema: Record<string, unknown>): string {
   return [
     "Return exactly one JSON object and nothing else.",
-    "Do not wrap it in code fences and do not add any explanation before or after it.",
+    "Your reply must start with { and end with }.",
+    "Do not wrap it in code fences, do not write analysis or commentary, and do not add any text before or after it.",
     "The JSON object must match this schema:",
     JSON.stringify(schema),
   ].join("\n");
