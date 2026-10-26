@@ -3,10 +3,12 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { pageById } from './src/agent/content.ts'
 import { buildHeadTags, buildJsonLd, htmlLang } from './src/agent/site.ts'
-import { renderStaticHtml } from './src/agent/html.ts'
+import { renderLandingHtml, renderStaticHtml } from './src/agent/html.ts'
 
 // Mỗi trang công khai là một entry HTML riêng: build ra file tĩnh có sẵn nội dung,
 // title/canonical/og và JSON-LD để crawler đọc được không cần JavaScript.
+// Landing dùng bản HTML tĩnh song ngữ; ba trust page là tài liệu độc lập, không
+// boot React nên không bị route wildcard của app thay thế.
 const pageEntries = [
   { input: 'index.html', pageId: 'home' },
   { input: 'pages/about.html', pageId: 'about' },
@@ -24,13 +26,14 @@ function agentPages(): Plugin {
       if (!page) return html
       const head = buildHeadTags({ path: page.path, title: page.title[1], description: page.summary[1] })
       const jsonLd = JSON.stringify(buildJsonLd()).replace(/</g, '\\u003c')
-      let output = html.replace(/<html[^>]*lang="[^"]*"/, `<html lang="${htmlLang}"`)
+      let output = html.replace(/<html([^>]*)>/, (_match, attributes: string) => {
+        const rest = attributes.replace(/\slang="[^"]*"/, '')
+        return `<html lang="${htmlLang}"${rest}>`
+      })
       output = output.replace(/<title>[\s\S]*?<\/title>/, head.match(/<title>[\s\S]*?<\/title>/)![0])
       output = output.replace('</head>', `    ${head.replace(/<title>[\s\S]*?<\/title>\s*/, '')}\n    <script type="application/ld+json">${jsonLd}</script>\n  </head>`)
-      output = output.replace(
-        '<div id="root"></div>',
-        `<div id="root"></div>\n    <div id="agent-static" class="agent-static">${renderStaticHtml(page)}</div>`,
-      )
+      const body = entry.pageId === 'home' ? renderLandingHtml() : renderStaticHtml(page)
+      output = output.replace('<div id="root"></div>', `<div id="root">${body}</div>`)
       return output
     },
   }

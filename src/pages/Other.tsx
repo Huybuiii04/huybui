@@ -1,6 +1,6 @@
 ﻿import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
-import { ArrowRight, ArrowUpRight, Check, CheckCircle2, ClipboardList, Coffee, Heart, Lightbulb, LogOut, Monitor, Moon, PenLine, ShieldCheck, Sparkles, Sun, Target } from 'lucide-react'
+import { ArrowRight, ArrowUpRight, Check, CheckCircle2, ClipboardList, Coffee, Heart, Lightbulb, LogOut, Monitor, Moon, PenLine, ShieldCheck, Sparkles, Sun, Target, type LucideIcon } from 'lucide-react'
 import { Brand, LanguageSwitch } from '../components/Layout'
 import { Empty, PageHeader } from '../components/ui'
 import { useCopy } from '../i18n'
@@ -8,56 +8,75 @@ import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
 import { useTheme } from '../theme'
 import { loadDonationSettings, type DonationSettings } from '../lib/donationRepository'
+import { landingCopy, type LandingFeatureIcon } from '../agent/landing'
+
+// Icon lucide tương ứng với icon ghi trong landing.ts, để bản React và bản HTML
+// tĩnh dùng cùng một bộ icon cho ba thẻ tính năng.
+const featureIcons = {
+  pen: PenLine,
+  clipboard: ClipboardList,
+  lightbulb: Lightbulb,
+} satisfies Record<LandingFeatureIcon, LucideIcon>
 
 export function Landing() {
   const { c } = useCopy()
+  const copy = landingCopy
   return <div className="landing">
-    <a href="#landing-main" className="skip-link">{c('Đến nội dung', 'Skip to content')}</a>
+    <a href="#landing-main" className="skip-link">{c(copy.skipToContent[0], copy.skipToContent[1])}</a>
     <header className="landing-nav">
       <Brand />
-      <nav aria-label={c('Điều hướng chính', 'Main navigation')}>
-        <Link to="/app/prompts">{c('Kho đề bài', 'Prompt library')}</Link>
+      <nav aria-label={c(copy.navLabel[0], copy.navLabel[1])}>
+        <Link to="/app/prompts">{c(copy.navPromptLibrary[0], copy.navPromptLibrary[1])}</Link>
         <LanguageSwitch />
-        <Link className="button outline" to="/app">{c('Vào học ngay', 'Open studio')}<ArrowUpRight size={16} /></Link>
+        <Link className="button outline" to="/app">{c(copy.navOpenStudio[0], copy.navOpenStudio[1])}<ArrowUpRight size={16} /></Link>
       </nav>
     </header>
     <main id="landing-main">
       <div className="landing-stage">
         <section className="landing-intro">
-          <span className="landing-kicker"><span className="small-dot" />{c('KHÔNG GIAN CHO BƯỚC TIẾN MỚI', 'A LITTLE BETTER. EVERY DAY.')}</span>
-          <h1>{c('Ý tưởng của bạn.', 'Your ideas.')}<br />{c('Diễn đạt ', 'Beautifully ')}<em>{c('tốt hơn.', 'expressed.')}</em></h1>
-          <p>{c('Từ ý tưởng đầu tiên đến bài viết bạn tự hào. Luyện IELTS Writing, khám phá cách viết hay và xây dựng vốn từ của riêng bạn.', 'From your first idea to an essay you are proud of. Practise IELTS Writing, discover great writing and build a vocabulary of your own.')}</p>
+          <span className="landing-kicker"><span className="small-dot" />{c(copy.heroKicker[0], copy.heroKicker[1])}</span>
+          <h1>{c(copy.heroTitle[0], copy.heroTitle[1])}<br />{c(copy.heroAccent[0], copy.heroAccent[1])}<em>{c(copy.heroEmphasis[0], copy.heroEmphasis[1])}</em></h1>
+          <p>{c(copy.heroBody[0], copy.heroBody[1])}</p>
           <div className="button-row">
-            <Link className="button primary large" to="/app/write">{c('Bắt đầu viết', 'Start writing')}<ArrowRight size={18} /></Link>
-            <Link className="button outline large" to="/app/essays/demo">{c('Xem bài mẫu', 'Explore sample feedback')}<ArrowUpRight size={17} /></Link>
+            <Link className="button primary large" to="/app/write">{c(copy.primaryCta[0], copy.primaryCta[1])}<ArrowRight size={18} /></Link>
+            <Link className="button outline large" to="/app/essays/demo">{c(copy.secondaryCta[0], copy.secondaryCta[1])}<ArrowUpRight size={17} /></Link>
           </div>
-          <div className="landing-perks"><span><Check size={15} />{c('Miễn phí học tập', 'Free to learn')}</span><span><Check size={15} />Task 1 & Task 2</span><span><Check size={15} />VI / EN</span></div>
-          <a className="landing-explore" href="#learning-path">{c('Khám phá cách học', 'Find your learning flow')}<ArrowRight size={16} /></a>
+          <div className="landing-perks">{copy.perks.map(perk => <span key={perk[1]}><Check size={15} />{c(perk[0], perk[1])}</span>)}</div>
+          <a className="landing-explore" href="#learning-path">{c(copy.explore[0], copy.explore[1])}<ArrowRight size={16} /></a>
         </section>
-        <section className="studio-preview" aria-label={c('Xem trước không gian viết', 'Writing studio preview')}>
-          <div className="studio-toolbar"><span><i /><i /><i /></span><span>WRITING STUDIO</span><PenLine size={15} /></div>
+        <section className="studio-preview" aria-label={c(copy.studioLabel[0], copy.studioLabel[1])}>
+          <div className="studio-toolbar"><span><i /><i /><i /></span><span>{copy.studioToolbar}</span><PenLine size={15} /></div>
           <div className="studio-body">
-            <div className="studio-meta"><span>ACADEMIC · TASK 2</span><span>{c('Bài viết minh họa', 'Sample essay')}</span></div>
-            <h2>{c('Một trang trắng.', 'A blank page.')}<br /><span>{c('Vô vàn khả năng.', 'Endless possibilities.')}</span></h2>
-            <p className="studio-prompt">{c('Giáo dục trực tuyến có thể thay thế lớp học truyền thống?', 'Can online education replace the traditional classroom?')}</p>
-            <div className="studio-excerpt" lang="en">Education is no longer confined to the classroom. <mark>As technology continues to evolve,</mark> learners have more opportunities to shape their own journey.</div>
-            <div className="studio-insight"><Sparkles size={19} /><div><strong>{c('Mỗi câu viết, một bước tiến.', 'One sentence. One step forward.')}</strong><p>{c('Luyện cách nối ý, chọn từ và diễn đạt rõ ràng hơn.', 'Practise connecting ideas, choosing words and writing with clarity.')}</p></div></div>
-            <Link className="button primary full" to="/app/write">{c('Viết câu đầu tiên của bạn', 'Write your first sentence')}<ArrowRight size={17} /></Link>
+            <div className="studio-meta"><span>{copy.studioMetaLabel}</span><span>{c(copy.studioMeta[0], copy.studioMeta[1])}</span></div>
+            <h2>{c(copy.studioTitle[0], copy.studioTitle[1])}<br /><span>{c(copy.studioTitleAccent[0], copy.studioTitleAccent[1])}</span></h2>
+            <p className="studio-prompt">{c(copy.studioPrompt[0], copy.studioPrompt[1])}</p>
+            <div className="studio-excerpt" lang="en">{copy.studioExcerptBefore}<mark>{copy.studioExcerptHighlight}</mark>{copy.studioExcerptAfter}</div>
+            <div className="studio-insight"><Sparkles size={19} /><div><strong>{c(copy.studioInsightTitle[0], copy.studioInsightTitle[1])}</strong><p>{c(copy.studioInsightBody[0], copy.studioInsightBody[1])}</p></div></div>
+            <Link className="button primary full" to="/app/write">{c(copy.studioAction[0], copy.studioAction[1])}<ArrowRight size={17} /></Link>
           </div>
-          <div className="studio-bottom"><span><ShieldCheck size={14} />{c('Học theo nhịp của bạn', 'Learn at your own pace')}</span><span>IELTS Writing</span></div>
+          <div className="studio-bottom"><span><ShieldCheck size={14} />{c(copy.studioBottom[0], copy.studioBottom[1])}</span><span>{copy.studioBottomLabel}</span></div>
         </section>
       </div>
       <section className="landing-learning" id="learning-path">
-        <div className="landing-section-heading"><span className="eyebrow">{c('TỪNG BƯỚC, MỖI NGÀY', 'BUILD YOUR WRITING RITUAL')}</span><h2>{c('Một nơi. Trọn vẹn hành trình.', 'Your whole journey, in one place.')}</h2><p>{c('Viết, khám phá, ghi nhớ. Chọn bước tiếp theo của bạn.', 'Write, explore, remember. Choose your next step.')}</p></div>
-        <div className="landing-features">{[
-          { icon: PenLine, path: '/app/write', title: c('Viết với mục đích', 'Write with purpose'), body: c('Luyện biểu đồ, thư và luận. Giữ dòng ý tưởng với nháp tự lưu.', 'Practise charts, letters and essays. Keep your ideas flowing with autosaved drafts.'), action: c('Mở không gian viết', 'Open your writing space') },
-          { icon: ClipboardList, path: '/app/prompts', title: c('Chọn đề ngay', 'Pick a prompt'), body: c('Kho đề bài sẵn có đề Task 1 và Task 2 kèm hình ảnh và đề bài đầy đủ.', 'The prompt library holds ready Task 1 and Task 2 questions with charts and full task text.'), action: c('Mở kho đề bài', 'Open the prompt library') },
-          { icon: Lightbulb, path: '/app/vocabulary', title: c('Biến từ mới thành vốn riêng', 'Make new words yours'), body: c('Lưu cụm từ, cấu trúc và ôn tập theo lịch để ghi nhớ lâu hơn.', 'Save phrases and structures, then revisit them over time to remember more.'), action: c('Mở sổ từ vựng', 'Build your vocabulary') },
-        ].map((item, index) => <Link to={item.path} className="landing-feature" key={item.path}><div className="feature-top"><item.icon size={23} /><span>0{index + 1}</span></div><h3>{item.title}</h3><p>{item.body}</p><span className="feature-action">{item.action}<ArrowUpRight size={17} /></span></Link>)}</div>
+        <div className="landing-section-heading"><span className="eyebrow">{c(copy.learningKicker[0], copy.learningKicker[1])}</span><h2>{c(copy.learningTitle[0], copy.learningTitle[1])}</h2><p>{c(copy.learningBody[0], copy.learningBody[1])}</p></div>
+        <div className="landing-features">{copy.features.map((item, index) => {
+          const Icon = featureIcons[item.icon]
+          return <Link to={item.href} className="landing-feature" key={item.href}>
+            <div className="feature-top"><Icon size={23} /><span>0{index + 1}</span></div>
+            <h3>{c(item.title[0], item.title[1])}</h3>
+            <p>{c(item.body[0], item.body[1])}</p>
+            <span className="feature-action">{c(item.action[0], item.action[1])}<ArrowUpRight size={17} /></span>
+          </Link>
+        })}</div>
       </section>
-      <section className="landing-cta"><Heart size={24} /><span className="eyebrow">{c('CÙNG NHAU TIẾN XA', 'ROOM FOR EVERYONE')}</span><h2>{c('Tri thức tốt hơn khi được sẻ chia.', 'Learning is better when it is shared.')}</h2><p>{c('Không gói Premium. Không rào cản học tập. Một không gian để bạn tiến bộ mỗi ngày.', 'No premium tiers. No learning paywalls. A space to grow a little every day.')}</p><Link className="button outline" to="/donate">{c('Ủng hộ dự án', 'Support the project')}<ArrowUpRight size={16} /></Link></section>
+      <section className="landing-cta"><Heart size={24} /><span className="eyebrow">{c(copy.ctaKicker[0], copy.ctaKicker[1])}</span><h2>{c(copy.ctaTitle[0], copy.ctaTitle[1])}</h2><p>{c(copy.ctaBody[0], copy.ctaBody[1])}</p><Link className="button outline" to="/donate">{c(copy.donateCta[0], copy.donateCta[1])}<ArrowUpRight size={16} /></Link></section>
     </main>
-    <footer className="landing-footer"><Brand /><span>© 2026 IELTS Writing Studio</span><Link to="/app">{c('Bắt đầu học', 'Start learning')}<ArrowUpRight size={16} /></Link></footer>
+    <footer className="landing-footer">
+      <Brand />
+      <span>{copy.footerCopyright}</span>
+      <nav className="landing-footer-links" aria-label="Public information">{copy.footerLinks.map(link => <a key={link.href} href={link.href}>{c(link.label[0], link.label[1])}</a>)}</nav>
+      <Link to="/app">{c(copy.footerStart[0], copy.footerStart[1])}<ArrowUpRight size={16} /></Link>
+    </footer>
   </div>
 }
 

@@ -1,10 +1,29 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#0f766e" />
     <title>IELTS Writing Studio</title>
+    <script>
+      // Đọc lựa chọn ngôn ngữ trước lần vẽ đầu tiên để bản HTML tĩnh hiển thị
+      // đúng ngôn ngữ, và giữ nguyên khi JavaScript bị chặn.
+      try {
+        const language = localStorage.getItem('ielts-language')
+        if (language === 'vi' || language === 'en') {
+          document.documentElement.lang = language
+          document.documentElement.dataset.lang = language
+        }
+      } catch {}
+      // Giao diện tối là mặc định của app, nên bản tĩnh cũng bắt đầu tối để
+      // không nháy sáng khi React mount.
+      try {
+        const stored = localStorage.getItem('ielts-theme')
+        const theme = stored === 'light' || stored === 'dark' ? stored : 'dark'
+        document.documentElement.dataset.theme = theme
+        document.documentElement.style.colorScheme = theme
+      } catch {}
+    </script>
   </head>
   <body><div id="root"></div><script type="module" src="/src/main.tsx"></script></body>
 </html>

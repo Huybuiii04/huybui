@@ -1,8 +1,20 @@
 @import "tailwindcss";
+@import "@fontsource/be-vietnam-pro/latin-400.css";
+@import "@fontsource/be-vietnam-pro/latin-500.css";
+@import "@fontsource/be-vietnam-pro/latin-600.css";
+@import "@fontsource/be-vietnam-pro/latin-700.css";
+@import "@fontsource/be-vietnam-pro/vietnamese-400.css";
+@import "@fontsource/be-vietnam-pro/vietnamese-500.css";
+@import "@fontsource/be-vietnam-pro/vietnamese-600.css";
+@import "@fontsource/be-vietnam-pro/vietnamese-700.css";
 
 @theme {
   --font-sans: 'Be Vietnam Pro', system-ui, sans-serif;
 }
+
+/* Bản HTML tĩnh chứa cả hai ngôn ngữ; CSS chỉ hiện ngôn ngữ đang chọn. */
+[data-copy] { display: none; }
+html[data-lang='en'] [data-copy='en'], html[data-lang='vi'] [data-copy='vi'] { display: inline; }
 
 :root {
   color-scheme: light;
@@ -884,6 +896,9 @@ progress::-webkit-progress-value { background: var(--text-muted); border-radius:
 .landing-cta p { max-width: 580px; margin: 18px auto 26px; font-size: 14px; color: var(--text-muted); }
 .landing-footer { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 32px; max-width: 1240px; margin: auto; }
 .landing-footer > span, .landing-footer > a:last-child { color: var(--text-subtle); font-size: 12.5px; display: flex; align-items: center; gap: 7px; }
+.landing-footer-links { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; }
+.landing-footer-links a { color: var(--text-subtle); font-size: 12.5px; }
+.landing-footer-links a:hover { color: var(--brand-ink); }
 
 @media (min-width: 1500px) {
   .main-content { padding: 34px 46px; }
@@ -1089,9 +1104,6 @@ progress::-webkit-progress-value { background: var(--text-muted); border-radius:
 }
 
 /* ---------- Trang tài liệu công khai (dùng chung bản tĩnh + bản React) ---------- */
-.agent-static { display: block; }
-html[data-app='ready'] .agent-static { display: none; }
-.agent-static-inner { max-width: 880px; margin: 0 auto; padding: 56px 24px 72px; }
 .doc-shell { min-height: 100vh; display: flex; flex-direction: column; }
 .doc-nav { max-width: 1180px; width: 100%; margin: auto; display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 24px 24px 4px; }
 .doc-nav > nav { display: flex; align-items: center; gap: 18px; }
@@ -1106,13 +1118,9 @@ html[data-app='ready'] .agent-static { display: none; }
 .doc-section p { font-size: 14.5px; line-height: 1.75; color: var(--text-muted); }
 .doc-section ul { display: grid; gap: 8px; padding-left: 20px; margin: 0; }
 .doc-section li { font-size: 14px; line-height: 1.7; color: var(--text-muted); }
-.doc-links { display: flex; flex-wrap: wrap; gap: 16px; padding-top: 18px; border-top: 1px solid var(--border); }
-.doc-links a { font-size: 13px; font-weight: 600; color: var(--brand-ink); text-decoration: none; border-bottom: 1px solid var(--border-strong); padding-bottom: 3px; }
-.doc-links a:hover { border-color: var(--brand); }
 .doc-footer { border-top: 1px solid var(--border); padding: 22px 24px; display: flex; flex-wrap: wrap; gap: 14px; justify-content: space-between; align-items: center; color: var(--text-subtle); font-size: 12.5px; }
 .doc-footer > a { color: var(--brand-ink); font-weight: 600; }
 @media (max-width: 767px) {
-  .agent-static-inner { padding: 36px 18px 56px; }
   .doc-nav { padding: 18px 18px 2px; }
   .doc-main { padding: 22px 18px 52px; }
   .doc-header h1 { font-size: 28px; }

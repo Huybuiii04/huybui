@@ -1,9 +1,12 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { site, buildJsonLd, buildHeadTags, htmlLang } from '../src/agent/site.ts'
-import { pages, pageById, pageByPath, plainText, type ContentPage } from '../src/agent/content.ts'
+import { pages, pageById, pageByPath, plainText, type ContentPage, type Copy } from '../src/agent/content.ts'
 import { renderMarkdown, renderNotFoundMarkdown, escapePlainText } from '../src/agent/markdown.ts'
-import { renderStaticHtml } from '../src/agent/html.ts'
+import { escapeHtml, renderLandingHtml, renderStaticHtml } from '../src/agent/html.ts'
+import { landingCopy } from '../src/agent/landing.ts'
 import { matchPath, spaRoutes, staticFiles, apiRoutes, markdownPageIds, publicLinks } from '../src/agent/routes.ts'
 
 // Tuyên bố cấm trong bản tiếng Anh: các bản đặc tả API, cổng nhà phát triển,
@@ -379,4 +382,146 @@ test('pages are addressable by id and by path', () => {
   assert.equal(pageByPath('/privacy')?.id, 'privacy')
   assert.equal(pageById('home')?.path, '/')
   assert.equal(pages.length, 4)
+})
+
+// ---------- Landing tĩnh: copy dùng chung cho React và HTML ----------
+
+// Duyệt toàn bộ cấu trúc export để thu thập mọi cặp [vi, en]: không chuỗi nào
+// của landing được bỏ sót khỏi kiểm thử "không lệch".
+function collectCopyPairs(
+  value: unknown,
+  path: string,
+  found: { path: string; pair: Copy }[] = [],
+): { path: string; pair: Copy }[] {
+  if (Array.isArray(value)) {
+    if (value.length === 2 && value.every(item => typeof item === 'string')) {
+      found.push({ path, pair: value as Copy })
+      return found
+    }
+    value.forEach((item, index) => collectCopyPairs(item, `${path}[${index}]`, found))
+    return found
+  }
+  if (value && typeof value === 'object') {
+    for (const [key, item] of Object.entries(value)) collectCopyPairs(item, path ? `${path}.${key}` : key, found)
+  }
+  return found
+}
+
+test('the shared landing copy keeps the wording the React landing shows today', () => {
+  assert.deepEqual(landingCopy.heroTitle, ['Ý tưởng của bạn.', 'Your ideas.'])
+  assert.deepEqual(landingCopy.heroAccent, ['Diễn đạt ', 'Beautifully '])
+  assert.deepEqual(landingCopy.heroEmphasis, ['tốt hơn.', 'expressed.'])
+  assert.deepEqual(landingCopy.primaryCta, ['Bắt đầu viết', 'Start writing'])
+  assert.deepEqual(landingCopy.secondaryCta, ['Xem bài mẫu', 'Explore sample feedback'])
+  assert.deepEqual(landingCopy.explore, ['Khám phá cách học', 'Find your learning flow'])
+  assert.deepEqual(landingCopy.learningTitle, ['Một nơi. Trọn vẹn hành trình.', 'Your whole journey, in one place.'])
+  assert.deepEqual(landingCopy.ctaTitle, ['Tri thức tốt hơn khi được sẻ chia.', 'Learning is better when it is shared.'])
+  assert.deepEqual(landingCopy.features.map(feature => feature.href), ['/app/write', '/app/prompts', '/app/vocabulary'])
+  assert.deepEqual(landingCopy.features.map(feature => feature.title[1]), [
+    'Write with purpose',
+    'Pick a prompt',
+    'Make new words yours',
+  ])
+})
+
+test('the static landing html ships both language variants of every shared string', () => {
+  const html = renderLandingHtml()
+  const pairs = collectCopyPairs(landingCopy, 'landingCopy')
+  assert.ok(pairs.length >= 40, `expected the landing copy to be shared, found ${pairs.length} pairs`)
+  for (const { path, pair } of pairs) {
+    assert.ok(pair[0].trim().length > 0, `${path} has no Vietnamese copy`)
+    assert.ok(pair[1].trim().length > 0, `${path} has no English copy`)
+    assert.ok(
+      html.includes(`<span data-copy="vi">${escapeHtml(pair[0])}</span>`),
+      `static landing is missing the Vietnamese copy of ${path}`,
+    )
+    assert.ok(
+      html.includes(`<span data-copy="en">${escapeHtml(pair[1])}</span>`),
+      `static landing is missing the English copy of ${path}`,
+    )
+  }
+})
+
+test('the static landing mirrors the React landing structure and links', () => {
+  const html = renderLandingHtml()
+  for (const className of [
+    'landing',
+    'landing-nav',
+    'landing-stage',
+    'landing-intro',
+    'landing-perks',
+    'landing-explore',
+    'studio-preview',
+    'studio-body',
+    'studio-meta',
+    'studio-insight',
+    'landing-learning',
+    'landing-features',
+    'landing-feature',
+    'landing-cta',
+    'landing-footer',
+  ]) {
+    assert.ok(html.includes(`class="${className}"`), `static landing is missing .${className}`)
+  }
+  assert.equal((html.match(/<h1[\s>]/g) ?? []).length, 1, 'static landing needs exactly one h1')
+  for (const href of [
+    '/app/prompts',
+    '/app/write',
+    '/app/essays/demo',
+    '/app/vocabulary',
+    '/donate',
+    '/about',
+    '/contact',
+    '/privacy',
+  ]) {
+    assert.ok(html.includes(`href="${href}"`), `static landing is missing the link ${href}`)
+  }
+  assert.ok(!html.includes('react-router'), 'static landing must not depend on the router')
+})
+
+test('the React landing reads its copy from the shared landing module', () => {
+  const source = readFileSync(join(process.cwd(), 'src', 'pages', 'Other.tsx'), 'utf8')
+  assert.match(source, /import \{[^}]*landingCopy[^}]*\} from '\.\.\/agent\/landing(\.ts)?'/)
+  const start = source.indexOf('export function Landing()')
+  const end = source.indexOf('export function Donate()')
+  assert.ok(start > 0 && end > start, 'could not locate the Landing component')
+  const landingSource = source.slice(start, end)
+  assert.ok(!/c\(\s*'/.test(landingSource), 'the Landing component still hard-codes copy')
+  assert.ok(!landingSource.includes('Your ideas.'), 'the Landing component still hard-codes the hero title')
+  assert.ok(landingSource.includes('landingCopy'), 'the Landing component does not use the shared copy')
+})
+
+test('the trust page renderer produces a complete document body', () => {
+  for (const id of ['about', 'contact', 'privacy']) {
+    const page = pageById(id)
+    assert.ok(page, `missing content page ${id}`)
+    const html = renderStaticHtml(page)
+    assert.ok(html.includes('class="doc-shell"'), `${id} is missing .doc-shell`)
+    assert.ok(html.includes('class="doc-nav"'), `${id} is missing .doc-nav`)
+    assert.ok(html.includes('class="doc-main"'), `${id} is missing .doc-main`)
+    assert.ok(html.includes('<main class="doc-page"'), `${id} is missing <main class="doc-page">`)
+    assert.ok(html.includes('class="doc-footer"'), `${id} is missing .doc-footer`)
+    assert.equal((html.match(/<h1[\s>]/g) ?? []).length, 1, `${id} needs exactly one h1`)
+    assert.equal((html.match(/<h2[\s>]/g) ?? []).length, page.sections.length, `${id} needs one h2 per section`)
+    for (const href of ['/', '/about', '/contact', '/privacy', '/llms.txt', '/sitemap.xml']) {
+      assert.ok(html.includes(`href="${href}"`), `${id} is missing the link ${href}`)
+    }
+  }
+})
+
+test('the trust page renderer escapes every interpolated string', () => {
+  const hostile: ContentPage = {
+    id: 'hostile',
+    path: '/hostile',
+    title: ['Tiêu đề', '<script>alert(1)</script>'],
+    summary: ['a & b', 'a & b'],
+    sections: [{ id: 'section', heading: ['<h2>', 'Heading'], body: [['<b>body</b>', '<i>body</i>']], list: [['<li>x</li>', '"x"']] }],
+  }
+  const html = renderStaticHtml(hostile)
+  assert.ok(!html.includes('<script>'), 'a script tag must never reach the document')
+  assert.ok(!html.includes('<b>'), 'markup must never reach the document')
+  assert.ok(!html.includes('<i>'), 'markup must never reach the document')
+  assert.ok(html.includes('&lt;script&gt;'), 'the title must be escaped')
+  assert.ok(html.includes('&lt;i&gt;body&lt;/i&gt;'), 'the body must be escaped')
+  assert.ok(html.includes('&quot;x&quot;'), 'the list item must be escaped')
 })
