@@ -9,13 +9,15 @@ import { matchPath, staticFiles } from './src/agent/routes.ts'
 // phục vụ trực tiếp nên phải nằm ngoài matcher: middleware chỉ xử lý logic.
 // Danh sách file tĩnh lấy từ routes.ts để không lệch với bảng route.
 const assetPrefix = 'assets/'
-const staticFilePatterns = staticFiles.map(file =>
-  file.replace(/^\//, '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
-)
 
+// Vercel đọc `config.matcher` bằng phân tích tĩnh lúc build (AST), nên matcher
+// phải là chuỗi literal chứ không được tính lúc chạy: matcher tính bằng template
+// literal làm build hỏng với "Unhandled type: TemplateLiteral".
+// Danh sách file tĩnh ở đây phải khớp staticFiles trong src/agent/routes.ts —
+// tests/middleware.test.ts kiểm tra đúng điều đó.
 export const config = {
   runtime: 'nodejs',
-  matcher: [`/((?!${[assetPrefix, ...staticFilePatterns].join('|')}).*)`],
+  matcher: ['/((?!assets/|favicon\\.svg|donate-qr\\.png|og-image\\.png|robots\\.txt|sitemap\\.xml|llms\\.txt).*)'],
 }
 
 // Đuôi file của tài nguyên kỹ thuật: thiếu file thì trả 404 HTML, không bao giờ Markdown,
