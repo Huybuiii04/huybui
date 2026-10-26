@@ -211,8 +211,8 @@ export const privacy: ContentPage = {
       heading: ['Dữ liệu trong trình duyệt của bạn', 'Data kept in your browser'],
       body: [
         [
-          'Bản nháp, ảnh và trạng thái học tập đã cache nằm trong IndexedDB của trình duyệt để ứng dụng vẫn dùng được khi mất mạng; lựa chọn ngôn ngữ và giao diện sáng/tối nằm trong localStorage; token phiên quản trị nằm trong sessionStorage. Tất cả chỉ ở trên thiết bị của bạn, và nút "Xoá dữ liệu học tập trên thiết bị này" trong phần Cài đặt xoá cache cục bộ.',
-          'Drafts, images and cached learning state live in your browser under IndexedDB so the app keeps working offline; your language choice and light/dark theme are stored in localStorage; the administration session token is kept in sessionStorage. All of it stays on your own device, and the "Clear learning data on this device" control in Settings clears the local cache.',
+          'Bản nháp, ảnh và trạng thái học tập đã cache nằm trong IndexedDB của trình duyệt; lựa chọn ngôn ngữ và giao diện sáng/tối nằm trong localStorage; token phiên quản trị nằm trong sessionStorage. Tất cả chỉ ở trên thiết bị của bạn, và nút "Xoá dữ liệu học tập trên thiết bị này" trong phần Cài đặt xoá cache cục bộ.',
+          'Drafts, images and cached learning state live in your browser under IndexedDB; your language choice and light/dark theme are stored in localStorage; the administration session token is kept in sessionStorage. All of it stays on your own device, and the "Clear learning data on this device" control in Settings clears the local cache.',
         ],
       ],
     },

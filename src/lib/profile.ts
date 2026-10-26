@@ -1,11 +1,12 @@
 import { supabase } from './supabase'
 import { profileToRow, type ProfileRow, type ProfileState } from './authLogic'
+import { languageStorageKey } from '../agent/language'
 
 export type { ProfileRow, ProfileState }
 
 export function detectLocale(): 'vi' | 'en' {
   try {
-    return localStorage.getItem('ielts-language') === 'en' ? 'en' : 'vi'
+    return localStorage.getItem(languageStorageKey) === 'en' ? 'en' : 'vi'
   } catch {
     return 'vi'
   }

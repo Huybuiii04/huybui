@@ -2,6 +2,9 @@
 export type RouteKind = 'spa' | 'static' | 'api'
 export type RouteMatch = { kind: RouteKind; id: string }
 
+// /about, /contact và /privacy KHÔNG phải route React: chúng được phục vụ bằng file
+// HTML tĩnh qua rewrite của Vercel (vercel.json) và middleware chỉ dùng danh sách này
+// để biết URL đó hợp lệ. Xoá chúng khỏi đây sẽ khiến ba trang này trả 404.
 export const spaRoutes = [
   '/',
   '/auth',

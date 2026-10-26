@@ -14,8 +14,9 @@ import { agentPages } from '../src/agent/pages.ts'
 import { matchPath, spaRoutes, staticFiles, apiRoutes, markdownPageIds, publicLinks } from '../src/agent/routes.ts'
 
 // Tuyên bố cấm trong bản tiếng Anh: các bản đặc tả API, cổng nhà phát triển,
-// MCP server, khoá API, môi trường thử nghiệm.
-const forbiddenClaims = ['OpenAPI', 'developer portal', 'MCP', 'API key', 'sandbox', 'REST API'] as const
+// MCP server, khoá API, môi trường thử nghiệm, và khả năng dùng app ngoại tuyến
+// (app không có service worker nên cache cục bộ không làm app chạy offline).
+const forbiddenClaims = ['OpenAPI', 'developer portal', 'MCP', 'API key', 'sandbox', 'REST API', 'keeps working offline', 'works offline'] as const
 // Cùng danh sách ở bản tiếng Việt, gồm cả thuật ngữ Việt tương ứng.
 const forbiddenClaimsVi = [
   'OpenAPI',
@@ -27,6 +28,9 @@ const forbiddenClaimsVi = [
   'cổng nhà phát triển',
   'trang tài liệu nhà phát triển',
   'API REST',
+  'vẫn dùng được khi mất mạng',
+  'dùng được ngoại tuyến',
+  'hoạt động ngoại tuyến',
 ] as const
 
 // Đọc code span đầu tiên sau "The path " trong trang 404 Markdown.
