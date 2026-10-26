@@ -75,7 +75,7 @@ export const htmlLang = 'en'
 
 export function buildHeadTags(input: { path: string; title: string; description: string }) {
   const url = canonicalUrl(input.path)
-  const fullTitle = input.path === '/' ? `${site.name} — ${input.title}` : `${input.title} — ${site.name}`
+  const fullTitle = input.title.includes(site.name) ? input.title : `${input.title} — ${site.name}`
   return [
     `<title>${fullTitle}</title>`,
     `<meta name="description" content="${input.description}">`,

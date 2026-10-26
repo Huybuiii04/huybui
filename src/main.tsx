@@ -1,4 +1,4 @@
-import { StrictMode, Component, type ReactNode } from 'react'
+import { StrictMode, Component, useEffect, type ReactNode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { createBrowserRouter, RouterProvider } from 'react-router'
 import '@fontsource/be-vietnam-pro/latin-400.css'
@@ -24,5 +24,12 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { failed: boolean
     return this.props.children
   }
 }
+// Bản nội dung tĩnh trong HTML được ẩn đi khi app đã render xong phần đầu tiên,
+// để người dùng không thấy nháy nội dung nhưng crawler vẫn đọc được HTML gốc.
+function ReadySignal() {
+  useEffect(() => { document.documentElement.dataset.app = 'ready' }, [])
+  return null
+}
+
 const router = createBrowserRouter(routes())
-createRoot(document.getElementById('root')!).render(<StrictMode><ErrorBoundary><AuthProvider><StoreProvider><RouterProvider router={router} /></StoreProvider></AuthProvider></ErrorBoundary></StrictMode>)
+createRoot(document.getElementById('root')!).render(<StrictMode><ErrorBoundary><AuthProvider><StoreProvider><ReadySignal /><RouterProvider router={router} /></StoreProvider></AuthProvider></ErrorBoundary></StrictMode>)
