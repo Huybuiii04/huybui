@@ -15,9 +15,18 @@ function escapeInline(value: string) {
   return value.replace(/([\[\]])/g, '\\$1')
 }
 
-// Đường dẫn do người dùng gõ vào phải được làm sạch trước khi nằm trong code span.
-function escapeCodeSpan(value: string) {
-  return value.replace(/[\r\n]+/g, ' ').replace(/`/g, '\\`')
+// CommonMark: một code span mở bằng một chuỗi backtick và đóng bằng chuỗi
+// backtick dài bằng, nên nội dung bên trong không được chứa chuỗi backtick nào
+// dài bằng fence (backtick sẽ kết thúc span sớm). Vì vậy fence phải dài hơn
+// chuỗi backtick dài nhất trong nội dung, và nội dung bắt đầu hoặc kết thúc bằng
+// backtick cần thêm một khoảng trắng mỗi bên: CommonMark bỏ đúng một khoảng
+// trắng ở hai đầu nội dung, nên fence không còn bị nhập nhằng.
+function codeSpan(value: string) {
+  const content = value.replace(/[\u0000-\u001f\u007f]/g, '')
+  const longestRun = (content.match(/`+/g) ?? []).reduce((longest, run) => Math.max(longest, run.length), 0)
+  const fence = '`'.repeat(longestRun + 1)
+  const needsPadding = content.length === 0 || content.startsWith('`') || content.endsWith('`')
+  return `${fence}${needsPadding ? ` ${content} ` : content}${fence}`
 }
 
 export function renderMarkdown(page: ContentPage, lang: 0 | 1 = 1): string {
@@ -40,7 +49,7 @@ export function renderNotFoundMarkdown(path: string): string {
   return [
     `# 404 — Page not found`,
     '',
-    `The path \`${escapeCodeSpan(path)}\` does not exist on ${site.name}. The server answered with HTTP 404 because nothing is published at this address, so there is no page to read here.`,
+    `The path ${codeSpan(path)} does not exist on ${site.name}. The server answered with HTTP 404 because nothing is published at this address, so there is no page to read here.`,
     '',
     'Try one of these instead:',
     '',

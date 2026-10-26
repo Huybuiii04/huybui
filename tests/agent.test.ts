@@ -5,6 +5,40 @@ import { pages, pageById, pageByPath, plainText } from '../src/agent/content.ts'
 import { renderMarkdown, renderNotFoundMarkdown } from '../src/agent/markdown.ts'
 import { matchPath, spaRoutes, staticFiles, apiRoutes, markdownPageIds } from '../src/agent/routes.ts'
 
+// Tuyên bố cấm trong bản tiếng Anh: các bản đặc tả API, cổng nhà phát triển,
+// MCP server, khoá API, môi trường thử nghiệm.
+const forbiddenClaims = ['OpenAPI', 'developer portal', 'MCP', 'API key', 'sandbox', 'REST API'] as const
+// Cùng danh sách ở bản tiếng Việt, gồm cả thuật ngữ Việt tương ứng.
+const forbiddenClaimsVi = [
+  'OpenAPI',
+  'MCP',
+  'API key',
+  'khoá API',
+  'sandbox',
+  'môi trường thử nghiệm',
+  'cổng nhà phát triển',
+  'trang tài liệu nhà phát triển',
+  'API REST',
+] as const
+
+// Đọc code span đầu tiên sau "The path " trong trang 404 Markdown.
+function pathCodeSpan(markdown: string) {
+  const marker = 'The path '
+  const start = markdown.indexOf(marker)
+  if (start < 0) return null
+  const rest = markdown.slice(start + marker.length)
+  const fence = rest.match(/^`+/)?.[0]
+  if (!fence) return null
+  const body = rest.slice(fence.length)
+  const close = body.indexOf(fence)
+  if (close < 0) return null
+  return { fence, content: body.slice(0, close), after: body.slice(close + fence.length) }
+}
+
+function longestBacktickRun(value: string) {
+  return (value.match(/`+/g) ?? []).reduce((longest, run) => Math.max(longest, run.length), 0)
+}
+
 test('only the four verified public pages are published', () => {
   for (const path of ['/', '/about', '/contact', '/privacy']) {
     assert.equal(matchPath(path)?.id, path, path)
@@ -88,9 +122,13 @@ test('trust anchor pages carry at least 500 characters of readable content', () 
 })
 
 test('public copy claims no public api, developer portal or mcp server', () => {
-  const text = pages.map(page => plainText(page, 1)).join('\n')
-  for (const needle of ['OpenAPI', 'developer portal', 'MCP', 'API key', 'sandbox', 'REST API']) {
-    assert.ok(!new RegExp(needle, 'i').test(text), `public copy still mentions ${needle}`)
+  for (const page of pages) {
+    for (const [lang, needles] of [[0, forbiddenClaimsVi], [1, forbiddenClaims]] as const) {
+      const text = plainText(page, lang)
+      for (const needle of needles) {
+        assert.ok(!new RegExp(needle, 'i').test(text), `${page.id} (lang ${lang}) still mentions ${needle}`)
+      }
+    }
   }
 })
 
@@ -137,11 +175,24 @@ test('not found markdown explains the error and points to agent resources', () =
   assert.ok(!markdown.includes('/developers'))
 })
 
-test('not found markdown escapes the requested path before quoting it', () => {
-  const markdown = renderNotFoundMarkdown('/a `b` c\nsecond line')
-  assert.ok(!markdown.includes('`b`'), 'the path is not escaped inside the code span')
-  assert.match(markdown, /\\`/)
-  assert.ok(!markdown.includes('\nsecond'), 'the path keeps a line break')
+test('not found markdown keeps a backtick path inside a safe code span', () => {
+  for (const path of ['/a`b', '/a``b', '/a```b', '/a`b](http://example.com)']) {
+    const markdown = renderNotFoundMarkdown(path)
+    const span = pathCodeSpan(markdown)
+    assert.ok(span, `no code span for ${path}`)
+    assert.equal(span.content, path, `the path must stay visible for ${path}`)
+    assert.ok(longestBacktickRun(span.content) < span.fence.length, `the path must not close the span for ${path}`)
+    assert.ok(span.after.startsWith(' does not exist on '), `the span must end where the sentence continues for ${path}`)
+  }
+})
+
+test('not found markdown strips control characters from the path', () => {
+  const markdown = renderNotFoundMarkdown('/a\u0000b\u0007c\nd')
+  const span = pathCodeSpan(markdown)
+  assert.ok(span, 'no code span')
+  assert.equal(span.content, '/abcd')
+  assert.ok(!/[\u0000-\u001f\u007f]/.test(span.content), 'control characters must be stripped from the path')
+  assert.ok(!/[\u0000-\u001f\u007f]/.test(markdown.replace(/\n/g, '')), 'control characters must be stripped from the body')
 })
 
 test('json-ld exposes only the verified SoftwareApplication identity', () => {
