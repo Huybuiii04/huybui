@@ -38,21 +38,30 @@ const apiErrorBody = {
   },
 }
 
+// Giải mã percent-encoding an toàn: một chuỗi escape hỏng không được làm hỏng
+// request. Kết quả chỉ dùng để hiển thị và để so khớp đuôi file, không dùng để
+// dựng đường dẫn hệ thống file hay để tạo redirect.
+function decodePath(path: string) {
+  try {
+    return decodeURIComponent(path)
+  } catch {
+    return path
+  }
+}
+
+// Đuôi file phải được nhận ra từ đường dẫn đã giải mã, nếu không
+// "/missing%2Ejson" sẽ lọt qua và bị thương lượng thành Markdown.
 function isTechnicalPath(path: string) {
-  const lower = path.toLowerCase()
-  return technicalExtensions.some(extension => lower.endsWith(extension))
+  const candidates = [path, decodePath(path)]
+  return candidates.some(candidate =>
+    technicalExtensions.some(extension => candidate.toLowerCase().endsWith(extension)),
+  )
 }
 
 // Đường dẫn trong body phải là đường dẫn người dùng thật sự gõ nên được giải mã
 // percent-encoding, rồi bỏ ký tự điều khiển để không phá vỡ HTML/Markdown.
 function safePath(path: string) {
-  let decoded = path
-  try {
-    decoded = decodeURIComponent(path)
-  } catch {
-    decoded = path
-  }
-  return decoded.replace(/[\u0000-\u001f\u007f]/g, '').slice(0, 200)
+  return decodePath(path).replace(/[\u0000-\u001f\u007f]/g, '').slice(0, 200)
 }
 
 // Mọi response do middleware tạo đều phụ thuộc Accept nên phải có Vary: Accept.

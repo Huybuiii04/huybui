@@ -262,6 +262,65 @@ test('markdown escapes plain text so content cannot inject structure', () => {
   assert.ok(!lines.includes('* emphasis'), 'a list item must not turn into emphasis')
 })
 
+// Mỗi dấu mở khối của CommonMark: nội dung thuần phải không bao giờ tạo khối.
+const blockMarkers = [
+  { text: '1) injected', escaped: '1\\) injected', block: /^\s*1\)/ },
+  { text: '1. injected', escaped: '1\\. injected', block: /^\s*1\./ },
+  { text: '- injected', escaped: '\\- injected', block: /^\s*[-+*]\s/ },
+  { text: '+ injected', escaped: '\\+ injected', block: /^\s*[-+*]\s/ },
+  { text: '* injected', escaped: '\\* injected', block: /^\s*[-+*]\s/ },
+  { text: '# injected', escaped: '\\# injected', block: /^\s*#{1,6}\s/ },
+  { text: '### injected', escaped: '\\#\\#\\# injected', block: /^\s*#{1,6}\s/ },
+  { text: '> injected', escaped: '\\> injected', block: /^\s*>/ },
+  { text: '===', escaped: '\\===', block: /^=+\s*$/ },
+  { text: '---', escaped: '\\---', block: /^-{3,}\s*$/ },
+  { text: '***', escaped: '\\*\\*\\*', block: /^\*{3,}\s*$/ },
+  { text: '```', escaped: '\\`\\`\\`', block: /^`{3,}/ },
+  { text: '~~~', escaped: '\\~\\~\\~', block: /^~{3,}/ },
+  { text: '[label]: https://example.com', escaped: '\\[label\\]: https://example.com', block: /^\[[^\]]+\]:/ },
+] as const
+
+// Trang mẫu có cùng một nội dung thuần ở mọi trường văn bản.
+function hostilePage(text: string): ContentPage {
+  return {
+    id: 'hostile',
+    path: '/hostile',
+    title: [text, text],
+    summary: [text, text],
+    sections: [{ id: 'section', heading: [text, text], body: [[text, text]], list: [[text, text]] }],
+  }
+}
+
+test('plain text can never open a markdown block', () => {
+  for (const marker of blockMarkers) {
+    const markdown = renderMarkdown(hostilePage(marker.text), 1)
+    const lines = markdown.split('\n')
+    // Mọi trường văn bản thuần đều phải hiện ra ở dạng đã escape.
+    assert.ok(lines.includes(marker.escaped), `${marker.text} must render escaped:\n${markdown}`)
+    assert.ok(lines.includes(`# ${marker.escaped}`), `${marker.text} title must render escaped`)
+    assert.ok(lines.includes(`> ${marker.escaped}`), `${marker.text} summary must render escaped`)
+    assert.ok(lines.includes(`## ${marker.escaped}`), `${marker.text} heading must render escaped`)
+    assert.ok(lines.includes(`- ${marker.escaped}`), `${marker.text} list item must render escaped`)
+    // Dòng mang nội dung này không được mở khối Markdown nào.
+    for (const line of lines.filter(item => item.endsWith(marker.escaped))) {
+      const text = line.replace(/^(#{1,2} |> |- )/, '')
+      assert.ok(!marker.block.test(text), `${marker.text} must not open a block: ${line}`)
+    }
+  }
+})
+
+test('plain text cannot open a block on a later line', () => {
+  const markdown = renderMarkdown(hostilePage('intro text\n===\n1) injected\n> quote'), 1)
+  const lines = markdown.split('\n')
+  assert.ok(lines.includes('intro text'))
+  assert.ok(lines.includes('\\==='))
+  assert.ok(lines.includes('1\\) injected'))
+  assert.ok(lines.includes('\\> quote'))
+  assert.ok(!lines.includes('==='))
+  assert.ok(!lines.includes('1) injected'))
+  assert.ok(!lines.includes('> quote'))
+})
+
 test('json-ld exposes only the verified SoftwareApplication identity', () => {
   const graph = buildJsonLd()['@graph'] as Record<string, unknown>[]
   assert.equal(graph.length, 1)

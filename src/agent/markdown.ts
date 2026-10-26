@@ -11,15 +11,48 @@ export const agentResourceLinks = [
   { label: 'llms.txt', href: '/llms.txt' },
 ] as const
 
-// Ký tự có thể biến văn bản thuần thành cấu trúc Markdown: escape chúng trong
-// mọi trường văn bản thuần (tiêu đề, tóm tắt, heading, đoạn, mục danh sách).
-// Dấu gạch ngang, dấu cộng và số thứ tự chỉ nguy hiểm ở đầu dòng nên chỉ escape
-// khi đứng đầu chuỗi.
-const markdownSpecials = /([\\`*_\[\]<>|#~])/g
+// Ký tự inline có thể biến văn bản thuần thành cấu trúc Markdown (code span,
+// nhấn mạnh, link, HTML, bảng). Chúng được escape ở mọi trường văn bản thuần.
+const inlineSpecials = /([\\`*_[\]<>|#~])/g
 
 function escapeInline(value: string) {
-  const escaped = value.replace(markdownSpecials, '\\$1')
-  return escaped.replace(/^([-+]|\d+\.)/, '\\$1')
+  return value.replace(inlineSpecials, '\\$1')
+}
+
+// Các dấu mở khối CommonMark chưa bị escapeInline xử lý: danh sách có số thứ tự,
+// danh sách không đánh số, đường kẻ ngang và gạch ngang setext.
+function escapeBlockStart(line: string) {
+  return line
+    // Danh sách có số thứ tự: "1." hoặc "1)" -> escape dấu phân cách.
+    .replace(/^(\s*)(\d{1,9})([.)])(\s|$)/, (_match, indent, digits, delimiter, tail) => `${indent}${digits}\\${delimiter}${tail}`)
+    // Danh sách không đánh số: "- " hoặc "+ ".
+    .replace(/^(\s*)([-+])(\s|$)/, (_match, indent, marker, tail) => `${indent}\\${marker}${tail}`)
+    // Đường kẻ ngang và gạch ngang setext: "---", "- - -", "--".
+    .replace(/^(\s*)(-)([\s-]*)$/, (_match, indent, marker, tail) => `${indent}\\${marker}${tail}`)
+    // Gạch ngang setext bằng "=".
+    .replace(/^(\s*)(=+)([\s=]*)$/, (_match, indent, marker, tail) => `${indent}\\${marker}${tail}`)
+}
+
+// Dòng thụt lề từ 4 khoảng trắng (hoặc có tab) sẽ thành khối code thụt lề.
+// Markdown không có cú pháp escape cho khoảng trắng, nên khoảng trắng được viết
+// bằng entity HTML: hiển thị y nguyên mà không tạo khối code.
+function escapeIndentation(line: string) {
+  const indentation = /^[ \t]+/.exec(line)?.[0] ?? ''
+  if (!indentation || (!indentation.includes('\t') && indentation.length < 4)) return line
+  const entities = indentation.replace(/ /g, '&#32;').replace(/\t/g, '&#9;')
+  return entities + line.slice(indentation.length)
+}
+
+// Nội dung thuần phải "vô hại": một dòng bắt đầu bằng dấu mở khối của CommonMark
+// sẽ tạo cấu trúc Markdown thật — danh sách, heading, trích dẫn, khối code,
+// đường kẻ ngang, hay định nghĩa link khiến các link khác trỏ sang đích khác.
+// Nội dung có thể đến từ nguồn không tin cậy, nên mọi dấu mở khối ở đầu dòng
+// đều được escape: văn bản vẫn hiện ra y nguyên nhưng không tạo khối.
+export function escapePlainText(value: string) {
+  return value
+    .split('\n')
+    .map(line => escapeIndentation(escapeBlockStart(escapeInline(line))))
+    .join('\n')
 }
 
 // CommonMark: một code span mở bằng một chuỗi backtick và đóng bằng chuỗi
@@ -44,12 +77,12 @@ function codeSpan(value: string) {
 }
 
 export function renderMarkdown(page: ContentPage, lang: 0 | 1 = 1): string {
-  const lines: string[] = [`# ${escapeInline(page.title[lang])}`, '', `> ${escapeInline(page.summary[lang])}`, '']
+  const lines: string[] = [`# ${escapePlainText(page.title[lang])}`, '', `> ${escapePlainText(page.summary[lang])}`, '']
   for (const section of page.sections) {
-    lines.push(`## ${escapeInline(section.heading[lang])}`, '')
-    for (const paragraph of section.body) lines.push(escapeInline(paragraph[lang]), '')
+    lines.push(`## ${escapePlainText(section.heading[lang])}`, '')
+    for (const paragraph of section.body) lines.push(escapePlainText(paragraph[lang]), '')
     if (section.list) {
-      for (const item of section.list) lines.push(`- ${escapeInline(item[lang])}`)
+      for (const item of section.list) lines.push(`- ${escapePlainText(item[lang])}`)
       lines.push('')
     }
   }

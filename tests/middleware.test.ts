@@ -134,6 +134,25 @@ test('an unknown api path answers a structured json 404', async () => {
   })
 })
 
+test('an encoded resource path is still detected as a missing resource', async () => {
+  const paths = ['/missing%2Ejson', '/missing%2Ecss', '/missing%2Exml', '/missing%2Etxt', '/missing%2Ejs', '/missing%zz.json']
+  for (const path of paths) {
+    const response = await call(path, 'text/markdown')
+    assert.equal(response.status, 404, path)
+    assert.equal(response.headers.get('content-type'), 'text/html; charset=utf-8', path)
+  }
+})
+
+test('a malformed percent escape still answers 404 without throwing', async () => {
+  for (const path of ['/missing%zz.json', '/%E0%A4%A', '/%zz']) {
+    const response = await call(path)
+    assert.equal(response.status, 404, path)
+    assert.equal(response.headers.get('content-type'), 'text/html; charset=utf-8', path)
+    const body = await response.text()
+    assert.match(body, /404/, path)
+  }
+})
+
 test('every api path answers the same json error', async () => {
   for (const path of ['/api', '/api/', '/api/prompts', '/api/health']) {
     const response = await call(path)
