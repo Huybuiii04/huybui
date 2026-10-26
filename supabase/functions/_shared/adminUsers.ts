@@ -9,6 +9,50 @@ export interface AdminUserListRow {
   created_at: string;
 }
 
+export interface AdminUserAuthRow {
+  id: string;
+  email?: string | null;
+  created_at?: string | null;
+}
+
+export interface AdminUserProfileRow {
+  id: string;
+  display_name?: string | null;
+}
+
+export interface AdminUserAccessRow {
+  user_id: string;
+  role: string;
+  status: string;
+}
+
+/**
+ * Nguồn dữ liệu cho danh sách user. Mỗi hàm tự lo phần truy vấn của mình
+ * để tầng ghép danh sách không cần biết tới Supabase.
+ */
+export interface AdminUserListSource {
+  listAccounts(limit: number): Promise<AdminUserAuthRow[]>;
+  listProfiles(ids: string[]): Promise<AdminUserProfileRow[]>;
+  listAccess(ids: string[]): Promise<AdminUserAccessRow[]>;
+}
+
+/**
+ * Số id tối đa trong một truy vấn `in`. PostgREST trả lỗi "URI too long" khi
+ * danh sách id quá dài nên phải chia nhỏ.
+ */
+const ID_BATCH_SIZE = 100;
+
+/**
+ * Chia danh sách id thành các lô nhỏ để truy vấn `in` không quá dài.
+ */
+export function chunkAdminUserIds(ids: string[], size = ID_BATCH_SIZE): string[][] {
+  const batches: string[][] = [];
+  for (let index = 0; index < ids.length; index += size) {
+    batches.push(ids.slice(index, index + size));
+  }
+  return batches;
+}
+
 /**
  * Chỉ xoá được tài khoản user thường: không tự xoá và không xoá admin khác.
  */
@@ -36,9 +80,9 @@ export function confirmationMatches(confirmEmail: string, targetEmail: string): 
  * Thiếu dòng user_access thì mặc định là user thường đang hoạt động.
  */
 export function mergeAdminUserList(
-  authUsers: { id: string; email?: string | null; created_at?: string | null }[],
-  profiles: { id: string; display_name?: string | null }[],
-  access: { user_id: string; role: string; status: string }[],
+  authUsers: AdminUserAuthRow[],
+  profiles: AdminUserProfileRow[],
+  access: AdminUserAccessRow[],
 ): AdminUserListRow[] {
   const profileById = new Map(profiles.map((row) => [row.id, row]));
   const accessById = new Map(access.map((row) => [row.user_id, row]));
@@ -50,4 +94,32 @@ export function mergeAdminUserList(
     status: accessById.get(user.id)?.status ?? "active",
     created_at: user.created_at ?? "",
   }));
+}
+
+/**
+ * Đọc danh sách user cho bảng quản trị.
+ *
+ * Lấy account trước, rồi chỉ tra profile và user_access cho đúng các id đó.
+ * Nếu tra không giới hạn theo id thì khi dự án có hơn 500 tài khoản, hai bộ
+ * dữ liệu sẽ mô tả khác nhau và một user có thể bị gán nhầm role hoặc status.
+ * Không có account thì không tra gì thêm: `in` với danh sách rỗng là truy vấn
+ * không hợp lệ.
+ */
+export async function loadAdminUserList(
+  source: AdminUserListSource,
+  limit = 500,
+): Promise<AdminUserListRow[]> {
+  const accounts = await source.listAccounts(limit);
+  const ids = [...new Set(accounts.map((account) => account.id))];
+  if (!ids.length) return [];
+
+  const batches = chunkAdminUserIds(ids);
+  const [profileBatches, accessBatches] = await Promise.all([
+    Promise.all(batches.map((batch) => source.listProfiles(batch))),
+    Promise.all(batches.map((batch) => source.listAccess(batch))),
+  ]);
+
+  return mergeAdminUserList(accounts, profileBatches.flat(), accessBatches.flat())
+    .sort((left, right) => right.created_at.localeCompare(left.created_at))
+    .slice(0, limit);
 }

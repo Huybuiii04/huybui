@@ -123,6 +123,13 @@ describe("request schemas", () => {
     );
   });
 
+  it("rejects an admin-users delete with a blank confirmation email", () => {
+    assert.throws(
+      () => parseAdminUsers({ action: "delete", userId: essayId, confirmEmail: "   " }),
+      (error: unknown) => error instanceof SchemaError && error.field === "confirmEmail",
+    );
+  });
+
   it("rejects an admin-users delete with a user id that is not a UUID", () => {
     assert.throws(
       () => parseAdminUsers({ action: "delete", userId: "not-a-uuid", confirmEmail: "user@example.com" }),

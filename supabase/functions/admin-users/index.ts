@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { assertCanDeleteUser, confirmationMatches, mergeAdminUserList } from "../_shared/adminUsers.ts";
+import { assertCanDeleteUser, confirmationMatches, loadAdminUserList, type AdminUserListSource } from "../_shared/adminUsers.ts";
 import { requireAdmin, type AuthenticatedContext } from "../_shared/auth.ts";
 import { AppError, databaseError, errorResponse, jsonResponse, preflightResponse, readJsonBody, requestId, requireMethod } from "../_shared/http.ts";
 import { parseAdminUsers } from "../_shared/schemas.ts";
@@ -12,31 +12,36 @@ const MAX_LIST_ROWS = 500;
  * Danh sách user cho bảng quản trị. Email nằm trong auth.users nên phải đọc
  * bằng service role rồi ghép với profile và user_access; mới nhất lên đầu,
  * tối đa 500 dòng giống query của UI.
+ *
+ * Profile và user_access chỉ được tra theo đúng id của các account vừa đọc,
+ * nếu không danh sách sẽ lệch dữ liệu khi dự án có hơn 500 tài khoản.
  */
 async function listUsers(service: SupabaseClient) {
-  const [accounts, profiles, access] = await Promise.all([
-    service.auth.admin.listUsers({ page: 1, perPage: MAX_LIST_ROWS }),
-    service.from("profiles").select("id,display_name").limit(MAX_LIST_ROWS),
-    service.from("user_access").select("user_id,role,status").limit(MAX_LIST_ROWS),
-  ]);
+  const source: AdminUserListSource = {
+    async listAccounts(limit) {
+      const { data, error } = await service.auth.admin.listUsers({ page: 1, perPage: limit });
+      if (error) throw databaseError("load the accounts");
+      return (data?.users ?? []).map((user) => ({
+        id: user.id,
+        email: user.email ?? "",
+        created_at: user.created_at ?? "",
+      }));
+    },
+    async listProfiles(ids) {
+      if (!ids.length) return [];
+      const { data, error } = await service.from("profiles").select("id,display_name").in("id", ids);
+      if (error) throw databaseError("load the profiles");
+      return (data ?? []) as { id: string; display_name?: string | null }[];
+    },
+    async listAccess(ids) {
+      if (!ids.length) return [];
+      const { data, error } = await service.from("user_access").select("user_id,role,status").in("user_id", ids);
+      if (error) throw databaseError("load the user access records");
+      return (data ?? []) as { user_id: string; role: string; status: string }[];
+    },
+  };
 
-  if (accounts.error) throw databaseError("load the accounts");
-  if (profiles.error) throw databaseError("load the profiles");
-  if (access.error) throw databaseError("load the user access records");
-
-  const authUsers = (accounts.data?.users ?? []).map((user) => ({
-    id: user.id,
-    email: user.email ?? "",
-    created_at: user.created_at ?? "",
-  }));
-
-  return mergeAdminUserList(
-    authUsers,
-    (profiles.data ?? []) as { id: string; display_name?: string | null }[],
-    (access.data ?? []) as { user_id: string; role: string; status: string }[],
-  )
-    .sort((left, right) => right.created_at.localeCompare(left.created_at))
-    .slice(0, MAX_LIST_ROWS);
+  return loadAdminUserList(source, MAX_LIST_ROWS);
 }
 
 /**
