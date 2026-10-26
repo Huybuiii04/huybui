@@ -85,11 +85,12 @@ Bài kiểm tra trình duyệt sẽ:
 
 1. Chặn script để đọc landing tĩnh.
 2. Cho script chạy để đọc landing React.
-3. So vị trí/kích thước H1 và các khối chính trên desktop/mobile với ngưỡng rõ ràng.
+3. So vị trí/kích thước H1 và các khối chính trên desktop/mobile; cùng viewport, font và ngôn ngữ thì mỗi chỉ số vị trí/kích thước được phép lệch tối đa 8 px.
+4. Chạy riêng trường hợp người dùng đã lưu tiếng Việt trong `localStorage`; bản tĩnh và bản React sau hydration phải dùng cùng ngôn ngữ trước khi áp dụng ngưỡng 8 px.
 
 ### 4.5. Trust pages độc lập
 
-`/about`, `/contact`, `/privacy` là HTML tĩnh độc lập, không chạy React. Chúng dùng font, màu và spacing hiện có; nội dung HTML và Markdown được render từ cùng module nội dung công khai. Footer của landing dùng link HTML thường (`<a href>`), nên deep link trực tiếp và link từ landing cùng mở đúng trang.
+`/about`, `/contact`, `/privacy` là HTML tĩnh độc lập, không chạy React. Chúng dùng font, màu và spacing hiện có; nội dung HTML và Markdown được render từ cùng module nội dung công khai. Mỗi trang phải có ít nhất 500 ký tự nội dung hữu ích, đúng một H1 và các heading không nhảy cấp. Footer của landing dùng link HTML thường (`<a href>`), nên deep link trực tiếp và link từ landing cùng mở đúng trang.
 
 ### 4.6. Privacy theo backend đã kiểm tra
 
@@ -99,7 +100,7 @@ Nội dung Privacy chỉ nêu những điều có thể chứng minh từ mã ng
 - Phiên đăng nhập do Supabase quản lý.
 - Khi chấm bài, nội dung bài và ảnh được chọn có thể được gửi tới endpoint AI do deployment cấu hình; code hỗ trợ Anthropic API và endpoint tương thích.
 - Không cam kết tên nhà cung cấp, thời hạn lưu, thời hạn xóa hoặc chính sách huấn luyện của provider khi chưa xác minh.
-- Xóa tài khoản huỷ job chờ, xóa tệp tải lên, xoá auth user và kích hoạt cascade cho dữ liệu học tập gắn với tài khoản.
+- Khi thao tác xóa tài khoản hoàn tất thành công, hệ thống huỷ job chờ, xóa tệp tải lên, xoá auth user và kích hoạt cascade cho dữ liệu học tập gắn với tài khoản. Không suy rộng cam kết này sang backup, log hệ thống hoặc dữ liệu phía nhà cung cấp AI.
 - Bản ghi định mức sử dụng/chi phí AI không gắn trực tiếp với tài khoản có thể còn lại để vận hành và kiểm toán.
 - Dữ liệu cục bộ gồm IndexedDB cache, `localStorage` lựa chọn ngôn ngữ/theme và `sessionStorage` cho phiên quản trị.
 
@@ -140,6 +141,8 @@ Là allowlist duy nhất cho:
 ### 5.5. `middleware.ts`
 
 - Parse `Accept` thành quality theo từng media type; `q=0` bị loại; HTML thắng khi bằng điểm.
+- Áp dụng độ ưu tiên media type trước q-value: exact type (`text/markdown`) thắng `text/*`, và `text/*` thắng `*/*`. Vì vậy `Accept: text/markdown;q=0, */*;q=1` loại Markdown và mặc định HTML; không được nâng `q=0` của exact type bằng wildcard.
+- Nếu cả HTML và Markdown đều không được client chấp nhận, route trả `406 Not Acceptable` với body giải thích các định dạng hỗ trợ.
 - Chỉ negotiate nội dung trang. URL giống tài nguyên kỹ thuật không được biến thành Markdown.
 - Ghép `Vary: Accept` thay vì ghi đè các giá trị Vary khác.
 - Hỗ trợ HEAD với status/header tương ứng và body rỗng.
