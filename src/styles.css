@@ -12,9 +12,11 @@
   --font-sans: 'Be Vietnam Pro', system-ui, sans-serif;
 }
 
-/* Bản HTML tĩnh chứa cả hai ngôn ngữ; CSS chỉ hiện ngôn ngữ đang chọn. */
+/* Bản HTML tĩnh chứa cả hai ngôn ngữ; CSS hiện biến thể của ngôn ngữ đang chọn.
+   Tiếng Anh là dự phòng: thiếu hoặc sai data-lang thì trang vẫn đọc được. */
 [data-copy] { display: none; }
-html[data-lang='en'] [data-copy='en'], html[data-lang='vi'] [data-copy='vi'] { display: inline; }
+html[data-lang='vi'] [data-copy='vi'] { display: inline; }
+html:not([data-lang='vi']) [data-copy='en'] { display: inline; }
 
 :root {
   color-scheme: light;
@@ -301,6 +303,12 @@ button, a, input, textarea, select { transition: background-color .18s, border-c
 .language-switch { display: flex; border: 1px solid var(--border); border-radius: 999px; padding: 3px; background: var(--surface-soft); }
 .language-switch button { font-size: 11px; font-weight: 600; min-height: 30px; min-width: 34px; border: none; border-radius: 999px; color: var(--text-subtle); background: none; }
 .language-switch button.selected { background: var(--surface-solid); color: var(--brand-ink); box-shadow: var(--shadow-sm); }
+/* Bản HTML tĩnh: nút đang chọn do data-lang quyết định nên trạng thái đúng ngay
+   từ lần vẽ đầu tiên, kể cả khi JavaScript bị chặn. */
+html[data-lang='vi'] .language-switch button[data-lang-switch='vi'],
+html:not([data-lang='vi']) .language-switch button[data-lang-switch='en'] { background: var(--surface-solid); color: var(--brand-ink); box-shadow: var(--shadow-sm); }
+html[data-theme='light'][data-lang='vi'] .language-switch button[data-lang-switch='vi'],
+html[data-theme='light']:not([data-lang='vi']) .language-switch button[data-lang-switch='en'] { box-shadow: inset 0 -2px var(--brand); }
 .theme-toggle { display: inline-flex; align-items: center; justify-content: center; width: 42px; height: 42px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface-soft); color: var(--text-muted); }
 .theme-toggle:hover { color: var(--brand-ink); border-color: var(--brand); background: var(--brand-soft); }
 .avatar { width: 38px; height: 38px; border-radius: 999px; background: #262626; color: #ededed; font-size: 14px; font-weight: 700; display: grid; place-items: center; border: 1px solid var(--border); }

@@ -191,6 +191,22 @@ try {
   const note = (await rawPage.locator('.landing-note').innerText()).replace(/\s+/g, ' ').trim()
   assert.match(note, /need an account|cần tài khoản/i, 'Landing tĩnh phải nói rõ tính năng cần tài khoản')
   console.log(`   1 h1 (${staticH1.slice(0, 40)}…), link /app/prompts + /app/write, data-copy vi+en, ghi chú đăng nhập`)
+
+  // Thiếu (hoặc sai) thuộc tính data-lang thì tiếng Anh vẫn phải hiện.
+  await rawPage.evaluate(() => {
+    document.documentElement.removeAttribute('data-lang')
+  })
+  const fallbackH1 = (await rawPage.locator('h1').first().innerText()).replace(/\s+/g, ' ').trim()
+  assert.ok(
+    fallbackH1.includes('Your ideas'),
+    `Thiếu data-lang thì phải hiện tiếng Anh (h1: "${fallbackH1.slice(0, 60)}")`,
+  )
+  assert.equal(
+    await rawPage.locator('[data-copy="en"]:visible').count() > 0,
+    true,
+    'Thiếu data-lang thì bản tiếng Anh vẫn phải hiện',
+  )
+  console.log(`   thiếu data-lang → vẫn hiện tiếng Anh (${fallbackH1.slice(0, 32)}…)`)
   await rawContext.close()
 
   // ---------- 2. Không dịch chuyển giữa HTML tĩnh và React ----------

@@ -42,7 +42,7 @@ function staticIcon(name: StaticIcon, size: number, strokeWidth = 2) {
 export function renderLandingHtml() {
   const copy = landingCopy
   const bilingual = (pair: Copy) =>
-    `<span data-copy="vi">${escapeHtml(pair[0])}</span><span data-copy="en">${escapeHtml(pair[1])}</span>`
+    `<span data-copy="vi" lang="vi">${escapeHtml(pair[0])}</span><span data-copy="en" lang="en">${escapeHtml(pair[1])}</span>`
   const brand =
     `<a class="brand" href="/app" aria-label="IELTS Writing Studio">` +
     `<span class="brand-mark">${staticIcon('pen-line', 23, 2.4)}</span>` +
@@ -70,16 +70,23 @@ export function renderLandingHtml() {
     .map(perk => `<span>${staticIcon('check', 15)}${bilingual(perk)}</span>`)
     .join('')
   const footerLinks = copy.footerLinks
-    .map(link => `<a href="${escapeHtml(link.href)}">${bilingual(link.label)}</a>`)
+    .map(link => `<a href="${escapeHtml(link.href)}">${escapeHtml(link.label)}</a>`)
+    .join('')
+  const languageButtons = copy.languageButtons
+    .map(button =>
+      `<button type="button" data-lang-switch="${escapeHtml(button.code)}" aria-pressed="${button.code === 'en' ? 'true' : 'false'}">${escapeHtml(button.label)}</button>`,
+    )
     .join('')
 
   return (
     `<div class="landing">` +
     `<a href="#landing-main" class="skip-link">${bilingual(copy.skipToContent)}</a>` +
     `<span id="landing-nav-label" class="sr-only">${bilingual(copy.navLabel)}</span>` +
+    `<span id="landing-language-label" class="sr-only">${bilingual(copy.languageSwitchLabel)}</span>` +
     `<header class="landing-nav">${brand}` +
     `<nav aria-labelledby="landing-nav-label">` +
     `<a href="/app/prompts">${bilingual(copy.navPromptLibrary)}</a>` +
+    `<div class="language-switch" aria-labelledby="landing-language-label">${languageButtons}</div>` +
     `<a class="button outline" href="/app">${bilingual(copy.navOpenStudio)}${staticIcon('arrow-up-right', 16)}</a>` +
     `</nav></header>` +
     `<main id="landing-main">` +

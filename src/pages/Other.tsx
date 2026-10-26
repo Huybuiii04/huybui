@@ -75,7 +75,7 @@ export function Landing() {
     <footer className="landing-footer">
       <Brand />
       <span>{copy.footerCopyright}</span>
-      <nav className="landing-footer-links" aria-label="Public information">{copy.footerLinks.map(link => <a key={link.href} href={link.href}>{c(link.label[0], link.label[1])}</a>)}</nav>
+      <nav className="landing-footer-links" aria-label="Public information">{copy.footerLinks.map(link => <a key={link.href} href={link.href}>{link.label}</a>)}</nav>
       <Link to="/app">{c(copy.footerStart[0], copy.footerStart[1])}<ArrowUpRight size={16} /></Link>
     </footer>
   </div>

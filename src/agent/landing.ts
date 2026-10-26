@@ -15,13 +15,17 @@ export type LandingFeature = {
   action: Copy
 }
 
-export type LandingLink = { href: string; label: Copy }
+export type LandingLink = { href: string; label: string }
+
+export type LandingLanguageButton = { code: 'vi' | 'en'; label: string }
 
 export type LandingCopy = {
   skipToContent: Copy
   navLabel: Copy
   navPromptLibrary: Copy
   navOpenStudio: Copy
+  languageSwitchLabel: Copy
+  languageButtons: readonly LandingLanguageButton[]
   heroKicker: Copy
   heroTitle: Copy
   heroAccent: Copy
@@ -67,6 +71,11 @@ export const landingCopy: LandingCopy = {
   navLabel: ['Điều hướng chính', 'Main navigation'],
   navPromptLibrary: ['Kho đề bài', 'Prompt library'],
   navOpenStudio: ['Vào học ngay', 'Open studio'],
+  languageSwitchLabel: ['Ngôn ngữ', 'Language'],
+  languageButtons: [
+    { code: 'vi', label: 'VI' },
+    { code: 'en', label: 'EN' },
+  ],
   heroKicker: ['KHÔNG GIAN CHO BƯỚC TIẾN MỚI', 'A LITTLE BETTER. EVERY DAY.'],
   heroTitle: ['Ý tưởng của bạn.', 'Your ideas.'],
   heroAccent: ['Diễn đạt ', 'Beautifully '],
@@ -146,10 +155,12 @@ export const landingCopy: LandingCopy = {
   ],
   donateCta: ['Ủng hộ dự án', 'Support the project'],
   footerStart: ['Bắt đầu học', 'Start learning'],
+  // Nhãn footer là tên trang công khai, không phải nội dung song ngữ: dùng
+  // chuỗi đơn để raw HTML không lặp "AboutAbout".
   footerLinks: [
-    { href: '/about', label: ['About', 'About'] },
-    { href: '/contact', label: ['Contact', 'Contact'] },
-    { href: '/privacy', label: ['Privacy', 'Privacy'] },
+    { href: '/about', label: 'About' },
+    { href: '/contact', label: 'Contact' },
+    { href: '/privacy', label: 'Privacy' },
   ],
   brandName: 'IELTS',
   brandSub: 'WRITING STUDIO',

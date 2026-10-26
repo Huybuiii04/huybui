@@ -8,13 +8,14 @@ import { useTheme } from '../theme'
 import { isConfigured } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import { Notice } from './ui'
+import { landingCopy } from '../agent/landing'
 
 export function Brand() {
   return <Link to="/app" className="brand" aria-label="IELTS Writing Studio"><span className="brand-mark"><PenLine size={23} strokeWidth={2.4} /></span><span>IELTS<span className="brand-sub">WRITING STUDIO</span></span><span className="brand-dot" /></Link>
 }
 export function LanguageSwitch() {
   const { language, changeLanguage, c } = useCopy()
-  return <div className="language-switch" aria-label={c('Ngôn ngữ', 'Language')}>{['vi', 'en'].map(lang => <button key={lang} onClick={() => void changeLanguage(lang)} aria-pressed={language === lang} className={language === lang ? 'selected' : ''}>{lang.toUpperCase()}</button>)}</div>
+  return <div className="language-switch" aria-label={c(landingCopy.languageSwitchLabel[0], landingCopy.languageSwitchLabel[1])}>{landingCopy.languageButtons.map(button => <button key={button.code} onClick={() => void changeLanguage(button.code)} aria-pressed={language === button.code} className={language === button.code ? 'selected' : ''}>{button.label}</button>)}</div>
 }
 export function ThemeToggle() {
   const { c } = useCopy()

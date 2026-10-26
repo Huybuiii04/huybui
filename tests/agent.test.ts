@@ -9,6 +9,8 @@ import { renderMarkdown, renderNotFoundMarkdown, escapePlainText } from '../src/
 import { escapeHtml, renderLandingHtml, renderStaticHtml } from '../src/agent/html.ts'
 import { landingCopy } from '../src/agent/landing.ts'
 import { defaultTheme, themeBootstrapScript, themeStorageKey } from '../src/agent/theme.ts'
+import { languageStorageKey, renderLanguageScript } from '../src/agent/language.ts'
+import { agentPages } from '../src/agent/pages.ts'
 import { matchPath, spaRoutes, staticFiles, apiRoutes, markdownPageIds, publicLinks } from '../src/agent/routes.ts'
 
 // Tuyên bố cấm trong bản tiếng Anh: các bản đặc tả API, cổng nhà phát triển,
@@ -434,11 +436,11 @@ test('the static landing html ships both language variants of every shared strin
     assert.ok(pair[0].trim().length > 0, `${path} has no Vietnamese copy`)
     assert.ok(pair[1].trim().length > 0, `${path} has no English copy`)
     assert.ok(
-      html.includes(`<span data-copy="vi">${escapeHtml(pair[0])}</span>`),
+      html.includes(`<span data-copy="vi" lang="vi">${escapeHtml(pair[0])}</span>`),
       `static landing is missing the Vietnamese copy of ${path}`,
     )
     assert.ok(
-      html.includes(`<span data-copy="en">${escapeHtml(pair[1])}</span>`),
+      html.includes(`<span data-copy="en" lang="en">${escapeHtml(pair[1])}</span>`),
       `static landing is missing the English copy of ${path}`,
     )
   }
@@ -583,4 +585,176 @@ test('the landing states the same sign-in condition as the public home page', ()
     assert.ok(note.includes(account), `the landing note (lang ${lang}) does not mention the account condition`)
     assert.ok(note.includes(signIn), `the landing note (lang ${lang}) does not mention signing in`)
   }
+})
+
+// ---------- Bộ chuyển ngôn ngữ của bản HTML tĩnh ----------
+
+// Chạy đúng script inline mà plugin chèn vào trang, trong môi trường giả lập.
+function runLanguageScript(storage: { getItem(key: string): string | null }, stored = 'en') {
+  const root = { lang: 'en', dataset: { lang: 'en' as string } }
+  const listeners: ((event: unknown) => void)[] = []
+  const makeButton = (code: string, pressed: string) => {
+    const attributes: Record<string, string> = { 'data-lang-switch': code, 'aria-pressed': pressed }
+    const button = {
+      attributes,
+      getAttribute: (name: string) => attributes[name] ?? null,
+      setAttribute: (name: string, value: string) => { attributes[name] = value },
+      closest: () => button,
+    }
+    return button
+  }
+  const buttons = [makeButton('vi', 'false'), makeButton('en', 'true')]
+  const fakeDocument = {
+    documentElement: root,
+    querySelectorAll: () => buttons,
+    addEventListener: (type: string, handler: (event: unknown) => void) => {
+      if (type === 'click') listeners.push(handler)
+    },
+  }
+  vm.runInNewContext(renderLanguageScript(), { document: fakeDocument, localStorage: storage })
+  return { root, buttons, listeners, stored }
+}
+
+test('the static landing ships a working language switch', () => {
+  const html = renderLandingHtml()
+  assert.ok(html.includes('class="language-switch"'), 'the static landing needs the .language-switch control')
+  assert.ok(html.includes('data-lang-switch="vi"'), 'the static landing needs a VI button')
+  assert.ok(html.includes('data-lang-switch="en"'), 'the static landing needs an EN button')
+  for (const button of landingCopy.languageButtons) {
+    assert.ok(html.includes(`>${button.label}</button>`), `the static landing is missing the ${button.label} button`)
+  }
+  assert.ok(
+    html.includes(`<span data-copy="vi" lang="vi">${escapeHtml(landingCopy.languageSwitchLabel[0])}</span>`),
+    'the static landing needs the Vietnamese label of the language switch',
+  )
+})
+
+test('the language script switches language, persists it and updates aria-pressed', () => {
+  assert.equal(languageStorageKey, 'ielts-language')
+
+  const stored: Record<string, string> = {}
+  const storage = { getItem: (key: string) => stored[key] ?? null, setItem: (key: string, value: string) => { stored[key] = value } }
+  const run = runLanguageScript(storage, 'en')
+  assert.equal(run.root.lang, 'en', 'the script must set the document language')
+  assert.equal(run.root.dataset.lang, 'en', 'the script must set the data-lang contract')
+
+  // Bấm nút VI: đổi ngôn ngữ, lưu lại và cập nhật aria-pressed của cả hai nút.
+  run.listeners.forEach(handler => handler({ target: run.buttons[0] }))
+  assert.equal(run.root.lang, 'vi')
+  assert.equal(run.root.dataset.lang, 'vi')
+  assert.equal(stored['ielts-language'], 'vi', 'the choice must be persisted')
+  assert.equal(run.buttons[0].attributes['aria-pressed'], 'true')
+  assert.equal(run.buttons[1].attributes['aria-pressed'], 'false')
+
+  // Ngôn ngữ đã lưu phải được dùng ngay khi trang mở.
+  const restored = runLanguageScript({ getItem: () => 'vi' }, 'vi')
+  assert.equal(restored.root.lang, 'vi')
+  assert.equal(restored.root.dataset.lang, 'vi')
+})
+
+test('the localisation css falls back to English when the language attribute is missing', () => {
+  const css = readFileSync(join(process.cwd(), 'src', 'styles.css'), 'utf8')
+  assert.match(css, /\[data-copy\]\s*\{\s*display:\s*none;\s*\}/, 'the inactive language must stay hidden')
+  assert.match(
+    css,
+    /html\[data-lang='vi'\]\s*\[data-copy='vi'\]\s*\{\s*display:\s*inline;\s*\}/,
+    'Vietnamese must be shown when data-lang is vi',
+  )
+  assert.match(
+    css,
+    /html:not\(\[data-lang='vi'\]\)\s*\[data-copy='en'\]\s*\{\s*display:\s*inline;\s*\}/,
+    'English must be the fallback when data-lang is missing or not vi',
+  )
+})
+
+test('the static landing keeps single-language footer labels readable in the raw html', () => {
+  const html = renderLandingHtml()
+  for (const link of landingCopy.footerLinks) {
+    assert.ok(html.includes(`>${link.label}</a>`), `the footer label ${link.label} must appear once`)
+    assert.ok(!html.includes(`${link.label}${link.label}`), `the footer label ${link.label} must not be duplicated`)
+  }
+})
+
+// ---------- Drift giữa bản React và bản HTML tĩnh ----------
+
+// Trích mọi href của component Landing trong React: giá trị ghi cứng trong
+// source, các href động lấy từ copy dùng chung, và link của Brand dùng chung.
+function reactLandingHrefs() {
+  const source = readFileSync(join(process.cwd(), 'src', 'pages', 'Other.tsx'), 'utf8')
+  const start = source.indexOf('export function Landing()')
+  const end = source.indexOf('export function Donate()')
+  assert.ok(start > 0 && end > start, 'could not locate the Landing component')
+  const body = source.slice(start, end)
+  const hrefs = new Set<string>()
+  for (const match of body.matchAll(/(?:href|to)=(?:"([^"]+)"|\{([^}]+)\})/g)) {
+    const literal = match[1]
+    if (literal) {
+      hrefs.add(literal)
+      continue
+    }
+    const expression = (match[2] ?? '').trim()
+    // Link động của component: danh sách tính năng và link footer.
+    if (/^(item|feature)\.href$/.test(expression)) {
+      for (const feature of landingCopy.features) hrefs.add(feature.href)
+      continue
+    }
+    if (/^(link|footerLink)\.href$/.test(expression)) {
+      for (const link of landingCopy.footerLinks) hrefs.add(link.href)
+      continue
+    }
+    hrefs.add(`<unresolved:${expression}>`)
+  }
+  // Brand dùng chung render link tới không gian học tập.
+  const layout = readFileSync(join(process.cwd(), 'src', 'components', 'Layout.tsx'), 'utf8')
+  const brand = layout.slice(layout.indexOf('export function Brand()'), layout.indexOf('export function LanguageSwitch()'))
+  for (const match of brand.matchAll(/(?:href|to)="([^"]+)"/g)) hrefs.add(match[1])
+  return hrefs
+}
+
+test('the React landing and the static landing expose exactly the same links', () => {
+  const reactHrefs = reactLandingHrefs()
+  const staticHrefs = new Set([...renderLandingHtml().matchAll(/href="([^"]+)"/g)].map(match => match[1]))
+  assert.ok(reactHrefs.size > 0, 'no links found in the React landing')
+  assert.deepEqual(
+    [...reactHrefs].filter(value => value.startsWith('<')).sort(),
+    [],
+    'every dynamic href of the React landing must be resolvable',
+  )
+  assert.deepEqual([...reactHrefs].sort(), [...staticHrefs].sort())
+})
+
+// ---------- Plugin build: phải fail loudly khi marker đổi ----------
+
+type HtmlHook = (html: string, context: { path: string }) => string | { html: string }
+
+function transformPage(html: string, path = '/index.html') {
+  const plugin = agentPages()
+  const hook = plugin.transformIndexHtml as unknown as HtmlHook
+  const result = hook(html, { path })
+  return typeof result === 'string' ? result : result.html
+}
+
+const validEntry = '<!doctype html><html lang="en"><head><meta charset="UTF-8" /><title>x</title></head><body><div id="root"></div></body></html>'
+
+test('the page plugin throws when the html markers are missing', () => {
+  assert.throws(
+    () => transformPage('<!doctype html><html lang="en"><head><title>x</title></head><body></body></html>', '/index.html'),
+    /root/i,
+    'the plugin must fail when the #root marker is missing',
+  )
+  assert.throws(
+    () => transformPage('<!doctype html><html lang="en"><body><div id="root"></div></body></html>', '/pages/about.html'),
+    /head/i,
+    'the plugin must fail when the </head> marker is missing',
+  )
+})
+
+test('the page plugin injects the landing content and the language script', () => {
+  const output = transformPage(validEntry, '/index.html')
+  assert.ok(output.includes('class="landing"'), 'the landing markup must be injected')
+  assert.ok(output.includes('data-lang-switch="vi"'), 'the landing must ship the language switch')
+  assert.ok(output.includes(`localStorage.setItem("${languageStorageKey}"`), 'the language script must persist the choice')
+  const trust = transformPage(validEntry, '/pages/about.html')
+  assert.ok(trust.includes('class="doc-shell"'), 'the trust page markup must be injected')
+  assert.ok(!trust.includes('data-lang-switch'), 'the trust pages are English only and need no language switch')
 })

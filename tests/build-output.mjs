@@ -94,6 +94,14 @@ assert.match(landing, /data-copy="en"/, 'landing: thiếu bản tiếng Anh')
 // Landing phải nói rõ điều kiện đăng nhập, giống bản Markdown của trang chủ.
 assert.match(landing, /sign in free with email/, 'landing: thiếu điều kiện đăng nhập')
 assert.match(landing, /đăng nhập miễn phí bằng email/, 'landing: thiếu điều kiện đăng nhập (tiếng Việt)')
+// Landing phải có bộ chuyển ngôn ngữ chạy được không cần React.
+assert.match(landing, /class="language-switch"/, 'landing: thiếu bộ chuyển ngôn ngữ')
+assert.match(landing, /data-lang-switch="vi"/, 'landing: thiếu nút VI')
+assert.match(landing, /data-lang-switch="en"/, 'landing: thiếu nút EN')
+assert.match(landing, /localStorage\.setItem\("ielts-language"/, 'landing: script chuyển ngôn ngữ phải lưu lựa chọn')
+assert.match(landing, /dataset\.lang = language/, 'landing: script chuyển ngôn ngữ phải cập nhật data-lang')
+// Nhãn footer là tiếng Anh đơn: raw HTML không được lặp "AboutAbout".
+assert.ok(!landing.includes('AboutAbout'), 'landing: nhãn footer bị lặp trong raw HTML')
 
 // Ba trang trust là HTML tĩnh độc lập: không boot React, không bị route wildcard thay thế.
 for (const name of trustPages) {
