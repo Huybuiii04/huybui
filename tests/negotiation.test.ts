@@ -70,6 +70,24 @@ test('media types are compared case insensitively and ignore extra parameters', 
   assert.deepEqual(negotiateRepresentation('text/markdown; charset=utf-8; q=0.9'), { kind: 'markdown' })
 })
 
+test('empty accept elements are ignored', () => {
+  assert.deepEqual(negotiateRepresentation(','), { kind: 'html' })
+  assert.deepEqual(negotiateRepresentation(',,'), { kind: 'html' })
+  assert.deepEqual(negotiateRepresentation(' , '), { kind: 'html' })
+  assert.deepEqual(negotiateRepresentation('text/html,,'), { kind: 'html' })
+  assert.deepEqual(negotiateRepresentation(', text/markdown'), { kind: 'markdown' })
+  assert.deepEqual(negotiateRepresentation(', application/json'), { kind: 'not-acceptable' })
+})
+
+test('only the full wildcard and a subtype wildcard may contain a wildcard', () => {
+  assert.deepEqual(negotiateRepresentation('*/json'), { kind: 'html' })
+  assert.deepEqual(negotiateRepresentation('*/html'), { kind: 'html' })
+  assert.deepEqual(negotiateRepresentation('*/markdown'), { kind: 'html' })
+  assert.deepEqual(negotiateRepresentation('*/json, text/html'), { kind: 'html' })
+  assert.deepEqual(negotiateRepresentation('text'), { kind: 'html' })
+  assert.deepEqual(negotiateRepresentation('*/json, application/json'), { kind: 'not-acceptable' })
+})
+
 test('mergeVary keeps every existing value', () => {
   assert.equal(mergeVary('Accept', 'Accept'), 'Accept')
   assert.equal(mergeVary('Cookie, Accept', 'Accept'), 'Cookie, Accept')

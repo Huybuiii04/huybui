@@ -33,6 +33,17 @@ export const staticFiles = [
   '/llms.txt',
 ] as const
 
+// Link tới tài nguyên public thật: một danh sách duy nhất dùng chung cho bản
+// Markdown và bản HTML để hai bản không lệch nhau.
+export const publicLinks = [
+  { label: 'Home', href: '/' },
+  { label: 'About', href: '/about' },
+  { label: 'Contact', href: '/contact' },
+  { label: 'Privacy policy', href: '/privacy' },
+  { label: 'Sitemap', href: '/sitemap.xml' },
+  { label: 'llms.txt', href: '/llms.txt' },
+] as const
+
 // Không có API public: backend chưa phát hành endpoint nào cho bên thứ ba.
 export const apiRoutes = [] as const
 

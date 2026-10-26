@@ -1,15 +1,6 @@
 import type { ContentPage } from './content.ts'
+import { publicLinks } from './routes.ts'
 import { site } from './site.ts'
-
-// Chỉ liên kết tới tài nguyên thật sự tồn tại trên domain này.
-export const agentResourceLinks = [
-  { label: 'Home', href: '/' },
-  { label: 'About', href: '/about' },
-  { label: 'Contact', href: '/contact' },
-  { label: 'Privacy policy', href: '/privacy' },
-  { label: 'Sitemap', href: '/sitemap.xml' },
-  { label: 'llms.txt', href: '/llms.txt' },
-] as const
 
 // Ký tự inline có thể biến văn bản thuần thành cấu trúc Markdown (code span,
 // nhấn mạnh, link, HTML, bảng). Chúng được escape ở mọi trường văn bản thuần.
@@ -35,7 +26,8 @@ function escapeBlockStart(line: string) {
 
 // Dòng thụt lề từ 4 khoảng trắng (hoặc có tab) sẽ thành khối code thụt lề.
 // Markdown không có cú pháp escape cho khoảng trắng, nên khoảng trắng được viết
-// bằng entity HTML: hiển thị y nguyên mà không tạo khối code.
+// bằng entity HTML: dòng đó không còn tạo khối code (dù HTML sẽ gộp khoảng
+// trắng khi hiển thị).
 function escapeIndentation(line: string) {
   const indentation = /^[ \t]+/.exec(line)?.[0] ?? ''
   if (!indentation || (!indentation.includes('\t') && indentation.length < 4)) return line
@@ -87,7 +79,7 @@ export function renderMarkdown(page: ContentPage, lang: 0 | 1 = 1): string {
     }
   }
   lines.push('---', '', 'Public pages on this site:', '')
-  for (const link of agentResourceLinks) lines.push(`- [${link.label}](${link.href})`)
+  for (const link of publicLinks) lines.push(`- [${link.label}](${link.href})`)
   lines.push('', `Source: ${site.url}${page.path === '/' ? '/' : page.path}`, '')
   return lines.join('\n')
 }
@@ -100,7 +92,7 @@ export function renderNotFoundMarkdown(path: string): string {
     '',
     'Try one of these instead:',
     '',
-    ...agentResourceLinks.map(link => `- [${link.label}](${link.href})`),
+    ...publicLinks.map(link => `- [${link.label}](${link.href})`),
     '',
     `The public pages are listed in the sitemap at ${site.url}/sitemap.xml, and ${site.url}/llms.txt is the index for agents.`,
     '',

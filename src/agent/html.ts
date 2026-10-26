@@ -1,4 +1,5 @@
 import type { ContentPage } from './content.ts'
+import { publicLinks } from './routes.ts'
 
 export function escapeHtml(value: string) {
   return value
@@ -31,17 +32,9 @@ export function renderStaticHtml(page: ContentPage): string {
     }
     parts.push('</section>')
   }
-  parts.push(
-    '<nav class="doc-links" aria-label="Resources">',
-    '<a href="/">Home</a>',
-    '<a href="/about">About</a>',
-    '<a href="/contact">Contact</a>',
-    '<a href="/privacy">Privacy</a>',
-    '<a href="/llms.txt">llms.txt</a>',
-    '<a href="/sitemap.xml">Sitemap</a>',
-    '</nav>',
-    '</main>',
-  )
+  parts.push('<nav class="doc-links" aria-label="Resources">')
+  for (const link of publicLinks) parts.push(`<a href="${escapeHtml(link.href)}">${escapeHtml(link.label)}</a>`)
+  parts.push('</nav>', '</main>')
   return parts.join('')
 }
 

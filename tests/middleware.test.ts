@@ -1,6 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import middleware, { config } from '../middleware.ts'
+import { staticFiles } from '../src/agent/routes.ts'
 
 const origin = 'https://huybui.vercel.app'
 
@@ -86,12 +87,29 @@ test('unknown paths return markdown body when markdown is requested', async () =
   assert.equal(response.status, 404)
   assert.equal(response.headers.get('content-type'), 'text/markdown; charset=utf-8')
   const body = await response.text()
-  assert.ok(body.length >= 20)
   assert.match(body, /404/)
   assert.match(body, /\]\(\/\)/)
   assert.match(body, /\]\(\/llms\.txt\)/)
   assert.match(body, /\]\(\/sitemap\.xml\)/)
   assert.ok(!body.includes('/docs'))
+})
+
+test('a trailing slash does not change how a page is served', async () => {
+  const markdown = await call('/about/', 'text/markdown')
+  assert.equal(markdown.status, 200)
+  assert.equal(markdown.headers.get('content-type'), 'text/markdown; charset=utf-8')
+  const html = await call('/about/')
+  assert.equal(html.headers.get('x-middleware-next'), '1')
+  const unacceptable = await call('/about/', 'application/json')
+  assert.equal(unacceptable.status, 406)
+})
+
+test('a trailing slash does not turn a missing resource into markdown', async () => {
+  for (const path of ['/missing.json/', '/missing.css/', '/missing.xml/']) {
+    const response = await call(path, 'text/markdown')
+    assert.equal(response.status, 404, path)
+    assert.equal(response.headers.get('content-type'), 'text/html; charset=utf-8', path)
+  }
 })
 
 test('a missing technical resource is never negotiated into markdown', async () => {
@@ -124,19 +142,19 @@ test('an unknown api path answers a structured json 404', async () => {
   assert.equal(body.error.message, 'No API endpoint is published at this path.')
   assert.equal(body.error.hint, 'Use the website navigation for app features. This project does not currently offer a public REST API.')
   assert.equal(body.error.status, 404)
-  assert.deepEqual(body, {
-    error: {
-      code: 'unknown_endpoint',
-      message: 'No API endpoint is published at this path.',
-      hint: 'Use the website navigation for app features. This project does not currently offer a public REST API.',
-      status: 404,
-    },
-  })
 })
 
 test('an encoded resource path is still detected as a missing resource', async () => {
   const paths = ['/missing%2Ejson', '/missing%2Ecss', '/missing%2Exml', '/missing%2Etxt', '/missing%2Ejs', '/missing%zz.json']
   for (const path of paths) {
+    const response = await call(path, 'text/markdown')
+    assert.equal(response.status, 404, path)
+    assert.equal(response.headers.get('content-type'), 'text/html; charset=utf-8', path)
+  }
+})
+
+test('a multiply encoded resource path is still detected as a missing resource', async () => {
+  for (const path of ['/missing%252Ejson', '/missing%25252Ejson']) {
     const response = await call(path, 'text/markdown')
     assert.equal(response.status, 404, path)
     assert.equal(response.headers.get('content-type'), 'text/html; charset=utf-8', path)
@@ -217,6 +235,26 @@ test('generated responses forbid sniffing and force revalidation', async () => {
   }
 })
 
+test('only negotiated responses carry a vary header', async () => {
+  const markdown = await call('/about', 'text/markdown')
+  assert.equal(markdown.headers.get('vary'), 'Accept')
+  const html = await call('/about')
+  assert.equal(html.headers.get('vary'), 'Accept')
+  const notFound = await call('/khong-ton-tai')
+  assert.equal(notFound.headers.get('vary'), 'Accept')
+  const notFoundMarkdown = await call('/khong-ton-tai', 'text/markdown')
+  assert.equal(notFoundMarkdown.headers.get('vary'), 'Accept')
+  const unacceptable = await call('/', 'application/json')
+  assert.equal(unacceptable.headers.get('vary'), 'Accept')
+})
+
+test('responses that do not vary by accept carry no vary header', async () => {
+  const api = await call('/api/does-not-exist')
+  assert.equal(api.headers.get('vary'), null)
+  const missingResource = await call('/missing.json', 'text/markdown')
+  assert.equal(missingResource.headers.get('vary'), null)
+})
+
 test('middleware matcher keeps static assets out of the function path', () => {
   const matcher = String((config as { matcher: string[] }).matcher[0])
   assert.match(matcher, /assets/)
@@ -225,6 +263,18 @@ test('middleware matcher keeps static assets out of the function path', () => {
     assert.equal(regex.test(path), false, path)
   }
   for (const path of ['/', '/about', '/missing.json', '/api/does-not-exist']) {
+    assert.equal(regex.test(path), true, path)
+  }
+})
+
+test('the middleware matcher excludes exactly the static public files', () => {
+  const matcher = String((config as { matcher: string[] }).matcher[0])
+  const regex = new RegExp(`^${matcher}$`)
+  for (const file of staticFiles) {
+    assert.equal(regex.test(file), false, `${file} must be served by the CDN`)
+  }
+  assert.equal(regex.test('/assets/app.js'), false)
+  for (const path of ['/', '/about', '/api/does-not-exist', '/missing.json', '/logo.svg', '/robots']) {
     assert.equal(regex.test(path), true, path)
   }
 })

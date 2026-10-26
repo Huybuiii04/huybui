@@ -2,8 +2,9 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { site, buildJsonLd, buildHeadTags, htmlLang } from '../src/agent/site.ts'
 import { pages, pageById, pageByPath, plainText, type ContentPage } from '../src/agent/content.ts'
-import { renderMarkdown, renderNotFoundMarkdown } from '../src/agent/markdown.ts'
-import { matchPath, spaRoutes, staticFiles, apiRoutes, markdownPageIds } from '../src/agent/routes.ts'
+import { renderMarkdown, renderNotFoundMarkdown, escapePlainText } from '../src/agent/markdown.ts'
+import { renderStaticHtml } from '../src/agent/html.ts'
+import { matchPath, spaRoutes, staticFiles, apiRoutes, markdownPageIds, publicLinks } from '../src/agent/routes.ts'
 
 // Tuyên bố cấm trong bản tiếng Anh: các bản đặc tả API, cổng nhà phát triển,
 // MCP server, khoá API, môi trường thử nghiệm.
@@ -319,6 +320,26 @@ test('plain text cannot open a block on a later line', () => {
   assert.ok(!lines.includes('==='))
   assert.ok(!lines.includes('1) injected'))
   assert.ok(!lines.includes('> quote'))
+})
+
+test('the plain text escape helper neutralises block markers', () => {
+  assert.equal(escapePlainText('1) injected'), '1\\) injected')
+  assert.equal(escapePlainText('1. injected'), '1\\. injected')
+  assert.equal(escapePlainText('- injected'), '\\- injected')
+  assert.equal(escapePlainText('+ injected'), '\\+ injected')
+  assert.equal(escapePlainText('=== '), '\\=== ')
+  assert.equal(escapePlainText('plain prose'), 'plain prose')
+})
+
+test('the public resource list is shared by the markdown and html renderers', () => {
+  const page = pageById('about')
+  assert.ok(page)
+  const markdown = renderMarkdown(page, 1)
+  const html = renderStaticHtml(page)
+  for (const link of publicLinks) {
+    assert.ok(markdown.includes(`](${link.href})`), `markdown is missing ${link.href}`)
+    assert.ok(html.includes(`href="${link.href}"`), `html is missing ${link.href}`)
+  }
 })
 
 test('json-ld exposes only the verified SoftwareApplication identity', () => {

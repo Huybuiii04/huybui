@@ -7,6 +7,8 @@ export type Negotiation = { kind: Representation } | { kind: 'not-acceptable' }
 type MediaRange = { type: string; quality: number; specificity: 0 | 1 | 2 }
 
 // Mỗi representation có thể được trả về bằng nhiều media type.
+// application/xhtml+xml được coi là tương thích HTML (trình duyệt thật gửi kèm)
+// nhưng response vẫn được phục vụ dưới dạng text/html.
 const representationTypes: Record<Representation, string[]> = {
   html: ['text/html', 'application/xhtml+xml'],
   markdown: ['text/markdown'],
@@ -25,30 +27,48 @@ function parseQuality(raw: string | undefined): number {
 
 // 0 = */*, 1 = type/*, 2 = type/subtype khớp chính xác.
 function specificityOf(type: string): 0 | 1 | 2 {
-  if (type === '*/*' || type === '*') return 0
+  if (type === '*/*') return 0
   if (type.endsWith('/*')) return 1
   return 2
 }
 
 function matches(type: string, range: string): boolean {
-  if (range === '*/*' || range === '*') return true
+  if (range === '*/*') return true
   const [rangeType, rangeSubtype] = range.split('/')
   const [typeValue] = type.split('/')
-  if (rangeType === '*') return true
   if (rangeSubtype === '*') return rangeType === typeValue
   return range === type
 }
 
+// Một media range chỉ hợp lệ khi có dạng "type/subtype" và chỉ "*/*" hoặc
+// "type/*" được phép chứa ký tự wildcard. Mọi range khác bị bỏ qua để một
+// header sai định dạng không thể tự chọn bất kỳ representation nào.
+function isValidRange(type: string): boolean {
+  if (type === '*/*') return true
+  const parts = type.split('/')
+  if (parts.length !== 2) return false
+  const [typeValue, subtypeValue] = parts
+  if (!typeValue || !subtypeValue) return false
+  if (typeValue.includes('*') || subtypeValue.includes('*')) {
+    return subtypeValue === '*' && !typeValue.includes('*')
+  }
+  return true
+}
+
 function parseRanges(accept: string): MediaRange[] {
-  return accept.split(',').map(part => {
+  const ranges: MediaRange[] = []
+  for (const part of accept.split(',')) {
     const [rawType = '', ...parameters] = part.trim().split(';')
     const type = rawType.trim().toLowerCase()
+    // Phần tử rỗng không phải media range nên bị bỏ qua (RFC 9110).
+    if (!type || !isValidRange(type)) continue
     const qParameter = parameters
       .map(parameter => parameter.trim())
       .find(parameter => /^q\s*=/i.test(parameter))
     const quality = parseQuality(qParameter?.slice(qParameter.indexOf('=') + 1))
-    return { type, quality, specificity: specificityOf(type) }
-  })
+    ranges.push({ type, quality, specificity: specificityOf(type) })
+  }
+  return ranges
 }
 
 // Chất lượng của một representation lấy từ media range cụ thể nhất khớp với nó:
@@ -64,6 +84,9 @@ function qualityFor(ranges: MediaRange[], types: string[]): number {
 export function negotiateRepresentation(accept: string | null): Negotiation {
   if (!accept || !accept.trim()) return { kind: 'html' }
   const ranges = parseRanges(accept)
+  // Header không còn sở thích nào (rỗng, chỉ có phần tử rỗng hoặc sai định dạng)
+  // được hiểu như không gửi Accept: trả HTML.
+  if (!ranges.length) return { kind: 'html' }
   const html = qualityFor(ranges, representationTypes.html)
   const markdown = qualityFor(ranges, representationTypes.markdown)
   if (html <= 0 && markdown <= 0) return { kind: 'not-acceptable' }
