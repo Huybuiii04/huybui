@@ -78,12 +78,16 @@ try {
 
   // ---------- Danh sách người dùng ----------
   await page.getByRole('button', { name: /Người dùng|Users/, exact: true }).click()
-  await page.locator('.usage-row').first().waitFor({ timeout: 30000 })
-  const userRows = await page.locator('.usage-table .usage-row').count()
+  // Chờ đúng bảng người dùng (`.admin-users-table`), không phải bảng của tab trước đó.
+  await page.locator('.admin-users-table .usage-row').first().waitFor({ timeout: 30000 })
+  const userRows = await page.locator('.admin-users-table .usage-row').count()
   assert.ok(userRows > 1, 'Danh sách người dùng phải có dữ liệu')
+  // Bảng người dùng phải hiện email (admin cần email để xác nhận xoá tài khoản).
+  assert.ok(await page.locator('.admin-users-table').getByRole('columnheader', { name: /Email/i }).count() > 0, 'Bảng người dùng phải có cột Email')
+  assert.ok(await page.locator('.admin-users-table').getByRole('cell').filter({ hasText: '@' }).count() > 0, 'Bảng người dùng phải hiện email của user')
 
   // ---------- Chi tiết người dùng: đề đã làm + đề còn lại ----------
-  await page.locator('.usage-table .text-link').first().click()
+  await page.locator('.admin-users-table .text-link').first().click()
   await page.getByText(/Đề đã làm|Prompts written/).first().waitFor({ timeout: 30000 })
   await page.getByText(/Đề còn lại|Prompts not written yet/).first().waitFor({ timeout: 30000 })
   const coverage = await page.locator('.admin-stats .stat-value').last().innerText()
