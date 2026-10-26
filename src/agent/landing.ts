@@ -30,6 +30,7 @@ export type LandingCopy = {
   primaryCta: Copy
   secondaryCta: Copy
   perks: readonly Copy[]
+  signInNote: Copy
   explore: Copy
   studioLabel: Copy
   studioMeta: Copy
@@ -80,6 +81,11 @@ export const landingCopy: LandingCopy = {
     ['Miễn phí học tập', 'Free to learn'],
     ['Task 1 & Task 2', 'Task 1 & Task 2'],
     ['VI / EN', 'VI / EN'],
+  ],
+  // Điều kiện đăng nhập: nói rõ để HTML và Markdown của trang chủ mô tả giống nhau.
+  signInNote: [
+    'Các tính năng luyện viết cần tài khoản — đăng nhập miễn phí bằng email.',
+    'The interactive writing features need an account — sign in free with email.',
   ],
   explore: ['Khám phá cách học', 'Find your learning flow'],
   studioLabel: ['Xem trước không gian viết', 'Writing studio preview'],

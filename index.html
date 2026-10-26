@@ -15,14 +15,6 @@
           document.documentElement.dataset.lang = language
         }
       } catch {}
-      // Giao diện tối là mặc định của app, nên bản tĩnh cũng bắt đầu tối để
-      // không nháy sáng khi React mount.
-      try {
-        const stored = localStorage.getItem('ielts-theme')
-        const theme = stored === 'light' || stored === 'dark' ? stored : 'dark'
-        document.documentElement.dataset.theme = theme
-        document.documentElement.style.colorScheme = theme
-      } catch {}
     </script>
   </head>
   <body><div id="root"></div><script type="module" src="/src/main.tsx"></script></body>

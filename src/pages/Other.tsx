@@ -42,6 +42,7 @@ export function Landing() {
             <Link className="button outline large" to="/app/essays/demo">{c(copy.secondaryCta[0], copy.secondaryCta[1])}<ArrowUpRight size={17} /></Link>
           </div>
           <div className="landing-perks">{copy.perks.map(perk => <span key={perk[1]}><Check size={15} />{c(perk[0], perk[1])}</span>)}</div>
+          <p className="landing-note">{c(copy.signInNote[0], copy.signInNote[1])}</p>
           <a className="landing-explore" href="#learning-path">{c(copy.explore[0], copy.explore[1])}<ArrowRight size={16} /></a>
         </section>
         <section className="studio-preview" aria-label={c(copy.studioLabel[0], copy.studioLabel[1])}>

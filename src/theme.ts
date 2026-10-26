@@ -1,11 +1,12 @@
 import { useSyncExternalStore } from 'react'
+import { defaultTheme, themeStorageKey } from './agent/theme'
 
 export type ThemePreference = 'light' | 'dark' | 'system'
 export type ResolvedTheme = 'light' | 'dark'
 
-const storageKey = 'ielts-theme'
+const storageKey = themeStorageKey
 const listeners = new Set<() => void>()
-let preference: ThemePreference = 'dark'
+let preference: ThemePreference = defaultTheme
 
 try {
   const stored = localStorage.getItem(storageKey)

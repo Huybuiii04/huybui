@@ -93,6 +93,7 @@ export function renderLandingHtml() {
     `<a class="button outline large" href="/app/essays/demo">${bilingual(copy.secondaryCta)}${staticIcon('arrow-up-right', 17)}</a>` +
     `</div>` +
     `<div class="landing-perks">${perks}</div>` +
+    `<p class="landing-note">${bilingual(copy.signInNote)}</p>` +
     `<a class="landing-explore" href="#learning-path">${bilingual(copy.explore)}${staticIcon('arrow-right', 16)}</a>` +
     `</section>` +
     `<span id="landing-studio-label" class="sr-only">${bilingual(copy.studioLabel)}</span>` +

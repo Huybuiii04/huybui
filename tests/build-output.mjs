@@ -7,6 +7,7 @@
 import assert from 'node:assert/strict'
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { defaultTheme, themeBootstrapScript, themeStorageKey } from '../src/agent/theme.ts'
 
 const dist = join(process.cwd(), 'dist')
 if (!existsSync(join(dist, 'index.html'))) {
@@ -60,6 +61,21 @@ for (const file of files) {
   assert.equal(app.applicationCategory, 'EducationalApplication', `${file.path}: sai applicationCategory`)
   assert.equal(app.operatingSystem, 'Web', `${file.path}: sai operatingSystem`)
   assert.ok(!('author' in app) && !('publisher' in app) && !('offers' in app), `${file.path}: JSON-LD còn dữ liệu chưa xác minh`)
+
+  // Mọi trang phải dùng đúng theme của app: mặc định tối, tôn trọng lựa chọn đã lưu.
+  assert.match(
+    html,
+    new RegExp(`<html[^>]*\\sdata-theme="${defaultTheme}"`),
+    `${file.path}: thiếu data-theme mặc định`,
+  )
+  assert.ok(
+    html.includes(themeBootstrapScript()),
+    `${file.path}: thiếu bootstrap theme dùng chung`,
+  )
+  assert.ok(
+    html.includes(`localStorage.getItem("${themeStorageKey}")`),
+    `${file.path}: bootstrap theme không đọc đúng khoá lưu trữ`,
+  )
 }
 
 // Landing tĩnh phải là nội dung thật của trang: đọc được ngay trong HTML.
@@ -75,6 +91,9 @@ assert.match(landing, /href="\/contact"/, 'landing: thiếu link tới trang con
 assert.match(landing, /href="\/privacy"/, 'landing: thiếu link tới trang privacy')
 assert.match(landing, /data-copy="vi"/, 'landing: thiếu bản tiếng Việt')
 assert.match(landing, /data-copy="en"/, 'landing: thiếu bản tiếng Anh')
+// Landing phải nói rõ điều kiện đăng nhập, giống bản Markdown của trang chủ.
+assert.match(landing, /sign in free with email/, 'landing: thiếu điều kiện đăng nhập')
+assert.match(landing, /đăng nhập miễn phí bằng email/, 'landing: thiếu điều kiện đăng nhập (tiếng Việt)')
 
 // Ba trang trust là HTML tĩnh độc lập: không boot React, không bị route wildcard thay thế.
 for (const name of trustPages) {

@@ -2,11 +2,13 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import vm from 'node:vm'
 import { site, buildJsonLd, buildHeadTags, htmlLang } from '../src/agent/site.ts'
 import { pages, pageById, pageByPath, plainText, type ContentPage, type Copy } from '../src/agent/content.ts'
 import { renderMarkdown, renderNotFoundMarkdown, escapePlainText } from '../src/agent/markdown.ts'
 import { escapeHtml, renderLandingHtml, renderStaticHtml } from '../src/agent/html.ts'
 import { landingCopy } from '../src/agent/landing.ts'
+import { defaultTheme, themeBootstrapScript, themeStorageKey } from '../src/agent/theme.ts'
 import { matchPath, spaRoutes, staticFiles, apiRoutes, markdownPageIds, publicLinks } from '../src/agent/routes.ts'
 
 // Tuyên bố cấm trong bản tiếng Anh: các bản đặc tả API, cổng nhà phát triển,
@@ -524,4 +526,61 @@ test('the trust page renderer escapes every interpolated string', () => {
   assert.ok(html.includes('&lt;script&gt;'), 'the title must be escaped')
   assert.ok(html.includes('&lt;i&gt;body&lt;/i&gt;'), 'the body must be escaped')
   assert.ok(html.includes('&quot;x&quot;'), 'the list item must be escaped')
+})
+
+// ---------- Theme bootstrap dùng chung cho mọi trang tĩnh ----------
+
+// Chạy đúng đoạn script mà vite.config.ts chèn vào <head> trong một môi trường
+// giả lập, để kiểm tra hành vi thật chứ không phải một bản song song.
+function runThemeBootstrap(storage: { getItem(key: string): string | null }, systemDark = false) {
+  const dataset: Record<string, string> = {}
+  const style: Record<string, string> = {}
+  vm.runInNewContext(themeBootstrapScript(), {
+    localStorage: storage,
+    window: { matchMedia: () => ({ matches: systemDark }) },
+    document: { documentElement: { dataset, style } },
+  })
+  return { theme: dataset.theme, colorScheme: style.colorScheme }
+}
+
+test('the shared theme bootstrap applies the app theme to every static page', () => {
+  assert.equal(themeStorageKey, 'ielts-theme')
+  assert.equal(defaultTheme, 'dark')
+
+  const readKeys: string[] = []
+  const withoutStoredTheme = runThemeBootstrap({
+    getItem: key => { readKeys.push(key); return null },
+  })
+  assert.equal(withoutStoredTheme.theme, 'dark', 'a page without a stored theme must use the dark default')
+  assert.equal(withoutStoredTheme.colorScheme, 'dark')
+  assert.deepEqual(readKeys, [themeStorageKey], 'the bootstrap must read the app theme key')
+
+  assert.equal(runThemeBootstrap({ getItem: () => 'light' }).theme, 'light', 'a stored light theme must win')
+  assert.equal(runThemeBootstrap({ getItem: () => 'dark' }).theme, 'dark')
+  assert.equal(
+    runThemeBootstrap({ getItem: () => { throw new Error('storage is blocked') } }).theme,
+    'dark',
+    'unreadable storage must fall back to the dark default',
+  )
+  assert.equal(
+    runThemeBootstrap({ getItem: () => 'system' }).theme,
+    'light',
+    'the system preference must follow the operating system colour scheme',
+  )
+  assert.equal(runThemeBootstrap({ getItem: () => 'system' }, true).theme, 'dark')
+})
+
+test('the landing states the same sign-in condition as the public home page', () => {
+  const home = pageById('home')
+  assert.ok(home, 'missing home page')
+  for (const lang of [0, 1] as const) {
+    const homeText = plainText(home, lang).toLowerCase()
+    const note = landingCopy.signInNote[lang].toLowerCase()
+    const account = lang === 0 ? 'tài khoản' : 'account'
+    const signIn = lang === 0 ? 'đăng nhập' : 'sign in'
+    assert.ok(homeText.includes(account), `home (lang ${lang}) does not mention the account condition`)
+    assert.ok(homeText.includes(signIn), `home (lang ${lang}) does not mention signing in`)
+    assert.ok(note.includes(account), `the landing note (lang ${lang}) does not mention the account condition`)
+    assert.ok(note.includes(signIn), `the landing note (lang ${lang}) does not mention signing in`)
+  }
 })
