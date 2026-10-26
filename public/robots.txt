@@ -1,0 +1,8 @@
+# Only the public pages are crawlable. The signed-in areas are not published.
+User-agent: *
+Allow: /
+Disallow: /app/
+Disallow: /admin
+Disallow: /auth/
+
+Sitemap: https://huybui.vercel.app/sitemap.xml

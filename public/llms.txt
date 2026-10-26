@@ -1,0 +1,25 @@
+# IELTS Writing Studio
+
+> A free practice space for IELTS Writing Task 1 and Task 2: pick a prompt, write an essay, get band-style feedback, and keep your own vocabulary.
+
+## Public pages
+
+The four public pages below are readable without an account and need no sign-in.
+
+- [IELTS Writing Studio](https://huybui.vercel.app/): What the practice space is and what it offers.
+- [About](https://huybui.vercel.app/about): Purpose, audience, how grading works and the limits of the scores.
+- [Contact](https://huybui.vercel.app/contact): Verified support channels and what to include in a message.
+- [Privacy policy](https://huybui.vercel.app/privacy): What is stored, how essays reach the AI endpoint, and how to ask for deletion.
+
+## Discovery
+
+- [Sitemap](https://huybui.vercel.app/sitemap.xml): The canonical list of public pages.
+- [llms.txt](https://huybui.vercel.app/llms.txt): This agent index.
+
+## Access
+
+A signed-in session is required for the writing space, your essays and drafts, your vocabulary cards, the review schedule, your progress and your account settings. Those screens are part of the interactive app for your own account, and no static document is published for them.
+
+## Interfaces
+
+This project currently offers no public REST API and no MCP server. Everything published here is static content: the four pages above, the sitemap and this file.
