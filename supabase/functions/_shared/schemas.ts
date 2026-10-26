@@ -84,12 +84,12 @@ export interface AdminContentInput {
   translations?: AdminTranslationInput[];
 }
 
-export type AdminUserAction = "suspend" | "restore" | "make_admin" | "remove_admin";
+export type AdminUserAction = "suspend" | "restore" | "make_admin" | "remove_admin" | "list" | "delete";
 
-export interface AdminUsersInput {
-  action: AdminUserAction;
-  userId: string;
-}
+export type AdminUsersInput =
+  | { action: "list" }
+  | { action: "suspend" | "restore" | "make_admin" | "remove_admin"; userId: string }
+  | { action: "delete"; userId: string; confirmEmail: string };
 
 export interface UsageQueryInput {
   from: string;
@@ -359,11 +359,21 @@ export function parseAdminContent(input: unknown): AdminContentInput {
 export function parseAdminUsers(input: unknown): AdminUsersInput {
   const record = asRecord(input);
   const action = requiredString(record, "action");
-  const allowed: AdminUserAction[] = ["suspend", "restore", "make_admin", "remove_admin"];
+  const allowed: AdminUserAction[] = ["suspend", "restore", "make_admin", "remove_admin", "list", "delete"];
   if (!allowed.includes(action as AdminUserAction)) fail("action", "Unsupported admin-users action");
+
+  if (action === "list") return { action: "list" };
+
+  const userId = requiredUuid(record, "userId");
+  if (action === "delete") {
+    const confirmEmail = requiredString(record, "confirmEmail", { min: 1, max: 320 });
+    if (!confirmEmail.trim()) fail("confirmEmail", "confirmEmail must not be empty");
+    return { action: "delete", userId, confirmEmail };
+  }
+
   return {
-    action: action as AdminUserAction,
-    userId: requiredUuid(record, "userId"),
+    action: action as "suspend" | "restore" | "make_admin" | "remove_admin",
+    userId,
   };
 }
 

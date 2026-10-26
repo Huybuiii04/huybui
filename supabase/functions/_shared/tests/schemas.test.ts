@@ -95,4 +95,45 @@ describe("request schemas", () => {
     const adminUsers = parseAdminUsers({ action: "suspend", userId: essayId });
     assert.equal(adminUsers.action, "suspend");
   });
+
+  it("parses the admin-users list action without a user id", () => {
+    const parsed = parseAdminUsers({ action: "list" });
+    assert.equal(parsed.action, "list");
+  });
+
+  it("parses the admin-users delete action with a user id and a confirmation email", () => {
+    const parsed = parseAdminUsers({ action: "delete", userId: essayId, confirmEmail: "user@example.com" });
+    assert.equal(parsed.action, "delete");
+    if (parsed.action !== "delete") return;
+    assert.equal(parsed.userId, essayId);
+    assert.equal(parsed.confirmEmail, "user@example.com");
+  });
+
+  it("rejects an admin-users delete without a confirmation email", () => {
+    assert.throws(
+      () => parseAdminUsers({ action: "delete", userId: essayId }),
+      (error: unknown) => error instanceof SchemaError && error.field === "confirmEmail",
+    );
+  });
+
+  it("rejects an admin-users delete with an empty confirmation email", () => {
+    assert.throws(
+      () => parseAdminUsers({ action: "delete", userId: essayId, confirmEmail: "" }),
+      (error: unknown) => error instanceof SchemaError && error.field === "confirmEmail",
+    );
+  });
+
+  it("rejects an admin-users delete with a user id that is not a UUID", () => {
+    assert.throws(
+      () => parseAdminUsers({ action: "delete", userId: "not-a-uuid", confirmEmail: "user@example.com" }),
+      (error: unknown) => error instanceof SchemaError && error.field === "userId",
+    );
+  });
+
+  it("rejects an unknown admin-users action", () => {
+    assert.throws(
+      () => parseAdminUsers({ action: "explode", userId: essayId }),
+      (error: unknown) => error instanceof SchemaError && error.field === "action",
+    );
+  });
 });
