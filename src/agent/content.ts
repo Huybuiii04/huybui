@@ -249,6 +249,10 @@ export const privacy: ContentPage = {
           'You can ask us to delete your account and the data linked to it at any time by emailing us. When the deletion completes successfully, the queued grading jobs for the account are cancelled, the files you uploaded are removed from storage, the authentication user is deleted, and the learning data attached to the account — essays, drafts, vocabulary cards, review schedules and error logs — is removed through the database cascade.',
         ],
         [
+          'Ngoài ra, quản trị viên của trang có thể xoá một tài khoản khi có lý do hợp lệ.',
+          'In addition, a site administrator may delete an account when there is a legitimate reason.',
+        ],
+        [
           'Cam kết đó áp dụng cho dữ liệu tài khoản nêu trên; nó không áp dụng cho backup, log hệ thống hay dữ liệu đã đi tới endpoint AI.',
           'That promise covers the account data described above; it does not extend to backups, system logs, or data that has already reached the AI endpoint.',
         ],

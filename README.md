@@ -77,6 +77,15 @@ npm run db:deploy
 
 Ở chế độ `tool` (mặc định), model được ép trả kết quả đúng schema bằng **tool-use** — không cần ép bằng prompt nên không bị "rơi" sang trả văn xuôi. Chế độ `prompt` dùng cho provider không hỗ trợ tool.
 
+### Quản trị: danh sách người dùng và xoá tài khoản
+
+Tab *Người dùng* trong trang *Quản trị* liệt kê tài khoản kèm **email**, và ô tìm kiếm lọc theo tên, email hoặc id. Edge Function `admin-users` đọc danh sách bằng service role nên chỉ admin mới thấy email.
+
+- **Nút xoá** chỉ hiện với **user thường** — không hiện với chính tài khoản admin đang đăng nhập, và không hiện với tài khoản admin khác.
+- **Xác nhận bằng email**: hộp thoại yêu cầu gõ lại đúng email của tài khoản; server đối chiếu lại email đó và từ chối nếu lệch, nên giao diện chỉ là lớp tiện ích.
+- **Dữ liệu bị xoá**: tài khoản đăng nhập, bài viết và bản nháp, thẻ từ vựng kèm lịch ôn tập, sổ log lỗi và tệp đã tải lên; các job AI đang chờ bị huỷ. Sau khi xoá auth user, các dòng dữ liệu học tập bị **cascade** của cơ sở dữ liệu gỡ bỏ theo.
+- **Nhật ký quản trị**: mỗi lần xoá ghi một dòng `admin.user.delete` vào `admin_audit_logs` (ghi id người thực hiện và id tài khoản bị xoá, **không** ghi email).
+
 ## Deploy
 
 ### Frontend → Vercel
