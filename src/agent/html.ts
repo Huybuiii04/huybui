@@ -33,9 +33,10 @@ export function renderStaticHtml(page: ContentPage): string {
   }
   parts.push(
     '<nav class="doc-links" aria-label="Resources">',
-    '<a href="/docs">API documentation</a>',
-    '<a href="/developers">Developer portal</a>',
-    '<a href="/openapi.json">OpenAPI specification</a>',
+    '<a href="/">Home</a>',
+    '<a href="/about">About</a>',
+    '<a href="/contact">Contact</a>',
+    '<a href="/privacy">Privacy</a>',
     '<a href="/llms.txt">llms.txt</a>',
     '<a href="/sitemap.xml">Sitemap</a>',
     '</nav>',
@@ -72,12 +73,10 @@ export function renderNotFoundHtml(path: string) {
     <main>
       <p class="code">Error 404</p>
       <h1>This page is not here</h1>
-      <p>The address <code>${escapeHtml(path)}</code> does not exist on IELTS Writing Studio, so there is no page, prompt or endpoint to read at this URL.</p>
+      <p>The address <code>${escapeHtml(path)}</code> does not exist on IELTS Writing Studio, so there is no page to read at this URL.</p>
       <p>If you are looking for machine-readable resources, use one of these:</p>
       <ul>
-        <li><a href="/docs">API documentation</a></li>
-        <li><a href="/developers">Developer portal</a></li>
-        <li><a href="/openapi.json">OpenAPI specification</a></li>
+        <li><a href="/">Home</a></li>
         <li><a href="/llms.txt">llms.txt</a> and the <a href="/sitemap.xml">sitemap</a></li>
       </ul>
     </main>

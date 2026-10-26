@@ -4,16 +4,11 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "installCommand": "npm ci",
-  "proxy": {
-    "entrypoint": "middleware.ts"
-  },
   "rewrites": [
     { "source": "/about", "destination": "/pages/about.html" },
     { "source": "/contact", "destination": "/pages/contact.html" },
     { "source": "/privacy", "destination": "/pages/privacy.html" },
-    { "source": "/developers", "destination": "/pages/developers.html" },
-    { "source": "/docs", "destination": "/pages/docs.html" },
-    { "source": "/((?!api/).*)", "destination": "/index.html" }
+    { "source": "/((?!api/|assets/).*)", "destination": "/index.html" }
   ],
   "headers": [
     {

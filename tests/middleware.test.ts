@@ -37,13 +37,13 @@ test('unknown paths return markdown body when markdown is requested', async () =
   const body = await response.text()
   assert.ok(body.length >= 20)
   assert.match(body, /404/)
-  assert.match(body, /\/docs/)
   assert.match(body, /\/sitemap\.xml/)
   assert.match(body, /\/llms\.txt/)
+  assert.ok(!body.includes('/docs'))
 })
 
 test('known routes are not treated as missing', async () => {
-  for (const path of ['/app/write', '/app/prompts', '/about', '/developers', '/docs', '/auth']) {
+  for (const path of ['/app/write', '/app/prompts', '/about', '/contact', '/privacy', '/auth']) {
     const response = await call(path)
     assert.equal(response.status, 200, path)
     assert.equal(response.headers.get('x-middleware-next'), '1', path)
@@ -57,14 +57,10 @@ test('public content pages also answer in markdown', async () => {
   assert.match(await response.text(), /^# /)
 })
 
-test('mcp manifest is published for agents', async () => {
+test('the removed mcp manifest is not published', async () => {
   const response = await call('/.well-known/mcp')
-  assert.equal(response.status, 200)
-  assert.match(response.headers.get('content-type') ?? '', /application\/json/)
-  const manifest = await response.json() as { transports: { type: string; url: string }[]; tools: { name: string }[] }
-  assert.equal(manifest.transports[0].type, 'streamable-http')
-  assert.equal(manifest.transports[0].url, `${origin}/api/mcp`)
-  assert.ok(manifest.tools.length >= 3)
+  assert.equal(response.status, 404)
+  assert.match(response.headers.get('content-type') ?? '', /text\/html/)
 })
 
 test('api paths are handed over to the functions', async () => {

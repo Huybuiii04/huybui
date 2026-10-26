@@ -22,15 +22,29 @@ export const home: ContentPage = {
           'Every essay is graded against the four Task 2 criteria (three criteria for Task 1), with concrete, paragraph-level notes on what to improve next.',
         ],
         [
-          'Bản nháp tự lưu, thư viện đề sẵn có biểu đồ và câu hỏi đầy đủ, sổ từ vựng có lịch ôn tập — tất cả trong một tài khoản duy nhất.',
-          'Drafts save automatically, the prompt library ships with charts and full task text, and your vocabulary library comes with a spaced-review schedule — all under one account.',
+          'Bản nháp tự lưu, thư viện đề sẵn có biểu đồ và câu hỏi đầy đủ, sổ từ vựng có lịch ôn tập — tất cả gắn với một tài khoản duy nhất.',
+          'Drafts save automatically, the prompt library ships with charts and full task text, and your vocabulary library comes with a spaced-review schedule — all tied to one account.',
         ],
       ],
       list: [
         ['Task 1 (Academic & General) và Task 2', 'Task 1 (Academic & General) and Task 2'],
-        ['Chấm bài theo band, có người sửa lỗi lặp lại', 'Band scoring with a repeatable error logbook'],
+        ['Chấm bài theo band, có sổ lỗi sai lặp lại', 'Band scoring with a repeatable error logbook'],
         ['Từ vựng ôn theo lịch, không mất trình độ', 'Vocabulary reviewed on a schedule, so progress sticks'],
         ['Không paywall, không quảng cáo', 'No paywalls and no advertising'],
+      ],
+    },
+    {
+      id: 'sign-in',
+      heading: ['Đăng nhập để luyện', 'Sign in to practise'],
+      body: [
+        [
+          'Các tính năng luyện viết tương tác cần một tài khoản: bài viết, bản nháp, thẻ từ vựng và lịch ôn tập được lưu theo tài khoản của bạn. Đăng nhập bằng email, miễn phí và không cần thẻ tín dụng.',
+          'The interactive writing features need an account: your essays, drafts, vocabulary cards and review schedule are stored under your account. Sign in with an email address — it is free and needs no credit card.',
+        ],
+        [
+          'Trang này được đọc ngay trong HTML mà không cần chạy JavaScript, nên bạn có thể xem trước nội dung và chính sách trước khi quyết định đăng nhập.',
+          'This page is readable as plain HTML without JavaScript, so you can look through the content and the policy before you decide to sign in.',
+        ],
       ],
     },
     {
@@ -38,8 +52,8 @@ export const home: ContentPage = {
       heading: ['Dành cho ai?', 'Who it is for'],
       body: [
         [
-          'Người học cần phản hồi nhanh, muốn biết mình lỗi ở đâu và cần một lịch ôn từ vựng đều đặn. Không cần tài khoản trả phí, không cần thẻ tín dụng.',
-          'Learners who want fast feedback, a clear view of recurring mistakes and a vocabulary routine. No paid tier, no credit card, no sign-up wall for the free practice flow.',
+          'Người học cần phản hồi nhanh, muốn biết mình lỗi ở đâu và cần một lịch ôn từ vựng đều đặn. Không có bậc trả phí, không có quảng cáo; chỉ cần một tài khoản để lưu tiến bộ của bạn.',
+          'Learners who want fast feedback, a clear view of recurring mistakes and a vocabulary routine. There is no paid tier and no advertising; an account is all it takes to keep your progress.',
         ],
       ],
     },
@@ -48,12 +62,12 @@ export const home: ContentPage = {
       heading: ['Cho công cụ và trợ lý AI', 'Built for tools and AI agents'],
       body: [
         [
-          'Trang này có nội dung đọc được ngay trong HTML (không cần chạy JavaScript), phản hồi Markdown khi agent gửi Accept: text/markdown, và mã lỗi JSON có mã lỗi cùng gợi ý xử lý.',
-          'This page ships readable content directly in HTML (no JavaScript required), serves Markdown when an agent asks for it with Accept: text/markdown, and answers the public API with structured JSON errors that carry a code and a resolution hint.',
+          'Nội dung của bốn trang công khai nằm ngay trong HTML (không cần chạy JavaScript), và chính nội dung đó được trả về dạng Markdown khi agent gửi Accept: text/markdown.',
+          'The content of the four public pages sits directly in the HTML (no JavaScript required), and the same content is served as Markdown when an agent asks with Accept: text/markdown.',
         ],
         [
-          'Bản đặc tả OpenAPI nằm ở /openapi.json, chỉ mục agent ở /llms.txt, sitemap ở /sitemap.xml và MCP server ở /api/mcp.',
-          'The OpenAPI specification lives at /openapi.json, the agent index at /llms.txt, the sitemap at /sitemap.xml and the MCP server at /api/mcp.',
+          'Sitemap ở /sitemap.xml và chỉ mục cho agent ở /llms.txt. Dự án không phát hành API công khai: những gì bạn đọc được ở đây đều là nội dung tĩnh của chính trang này.',
+          'The sitemap is at /sitemap.xml and the agent index is at /llms.txt. The project publishes no public API: everything readable here is static content of these very pages.',
         ],
       ],
     },
@@ -88,8 +102,8 @@ export const about: ContentPage = {
       heading: ['Cách hoạt động', 'How it works'],
       body: [
         [
-          'Bài của bạn được gửi tới nhà cung cấp AI đã cấu hình để chấm theo rubric, rồi kết quả được tách thành điểm từng tiêu chí, nhận xét theo đoạn và danh sách lỗi ngữ pháp để luyện lại. Bạn sở hữu toàn bộ bài viết và có thể xoá bất kỳ lúc nào.',
-          'Your essay is sent to the configured AI provider for rubric-based grading, and the result is split into per-criterion scores, paragraph-level notes and a grammar error list to practise from. You own every essay and can delete it whenever you like.',
+          'Bài của bạn được gửi tới endpoint AI do bản triển khai cấu hình để chấm theo rubric, rồi kết quả được tách thành điểm từng tiêu chí, nhận xét theo đoạn và danh sách lỗi ngữ pháp để luyện lại. Bạn sở hữu toàn bộ bài viết và có thể xoá bất kỳ lúc nào.',
+          'Your essay is sent to the AI endpoint this deployment is configured with, for rubric-based grading, and the result is split into per-criterion scores, paragraph-level notes and a grammar error list to practise from. You own every essay and can delete it whenever you like.',
         ],
         [
           'Tài khoản, bài viết, thẻ từ vựng và lịch ôn tập được lưu trong Postgres của dự án; phiên đăng nhập do Supabase quản lý. Trang này không dùng cookie quảng cáo hay tracker bên thứ ba.',
@@ -104,6 +118,10 @@ export const about: ContentPage = {
         [
           'Dự án do một lập trình viên cá nhân tại Việt Nam duy trì, mã nguồn mở trên GitHub. Mọi góp ý về nội dung, bản dịch hoặc trải nghiệm học đều được hoan nghênh qua trang liên hệ.',
           'The project is maintained by a single developer based in Vietnam, with the source code published on GitHub. Feedback on content, translations or the learning experience is welcome through the contact page.',
+        ],
+        [
+          'IELTS Writing Studio là công cụ luyện tập độc lập, không phải sản phẩm của IELTS, IDP hoặc British Council, và không được các tổ chức này bảo trợ hay chứng nhận. Điểm trong ứng dụng là ước lượng theo tiêu chí band công khai, không phải điểm chính thức.',
+          'IELTS Writing Studio is an independent practice tool. It is not a product of IELTS, IDP or the British Council and is not endorsed or sponsored by them. The scores shown in the app are estimates based on the public band descriptors, not official results.',
         ],
       ],
     },
@@ -147,8 +165,8 @@ export const contact: ContentPage = {
           'For a bug, send the browser, operating system, reproduction steps and a screenshot. For a content question, name the prompt or essay type you were working on. For a privacy complaint, state the account and the data you want removed.',
         ],
         [
-          'Phản hồi thường mất tối đa vài ngày làm việc. Báo cáo bảo mật được ưu tiên xử lý nhanh hơn các yêu cầu khác.',
-          'Replies usually take a few working days. Security reports are prioritised over other requests.',
+          'Phản hồi được gửi khi chúng tôi xử lý xong. Báo cáo bảo mật được ưu tiên hơn các yêu cầu khác.',
+          'Replies are sent once we have handled them. Security reports are prioritised over other requests.',
         ],
       ],
     },
@@ -176,15 +194,25 @@ export const privacy: ContentPage = {
   sections: [
     {
       id: 'collect',
-      heading: ['Dữ liệu được thu thập', 'What is collected'],
+      heading: ['Dữ liệu được lưu', 'What is stored'],
       body: [
         [
-          'Khi bạn đăng ký, dự án lưu địa chỉ email, mật khẩu do Supabase quản lý (dạng băm) và hồ sơ học tập gồm tên hiển thị, band mục tiêu và ngôn ngữ phản hồi. Bài viết, bản nháp, thẻ từ vựng và lịch ôn tập được lưu trong cơ sở dữ liệu Postgres của dự án.',
-          'When you register, the project stores your email address, a Supabase-managed hashed password and a learning profile with a display name, target band and feedback language. Essays, drafts, vocabulary cards and review schedules are stored in the project Postgres database.',
+          'Dữ liệu tài khoản và dữ liệu học tập nằm trong cơ sở dữ liệu Supabase/Postgres của dự án: địa chỉ email bạn đăng ký, hồ sơ học tập gồm tên hiển thị, band mục tiêu và ngôn ngữ phản hồi, các bài viết và bản nháp, thẻ từ vựng bạn lưu, lịch ôn tập và các mục trong sổ lỗi sai ghi lại khi bài viết được chấm.',
+          'Account and learning data live in the project Supabase/Postgres database: the email address you register with, your learning profile (display name, target band, feedback language), your essays and drafts, the vocabulary cards you save, your review schedule and the error log entries recorded when an essay is graded.',
         ],
         [
-          'Dữ liệu trong trình duyệt (bộ nhớ đệm cục bộ, lựa chọn ngôn ngữ, lựa chọn giao diện sáng/tối) được lưu trong localStorage của chính trình duyệt bạn và có thể xoá bằng chức năng "Xoá dữ liệu học tập" trong phần Cài đặt.',
-          'Browser-side data (local cache, language choice, light/dark theme) lives in your own localStorage and can be cleared with the "Clear learning data" control in Settings.',
+          'Phiên đăng nhập do Supabase Auth quản lý, và Supabase lưu credential đã băm của tài khoản; ứng dụng không giữ mật khẩu dạng rõ.',
+          'Sign-in sessions are managed by Supabase Auth, which stores the hashed credential for your account; the app itself never keeps the plain-text password.',
+        ],
+      ],
+    },
+    {
+      id: 'browser-data',
+      heading: ['Dữ liệu trong trình duyệt của bạn', 'Data kept in your browser'],
+      body: [
+        [
+          'Bản nháp, ảnh và trạng thái học tập đã cache nằm trong IndexedDB của trình duyệt để ứng dụng vẫn dùng được khi mất mạng; lựa chọn ngôn ngữ và giao diện sáng/tối nằm trong localStorage; token phiên quản trị nằm trong sessionStorage. Tất cả chỉ ở trên thiết bị của bạn, và nút "Xoá dữ liệu học tập trên thiết bị này" trong phần Cài đặt xoá cache cục bộ.',
+          'Drafts, images and cached learning state live in your browser under IndexedDB so the app keeps working offline; your language choice and light/dark theme are stored in localStorage; the administration session token is kept in sessionStorage. All of it stays on your own device, and the "Clear learning data on this device" control in Settings clears the local cache.',
         ],
       ],
     },
@@ -193,8 +221,12 @@ export const privacy: ContentPage = {
       heading: ['Xử lý bởi AI', 'AI processing'],
       body: [
         [
-          'Khi bạn yêu cầu chấm bài, nội dung bài viết của bạn được gửi tới nhà cung cấp AI đã cấu hình cho dự án để tạo điểm, nhận xét và danh sách lỗi. Bài viết không được dùng để huấn luyện mô hình của bên thứ ba, và chúng tôi không gửi bất kỳ thông tin tài khoản nào kèm theo.',
-          'When you request feedback, your essay text is sent to the AI provider configured for this project to produce scores, notes and error lists. Essay text is not used to train third-party models, and no account details are sent with it.',
+          'Khi bạn yêu cầu chấm bài, nội dung bài viết và những ảnh bạn chọn được gửi tới endpoint AI mà bản triển khai này cấu hình, để bài viết được chấm. Mã nguồn hỗ trợ Anthropic API và các endpoint tương thích; endpoint nào đang chạy phụ thuộc vào cấu hình triển khai.',
+          'When you request feedback, your essay text and the images you selected are sent to the AI endpoint this deployment is configured with, so that the essay can be graded. The code supports the Anthropic API and compatible endpoints; which one is live depends on how this deployment is configured.',
+        ],
+        [
+          'Dự án không cam kết về thời gian endpoint AI lưu giữ nội dung nó nhận được, cũng không cam kết về cách endpoint đó dùng nội dung sau đó. Nếu điều đó quan trọng với bạn, hãy hỏi trước khi gửi bài.',
+          'This project makes no promise about how long the AI endpoint keeps the text it receives, or about how that endpoint uses the text afterwards. If that matters to you, please ask before you submit an essay.',
         ],
       ],
     },
@@ -213,8 +245,16 @@ export const privacy: ContentPage = {
       heading: ['Quyền của bạn', 'Your rights'],
       body: [
         [
-          'Bạn có thể xoá tài khoản và toàn bộ dữ liệu liên kết bất cứ lúc nào bằng nút "Xoá tài khoản" trong phần Cài đặt, hoặc gửi email cho chúng tôi. Chúng tôi phản hồi yêu cầu xoá trong vòng 30 ngày.',
-          'You can delete your account and all linked data at any time with the "Delete account" control in Settings, or by emailing us. Deletion requests are completed within 30 days.',
+          'Bạn có thể yêu cầu xoá tài khoản và dữ liệu liên kết bất cứ lúc nào bằng cách gửi email cho chúng tôi. Khi thao tác xoá hoàn tất thành công, các job chấm đang chờ của tài khoản bị huỷ, các tệp bạn đã tải lên bị xoá khỏi bộ nhớ, user đăng nhập bị xoá, và dữ liệu học tập gắn với tài khoản (bài viết, bản nháp, thẻ từ vựng, lịch ôn tập, sổ lỗi sai) bị xoá theo cơ chế cascade của cơ sở dữ liệu.',
+          'You can ask us to delete your account and the data linked to it at any time by emailing us. When the deletion completes successfully, the queued grading jobs for the account are cancelled, the files you uploaded are removed from storage, the authentication user is deleted, and the learning data attached to the account — essays, drafts, vocabulary cards, review schedules and error logs — is removed through the database cascade.',
+        ],
+        [
+          'Cam kết đó áp dụng cho dữ liệu tài khoản nêu trên; nó không áp dụng cho backup, log hệ thống hay dữ liệu đã đi tới endpoint AI.',
+          'That promise covers the account data described above; it does not extend to backups, system logs, or data that has already reached the AI endpoint.',
+        ],
+        [
+          'Các bản ghi vận hành về mức sử dụng và chi phí AI không gắn trực tiếp với một tài khoản, nên có thể vẫn còn trong cơ sở dữ liệu để vận hành và kiểm toán.',
+          'Operational records of AI usage and cost are not tied to a single account, so they can remain in the database for operations and audit purposes.',
         ],
         [
           'Bất kỳ câu hỏi nào về quyền riêng tư, gửi email tới buidinhanhhuy@gmail.com hoặc xem trang Liên hệ.',
@@ -227,174 +267,19 @@ export const privacy: ContentPage = {
       heading: ['Thay đổi chính sách', 'Policy changes'],
       body: [
         [
-          'Chính sách này có thể được cập nhật khi tính năng thay đổi. Ngày cập nhật gần nhất hiển thị trên trang này; thay đổi lớn sẽ được thông báo trong giao diện ứng dụng.',
-          'This policy may change as features evolve. The last updated date appears on this page, and significant changes are announced inside the app.',
+          'Chính sách này được cập nhật khi tính năng thay đổi. Ngày cập nhật gần nhất hiển thị ngay dưới đây.',
+          'This policy is updated as the features change. The last updated date is shown right below.',
+        ],
+        [
+          'Cập nhật lần cuối: 26 tháng 10 năm 2026.',
+          'Last updated: 26 October 2026.',
         ],
       ],
     },
   ],
 }
 
-export const developers: ContentPage = {
-  id: 'developers',
-  path: '/developers',
-  title: ['Developer Portal', 'Developer Portal'],
-  summary: [
-    'Tài liệu API công khai, quickstart, môi trường thử nghiệm và MCP server để gọi bằng công cụ AI.',
-    'Public API documentation, a quickstart, the sandbox environment and an MCP server for AI tooling.',
-  ],
-  sections: [
-    {
-      id: 'quickstart',
-      heading: ['Bắt đầu trong 30 giây', 'Quickstart in 30 seconds'],
-      body: [
-        [
-          'Base URL của API là https://huybui.vercel.app. Các endpoint đọc không cần xác thực, nên bạn có thể gọi ngay bằng curl:',
-          'The API base URL is https://huybui.vercel.app. Read endpoints need no authentication, so you can call them straight away with curl:',
-        ],
-      ],
-      list: [
-        ['curl https://huybui.vercel.app/api/health', 'curl https://huybui.vercel.app/api/health'],
-        ['curl "https://huybui.vercel.app/api/prompts?task=task2&limit=3"', 'curl "https://huybui.vercel.app/api/prompts?task=task2&limit=3"'],
-        ['curl https://huybui.vercel.app/api/prompts/<slug>', 'curl https://huybui.vercel.app/api/prompts/<slug>'],
-        ['curl https://huybui.vercel.app/openapi.json', 'curl https://huybui.vercel.app/openapi.json'],
-      ],
-    },
-    {
-      id: 'auth',
-      heading: ['Xác thực và API key', 'Authentication and API keys'],
-      body: [
-        [
-          'Các endpoint công khai (/api/health, /api/prompts, /api/prompts/{slug}, /api/library) là read-only và không cần API key. API key theo lô chưa được cấp: các thao tác ghi dữ liệu (lưu bài, thẻ từ vựng, hồ sơ) vẫn đi qua phiên đăng nhập Supabase của chính ứng dụng, và chưa có hạ tầng phát hành khoá cho bên thứ ba.',
-          'The public endpoints (/api/health, /api/prompts, /api/prompts/{slug}, /api/library) are read-only and need no API key. Per-project API keys are not issued yet: write operations (saving essays, vocabulary cards, profiles) still use the in-app Supabase session, and there is no key issuance infrastructure for third parties.',
-        ],
-        [
-          'Khi chúng tôi bật API key, khoá sẽ được phát hành qua trang này, chỉ hiển thị một lần và gắn với một danh sách endpoint cho phép. Mọi lỗi trả về đều kèm mã lỗi và gợi ý xử lý để bạn không cần đoán.',
-          'When API keys are enabled they will be issued on this page, shown once, and scoped to an allow-list of endpoints. Every error response carries an error code and a resolution hint so you never have to guess.',
-        ],
-      ],
-    },
-    {
-      id: 'endpoints',
-      heading: ['Các endpoint chính', 'Main endpoints'],
-      body: [
-        [
-          'Bản đặc tả đầy đủ nằm ở /openapi.json (OpenAPI 3.1) và bản đọc cho người ở /docs.',
-          'The full specification is at /openapi.json (OpenAPI 3.1) and the human-readable version is at /docs.',
-        ],
-      ],
-      list: [
-        ['GET /api/health — trạng thái dịch vụ và phiên bản', 'GET /api/health — service status and version'],
-        ['GET /api/prompts — danh sách đề, lọc theo task, tìm kiếm, phân trang', 'GET /api/prompts — prompt list with task filter, search and pagination'],
-        ['GET /api/prompts/{slug} — một đề kèm đầy đủ nội dung và rubric gợi ý', 'GET /api/prompts/{slug} — one prompt with full text and hint'],
-        ['GET /api/library — khung bài, bài mẫu và thẻ từ vựng', 'GET /api/library — essay frameworks, sample answers and vocabulary cards'],
-        ['POST /api/mcp — MCP server Streamable HTTP (JSON-RPC 2.0)', 'POST /api/mcp — MCP server over Streamable HTTP (JSON-RPC 2.0)'],
-      ],
-    },
-    {
-      id: 'mcp',
-      heading: ['MCP server', 'MCP server'],
-      body: [
-        [
-          'Dự án cung cấp MCP server tại https://huybui.vercel.app/api/mcp dùng transport Streamable HTTP, và manifest tại /.well-known/mcp. Các tool gồm list_prompts, get_prompt, get_learning_template và list_writing_frameworks, nên Claude, ChatGPT hay bất kỳ agent nào hỗ trợ MCP đều gọi được.',
-          'The project ships an MCP server at https://huybui.vercel.app/api/mcp over Streamable HTTP, with its manifest at /.well-known/mcp. Tools include list_prompts, get_prompt, get_learning_template and list_writing_frameworks, so Claude, ChatGPT and any MCP-capable agent can call it.',
-        ],
-      ],
-    },
-    {
-      id: 'sandbox',
-      heading: ['Môi trường thử nghiệm', 'Sandbox environment'],
-      body: [
-        [
-          'Chính trang này là môi trường thử nghiệm: mọi endpoint đọc đều trả về dữ liệu thật và không có tác động ghi. Endpoint ghi cần phiên đăng nhập, vì vậy trong khi chờ API key, hãy dùng bản demo trong ứng dụng (https://huybui.vercel.app/app/essays/demo) để xem luồng chấm bài.',
-          'This site is the sandbox: every read endpoint returns live data and nothing is mutated. Write endpoints need a session, so until API keys exist, use the in-app demo (https://huybui.vercel.app/app/essays/demo) to see the grading flow.',
-        ],
-      ],
-    },
-    {
-      id: 'limits',
-      heading: ['Giới hạn và ổn định', 'Rate limits and stability'],
-      body: [
-        [
-          'API hiện phục vụ ở mức tốt nhất có thể và không áp dụng rate limit cứng, nhưng chúng tôi có thể thêm giới hạn khi tải tăng. Không gọi lặp lại cùng một đề hàng nghìn lần; hãy dùng tham số limit và offset.',
-          'The API currently serves best-effort and enforces no hard rate limit, though limits may be added as traffic grows. Do not poll the same prompt thousands of times; use the limit and offset parameters instead.',
-        ],
-        [
-          'Khi có thay đổi phá vỡ tương thích, số phiên bản trong /api/health sẽ tăng và thay đổi sẽ được ghi trong mục thay đổi của trong /docs.',
-          'When a breaking change lands, the version field in /api/health increments and the change is listed in the changelog section of /docs.',
-        ],
-      ],
-    },
-  ],
-}
-
-export const docs: ContentPage = {
-  id: 'docs',
-  path: '/docs',
-  title: ['API Documentation', 'API Documentation'],
-  summary: [
-    'Tài liệu endpoint, mã lỗi, ví dụ request/response và cách gọi MCP server.',
-    'Endpoint reference, error codes, request and response examples, and how to talk to the MCP server.',
-  ],
-  sections: [
-    {
-      id: 'overview',
-      heading: ['Tổng quan', 'Overview'],
-      body: [
-        [
-          'API là REST JSON trên https://huybui.vercel.app/api, không cần xác thực cho các endpoint đọc. Đặc tả máy đọc nằm ở /openapi.json (OpenAPI 3.1.0); mỗi operation có operationId duy nhất, mô tả, tham số có kiểu và schema phản hồi để công cụ AI có thể ánh xạ trực tiếp sang function calling.',
-          'The API is REST JSON on https://huybui.vercel.app/api and needs no authentication for read endpoints. The machine-readable specification lives at /openapi.json (OpenAPI 3.1.0); every operation carries a unique operationId, a description, typed parameters and response schemas so tools can map the API straight onto function calling.',
-        ],
-      ],
-    },
-    {
-      id: 'conventions',
-      heading: ['Quy ước chung', 'Shared conventions'],
-      body: [
-        [
-          'Mọi phản hồi trả về Content-Type application/json. Danh sách dùng tham số limit (mặc định 20, tối đa 100) và offset (mặc định 0). Tham số không hợp lệ trả về HTTP 400 kèm mã invalid_parameter.',
-          'Every response is served as application/json. Lists accept limit (default 20, maximum 100) and offset (default 0). Invalid parameters return HTTP 400 with the invalid_parameter code.',
-        ],
-      ],
-    },
-    {
-      id: 'errors',
-      heading: ['Định dạng lỗi', 'Error format'],
-      body: [
-        [
-          'Lỗi luôn trả về cùng một cấu trúc: đối tượng error chứa code, message, hint, status và documentation. message nói chuyện gì đã xảy ra, hint chỉ cách sửa, nên agent có thể tự xử lý mà không cần đoán.',
-          'Errors always use the same shape: an error object with code, message, hint, status and documentation. The message says what happened, the hint says how to fix it, so an agent can recover without guessing.',
-        ],
-      ],
-    },
-    {
-      id: 'endpoints',
-      heading: ['Danh sách endpoint', 'Endpoint reference'],
-      body: [
-        [
-          'GET /api/health trả trạng thái dịch vụ, phiên bản và thời điểm phục vụ. GET /api/prompts trả danh sách đề luyện có phân trang, lọc theo task (task2, academic_task1, general_task1) và tìm kiếm theo tiêu đề hoặc nội dung. GET /api/prompts/{slug} trả một đề đầy đủ gồm đề bài, gợi ý và thời lượng đề xuất; slug không tồn tại trả về HTTP 404 với mã prompt_not_found.',
-          'GET /api/health returns service status, version and timestamp. GET /api/prompts returns the practice prompt list with pagination, a task filter (task2, academic_task1, general_task1) and search across title and body. GET /api/prompts/{slug} returns a single prompt with full text, hint and suggested duration; an unknown slug returns HTTP 404 with the prompt_not_found code.',
-        ],
-        [
-          'GET /api/library trả các khung bài, bài mẫu và thẻ từ vựng dùng để luyện. POST /api/mcp là MCP server Streamable HTTP: gửi JSON-RPC 2.0 với initialize, tools/list hoặc tools/call; phản hồi là JSON-RPC với protocolVersion và serverInfo.',
-          'GET /api/library returns the essay frameworks, sample answers and vocabulary cards used for practice. POST /api/mcp is the MCP server over Streamable HTTP: send JSON-RPC 2.0 with initialize, tools/list or tools/call; the reply is JSON-RPC carrying protocolVersion and serverInfo.',
-        ],
-      ],
-    },
-    {
-      id: 'mcp',
-      heading: ['Gọi MCP server', 'Calling the MCP server'],
-      body: [
-        [
-          'Bắt đầu bằng initialize, sau đó gọi tools/list để lấy danh sách tool và tools/call để chạy một tool. Ví dụ: {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"my-agent","version":"1.0.0"}}}.',
-          'Start with initialize, then call tools/list to enumerate tools and tools/call to run one. Example: {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"my-agent","version":"1.0.0"}}}.',
-        ],
-      ],
-    },
-  ],
-}
-
-export const pages: ContentPage[] = [home, about, contact, privacy, developers, docs]
+export const pages: ContentPage[] = [home, about, contact, privacy]
 
 export function pageById(id: string) {
   return pages.find(page => page.id === id)

@@ -19,8 +19,6 @@ const files = [
   { path: join('pages', 'about.html'), canonical: 'https://huybui.vercel.app/about' },
   { path: join('pages', 'contact.html'), canonical: 'https://huybui.vercel.app/contact' },
   { path: join('pages', 'privacy.html'), canonical: 'https://huybui.vercel.app/privacy' },
-  { path: join('pages', 'developers.html'), canonical: 'https://huybui.vercel.app/developers' },
-  { path: join('pages', 'docs.html'), canonical: 'https://huybui.vercel.app/docs' },
 ]
 
 function textOf(html) {
@@ -54,13 +52,12 @@ for (const file of files) {
   const jsonLd = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)
   assert.ok(jsonLd, `${file.path}: thiếu JSON-LD`)
   const graph = JSON.parse(jsonLd[1])['@graph']
-  const types = graph.map(node => node['@type'])
-  assert.ok(types.includes('SoftwareApplication'), `${file.path}: thiếu SoftwareApplication`)
-  const organization = graph.find(node => node['@type'] === 'Organization')
-  assert.ok(organization, `${file.path}: thiếu Organization`)
-  assert.ok(organization.contactPoint?.[0]?.email, `${file.path}: Organization thiếu contactPoint`)
-  assert.ok(organization.contactPoint?.[0]?.contactType, `${file.path}: contactPoint thiếu contactType`)
-  assert.equal(organization.address?.['@type'], 'PostalAddress', `${file.path}: thiếu PostalAddress`)
+  assert.deepEqual(graph.map(node => node['@type']), ['SoftwareApplication'], `${file.path}: JSON-LD chỉ được có SoftwareApplication`)
+  const app = graph[0]
+  assert.ok(app.description, `${file.path}: SoftwareApplication thiếu description`)
+  assert.equal(app.applicationCategory, 'EducationalApplication', `${file.path}: sai applicationCategory`)
+  assert.equal(app.operatingSystem, 'Web', `${file.path}: sai operatingSystem`)
+  assert.ok(!('author' in app) && !('publisher' in app) && !('offers' in app), `${file.path}: JSON-LD còn dữ liệu chưa xác minh`)
 }
 
 console.log(`PASS: ${files.length} trang tĩnh có nội dung, metadata và JSON-LD đầy đủ.`)

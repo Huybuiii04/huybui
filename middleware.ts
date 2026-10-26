@@ -2,13 +2,12 @@ import { next } from '@vercel/functions'
 import { pageByPath } from './src/agent/content.ts'
 import { renderNotFoundHtml } from './src/agent/html.ts'
 import { renderMarkdown, renderNotFoundMarkdown } from './src/agent/markdown.ts'
-import { buildMcpManifest } from './src/agent/mcp.ts'
 import { matchPath } from './src/agent/routes.ts'
 
 // Chỉ chạy cho request cần xử lý logic; file tĩnh trong /assets và file public đi thẳng tới CDN.
 export const config = {
   runtime: 'nodejs',
-  matcher: ['/((?!assets/|favicon\\.svg|donate-qr\\.png|og-image\\.png|robots\\.txt|sitemap\\.xml|llms\\.txt|openapi\\.json|manifest\\.webmanifest).*)'],
+  matcher: ['/((?!assets/|favicon\\.svg|donate-qr\\.png|og-image\\.png|robots\\.txt|sitemap\\.xml|llms\\.txt).*)'],
 }
 
 function wantsMarkdown(request: Request) {
@@ -33,10 +32,6 @@ export default function middleware(request: Request) {
 
   // API do Vercel Functions phục vụ, gồm cả lỗi JSON 404 của catch-all.
   if (path.startsWith('/api/')) return next()
-
-  if (path === '/.well-known/mcp') {
-    return Response.json(buildMcpManifest(url.origin), { headers: { 'cache-control': 'public, max-age=3600' } })
-  }
 
   if (!matchPath(path)) return notFound(request, path)
 

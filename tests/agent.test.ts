@@ -5,21 +5,71 @@ import { pages, pageById, pageByPath, plainText } from '../src/agent/content.ts'
 import { renderMarkdown, renderNotFoundMarkdown } from '../src/agent/markdown.ts'
 import { matchPath, spaRoutes, staticFiles, apiRoutes, markdownPageIds } from '../src/agent/routes.ts'
 
-test('route table matches exact paths, dynamic segments and rejects unknown paths', () => {
-  assert.equal(matchPath('/')?.id, '/')
-  assert.equal(matchPath('/app/prompts')?.id, '/app/prompts')
-  assert.equal(matchPath('/app/essays/9f0c-1234')?.id, '/app/essays/:id')
-  assert.equal(matchPath('/api/prompts/urban-parks')?.id, '/api/prompts/:slug')
-  assert.equal(matchPath('/openapi.json')?.kind, 'static')
-  assert.equal(matchPath('/khong-ton-tai'), null)
-  assert.equal(matchPath('/app/essays')?.id, '/app/essays')
-  assert.equal(matchPath('/app/essays/')?.id, '/app/essays')
+test('only the four verified public pages are published', () => {
+  for (const path of ['/', '/about', '/contact', '/privacy']) {
+    assert.equal(matchPath(path)?.id, path, path)
+    assert.ok(pageByPath(path), `missing content page ${path}`)
+  }
+  assert.deepEqual(pages.map(page => page.id), ['home', 'about', 'contact', 'privacy'])
+  assert.deepEqual([...markdownPageIds].sort(), ['about', 'contact', 'home', 'privacy'])
 })
 
-test('route table keeps spa, static and api routes disjoint', () => {
+test('removed api, docs and developer resources are not routable', () => {
+  for (const path of ['/docs', '/developers', '/openapi.json', '/.well-known/mcp', '/api/mcp', '/api/health']) {
+    assert.equal(matchPath(path), null, path)
+  }
+  assert.deepEqual(apiRoutes, [])
+  assert.equal(pageById('docs'), undefined)
+  assert.equal(pageById('developers'), undefined)
+  assert.equal(pageByPath('/docs'), undefined)
+  assert.equal(pageByPath('/developers'), undefined)
+})
+
+test('static file list contains only files that really exist', () => {
+  assert.deepEqual(staticFiles, [
+    '/favicon.svg',
+    '/donate-qr.png',
+    '/og-image.png',
+    '/robots.txt',
+    '/sitemap.xml',
+    '/llms.txt',
+  ])
+  for (const file of staticFiles) assert.equal(matchPath(file)?.kind, 'static', file)
+})
+
+test('app and auth routes including dynamic paths stay routable', () => {
+  for (const path of [
+    '/',
+    '/auth',
+    '/auth/callback',
+    '/auth/reset-password',
+    '/donate',
+    '/app',
+    '/app/write',
+    '/app/prompts',
+    '/app/essays',
+    '/app/vocabulary',
+    '/app/review',
+    '/app/errors',
+    '/app/settings',
+    '/admin',
+    '/about',
+    '/contact',
+    '/privacy',
+  ]) {
+    assert.equal(matchPath(path)?.id, path, path)
+    assert.equal(matchPath(path)?.kind, 'spa', path)
+  }
+  assert.equal(matchPath('/app/essays/abc')?.id, '/app/essays/:id')
+  assert.equal(matchPath('/app/essays/abc/')?.id, '/app/essays/:id')
+  assert.equal(matchPath('/app/essays')?.id, '/app/essays')
+  assert.equal(matchPath('/khong-ton-tai'), null)
+})
+
+test('route table keeps spa and static routes disjoint', () => {
   for (const path of spaRoutes) assert.equal(matchPath(path)?.kind, 'spa', path)
-  for (const path of staticFiles) assert.equal(matchPath(path)?.kind, 'static', path)
-  for (const path of apiRoutes) assert.equal(matchPath(path)?.kind, 'api', path)
+  for (const file of staticFiles) assert.equal(matchPath(file)?.kind, 'static', file)
+  assert.equal(new Set([...spaRoutes, ...staticFiles]).size, spaRoutes.length + staticFiles.length)
 })
 
 test('every public page has a markdown representation', () => {
@@ -28,7 +78,6 @@ test('every public page has a markdown representation', () => {
     assert.ok(page, `missing content page ${id}`)
     assert.ok(page.path.startsWith('/'))
   }
-  assert.deepEqual(markdownPageIds.sort(), ['about', 'contact', 'developers', 'docs', 'home', 'privacy'])
 })
 
 test('trust anchor pages carry at least 500 characters of readable content', () => {
@@ -38,18 +87,42 @@ test('trust anchor pages carry at least 500 characters of readable content', () 
   }
 })
 
-test('developer portal and api docs describe quickstart, auth, sandbox and endpoints', () => {
-  const developers = plainText(pageById('developers'), 1)
-  for (const needle of ['curl', 'API key', 'Sandbox', 'MCP', 'Rate limit']) assert.match(developers, new RegExp(needle, 'i'))
-  const docs = plainText(pageById('docs'), 1)
-  for (const needle of ['/api/prompts', '/api/health', 'error', 'operationId']) assert.match(docs, new RegExp(needle.replace(/[/]/g, '\\/'), 'i'))
+test('public copy claims no public api, developer portal or mcp server', () => {
+  const text = pages.map(page => plainText(page, 1)).join('\n')
+  for (const needle of ['OpenAPI', 'developer portal', 'MCP', 'API key', 'sandbox', 'REST API']) {
+    assert.ok(!new RegExp(needle, 'i').test(text), `public copy still mentions ${needle}`)
+  }
 })
 
-test('markdown rendering produces a heading, sections and working links', () => {
+test('home states that the interactive writing features need sign in', () => {
+  const home = plainText(pageById('home'), 1)
+  assert.match(home, /sign[- ]?in/i)
+  assert.match(home, /account/i)
+})
+
+test('privacy matches the verified backend facts', () => {
+  const privacy = plainText(pageById('privacy'), 1)
+  assert.match(privacy, /26 October 2026/)
+  assert.match(privacy, /Supabase/i)
+  assert.match(privacy, /Postgres/i)
+  assert.match(privacy, /IndexedDB/)
+  assert.match(privacy, /localStorage/)
+  assert.match(privacy, /sessionStorage/)
+  assert.match(privacy, /Anthropic API/)
+  assert.ok(!/within \d+ days|30 days|retention period/i.test(privacy), 'privacy promises a deadline')
+  assert.ok(!/not used to train|never used to train/i.test(privacy), 'privacy promises provider training behaviour')
+})
+
+test('markdown rendering produces a heading, sections and links to real resources only', () => {
   const markdown = renderMarkdown(pageById('about'), 1)
   assert.match(markdown, /^# /)
   assert.match(markdown, /\n## /)
-  assert.match(markdown, /\]\(\/docs\)/)
+  for (const href of ['/', '/about', '/contact', '/privacy', '/sitemap.xml', '/llms.txt']) {
+    assert.ok(markdown.includes(`](${href})`), `missing link ${href}`)
+  }
+  for (const href of ['/docs', '/developers', '/openapi.json', '/.well-known/mcp', '/api/']) {
+    assert.ok(!markdown.includes(href), `markdown still links ${href}`)
+  }
   assert.ok(markdown.length > 500)
 })
 
@@ -57,27 +130,35 @@ test('not found markdown explains the error and points to agent resources', () =
   const markdown = renderNotFoundMarkdown('/khong-ton-tai')
   assert.ok(markdown.length >= 20)
   assert.match(markdown, /404/)
-  assert.match(markdown, /\/docs/)
-  assert.match(markdown, /\/sitemap\.xml/)
   assert.match(markdown, /\/llms\.txt/)
+  assert.match(markdown, /\/sitemap\.xml/)
+  assert.ok(markdown.includes('](/)'))
+  assert.ok(!markdown.includes('/docs'))
+  assert.ok(!markdown.includes('/developers'))
 })
 
-test('json-ld exposes software application and organization identity', () => {
+test('not found markdown escapes the requested path before quoting it', () => {
+  const markdown = renderNotFoundMarkdown('/a `b` c\nsecond line')
+  assert.ok(!markdown.includes('`b`'), 'the path is not escaped inside the code span')
+  assert.match(markdown, /\\`/)
+  assert.ok(!markdown.includes('\nsecond'), 'the path keeps a line break')
+})
+
+test('json-ld exposes only the verified SoftwareApplication identity', () => {
   const graph = buildJsonLd()['@graph'] as Record<string, unknown>[]
-  const app = graph.find(node => node['@type'] === 'SoftwareApplication')!
-  const org = graph.find(node => node['@type'] === 'Organization')!
-  assert.ok(app, 'SoftwareApplication node missing')
-  assert.ok(org, 'Organization node missing')
+  assert.equal(graph.length, 1)
+  const app = graph[0]
+  assert.equal(app['@type'], 'SoftwareApplication')
   assert.equal(app.name, site.name)
   assert.ok(String(app.description).length > 40)
   assert.equal(app.url, `${site.url}/`)
-  assert.deepEqual((app.offers as Record<string, unknown>)['@type'], 'Offer')
-  const contact = (org.contactPoint as Record<string, unknown>[])[0]
-  assert.equal(contact.contactType, site.contact.contactType)
-  assert.equal(contact.email, site.contact.email)
-  assert.equal((org.address as Record<string, unknown>)['@type'], 'PostalAddress')
-  assert.equal((org.address as Record<string, unknown>).addressCountry, site.address.addressCountry)
-  assert.ok((org.sameAs as string[]).includes(site.repository))
+  assert.equal(app.applicationCategory, 'EducationalApplication')
+  assert.equal(app.operatingSystem, 'Web')
+  for (const key of ['author', 'publisher', 'offers']) assert.ok(!(key in app), `json-ld still has ${key}`)
+  const serialized = JSON.stringify(graph)
+  for (const type of ['Organization', 'Person', 'PostalAddress']) {
+    assert.ok(!serialized.includes(type), `json-ld still has ${type}`)
+  }
 })
 
 test('head tags carry canonical url, open graph, twitter card and html language', () => {
@@ -90,8 +171,14 @@ test('head tags carry canonical url, open graph, twitter card and html language'
   assert.equal(htmlLang, 'en')
 })
 
+test('head tags escape the description before embedding it in metadata', () => {
+  const tags = buildHeadTags({ path: '/about', title: 'About', description: 'He said "hi" & <b>' })
+  assert.match(tags, /content="He said &quot;hi&quot; &amp; &lt;b&gt;"/)
+  assert.ok(!tags.includes('"hi"'))
+})
+
 test('pages are addressable by id and by path', () => {
   assert.equal(pageByPath('/privacy')?.id, 'privacy')
-  assert.equal(pageById('docs').path, '/docs')
-  assert.equal(pages.length, 6)
+  assert.equal(pageById('home')?.path, '/')
+  assert.equal(pages.length, 4)
 })

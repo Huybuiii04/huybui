@@ -21,10 +21,9 @@ export const spaRoutes = [
   '/about',
   '/contact',
   '/privacy',
-  '/developers',
-  '/docs',
 ] as const
 
+// Chỉ liệt kê file public thật sự tồn tại trong thư mục public/.
 export const staticFiles = [
   '/favicon.svg',
   '/donate-qr.png',
@@ -32,20 +31,13 @@ export const staticFiles = [
   '/robots.txt',
   '/sitemap.xml',
   '/llms.txt',
-  '/openapi.json',
-  '/manifest.webmanifest',
 ] as const
 
-export const apiRoutes = [
-  '/api/health',
-  '/api/prompts',
-  '/api/prompts/:slug',
-  '/api/library',
-  '/api/mcp',
-] as const
+// Không có API public: backend chưa phát hành endpoint nào cho bên thứ ba.
+export const apiRoutes = [] as const
 
 // Các trang có bản Markdown để agent đọc được.
-export const markdownPageIds = ['home', 'about', 'contact', 'privacy', 'developers', 'docs'] as const
+export const markdownPageIds = ['home', 'about', 'contact', 'privacy'] as const
 
 function matchPattern(path: string, pattern: string) {
   if (pattern === path) return pattern

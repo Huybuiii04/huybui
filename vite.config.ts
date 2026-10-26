@@ -12,8 +12,6 @@ const pageEntries = [
   { input: 'pages/about.html', pageId: 'about' },
   { input: 'pages/contact.html', pageId: 'contact' },
   { input: 'pages/privacy.html', pageId: 'privacy' },
-  { input: 'pages/developers.html', pageId: 'developers' },
-  { input: 'pages/docs.html', pageId: 'docs' },
 ]
 
 function agentPages(): Plugin {
