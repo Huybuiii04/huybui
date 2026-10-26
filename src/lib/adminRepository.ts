@@ -9,6 +9,8 @@ export type { AdminPrompt }
 
 export type AdminProfileRow = { id: string; display_name: string | null; email: string; created_at: string }
 export type AdminAccessRow = { user_id: string; role: string; status: string }
+/** Kết quả đọc danh sách user: `error` là mã lỗi khi không tải được. */
+export type AdminUsersResult = { profiles: AdminProfileRow[]; access: AdminAccessRow[]; error?: string }
 export type AdminJobRow = {
   id: string
   operation: string
@@ -74,11 +76,12 @@ export async function fetchAdminOverview(): Promise<AdminOverview> {
 /**
  * Danh sách user quản trị, đọc qua Edge Function `admin-users` vì email nằm
  * trong auth.users (PostgREST không trả được). Hàm trả về hai mảng cùng
- * nội dung như trước để call-site không phải đổi; lỗi thì trả mảng rỗng.
+ * nội dung như trước để call-site không phải đổi; lỗi thì trả mảng rỗng kèm
+ * mã lỗi để UI không báo nhầm "không có người dùng".
  */
-export async function fetchAdminUsers(): Promise<{ profiles: AdminProfileRow[]; access: AdminAccessRow[] }> {
+export async function fetchAdminUsers(): Promise<AdminUsersResult> {
   const result = await adminUsersList()
-  if (!result.ok) return { profiles: [], access: [] }
+  if (!result.ok) return { profiles: [], access: [], error: result.code }
   const rows: AdminUserRow[] = result.value ?? []
   return {
     profiles: rows.map(row => ({ id: row.user_id, display_name: row.display_name || null, email: row.email ?? '', created_at: row.created_at ?? '' })),
