@@ -82,3 +82,32 @@ export function promptLabel(prompt: AdminPrompt, language: 'vi' | 'en'): string 
   const title = language === 'en' ? prompt.titleEn : prompt.titleVi
   return title?.trim() || prompt.slug
 }
+
+/** Một dòng trong danh sách user của bảng quản trị (đã có email). */
+export type AdminUserRow = {
+  user_id: string
+  email: string
+  display_name: string
+  role: string
+  status: string
+  created_at?: string
+}
+
+/** Lọc danh sách user theo tên hiển thị, email hoặc id. */
+export function filterAdminUsers(rows: AdminUserRow[], query: string): AdminUserRow[] {
+  const needle = (query ?? '').trim().toLowerCase()
+  if (!needle) return rows
+  return rows.filter(row => [row.display_name, row.email, row.user_id].some(field => (field ?? '').toLowerCase().includes(needle)))
+}
+
+/** Chỉ xoá được tài khoản user thường: không tự xoá và không xoá admin. */
+export function canDeleteUser(input: { role: string; isSelf: boolean }): boolean {
+  return input.role !== 'admin' && !input.isSelf
+}
+
+/** So khớp email xác nhận: bỏ khoảng trắng thừa, không phân biệt hoa thường. */
+export function deleteConfirmationMatches(input: string, email: string): boolean {
+  const left = (input ?? '').trim().toLowerCase()
+  const right = (email ?? '').trim().toLowerCase()
+  return left.length > 0 && left === right
+}

@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { groupDonePrompts, remainingPrompts, coveragePercent, shortPrompt, promptLabel } from '../src/lib/adminLogic.ts'
+import { groupDonePrompts, remainingPrompts, coveragePercent, shortPrompt, promptLabel, filterAdminUsers, canDeleteUser, deleteConfirmationMatches, type AdminUserRow } from '../src/lib/adminLogic.ts'
 
 const prompts = [
   { slug: 't2-a', task: 'task2', text: 'Some people think...', titleVi: 'Ý kiến', titleEn: 'Opinion', status: 'published' },
@@ -65,4 +65,59 @@ test('prompt label falls back to the slug when there is no title', () => {
   assert.equal(promptLabel({ slug: 't1-a', task: 'academic_task1', text: 'x', titleVi: 'Biểu đồ', titleEn: 'Chart' }, 'vi'), 'Biểu đồ')
   assert.equal(promptLabel({ slug: 't1-a', task: 'academic_task1', text: 'x', titleVi: 'Biểu đồ', titleEn: 'Chart' }, 'en'), 'Chart')
   assert.equal(promptLabel({ slug: 'no-title', task: 'task2', text: 'x' }, 'vi'), 'no-title')
+})
+
+const adminUserRows: AdminUserRow[] = [
+  { user_id: 'u1', email: 'alpha@example.com', display_name: 'Alpha', role: 'user', status: 'active' },
+  { user_id: 'u2', email: 'beta@example.com', display_name: 'Beta', role: 'admin', status: 'active' },
+]
+
+test('admin users are filtered by email', () => {
+  const matched = filterAdminUsers(adminUserRows, 'alpha@')
+  assert.equal(matched.length, 1)
+  assert.equal(matched[0].user_id, 'u1')
+})
+
+test('admin users are filtered by a partial email', () => {
+  const matched = filterAdminUsers(adminUserRows, 'beta@example')
+  assert.equal(matched.length, 1)
+  assert.equal(matched[0].user_id, 'u2')
+})
+
+test('admin users are filtered by user id', () => {
+  const matched = filterAdminUsers(adminUserRows, 'u2')
+  assert.equal(matched.length, 1)
+  assert.equal(matched[0].user_id, 'u2')
+})
+
+test('admin users that match nothing are dropped', () => {
+  assert.equal(filterAdminUsers(adminUserRows, 'nothing').length, 0)
+})
+
+test('an empty query keeps every admin user', () => {
+  assert.equal(filterAdminUsers(adminUserRows, '').length, 2)
+})
+
+test('a regular user can be deleted', () => {
+  assert.equal(canDeleteUser({ role: 'user', isSelf: false }), true)
+})
+
+test('an admin cannot delete their own account', () => {
+  assert.equal(canDeleteUser({ role: 'user', isSelf: true }), false)
+})
+
+test('an admin account cannot be deleted', () => {
+  assert.equal(canDeleteUser({ role: 'admin', isSelf: false }), false)
+})
+
+test('the delete confirmation ignores padding and case', () => {
+  assert.equal(deleteConfirmationMatches(' user@example.com ', 'user@example.com'), true)
+})
+
+test('the delete confirmation rejects the wrong email', () => {
+  assert.equal(deleteConfirmationMatches('wrong@example.com', 'user@example.com'), false)
+})
+
+test('an empty delete confirmation never matches', () => {
+  assert.equal(deleteConfirmationMatches('', 'user@example.com'), false)
 })

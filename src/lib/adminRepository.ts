@@ -2,11 +2,12 @@
 
 import { supabase } from './supabase'
 import { adminAction } from './adminSession'
-import type { AdminEssay, AdminPrompt } from './adminLogic'
+import { adminUsersList } from './ai'
+import type { AdminEssay, AdminPrompt, AdminUserRow } from './adminLogic'
 
 export type { AdminPrompt }
 
-export type AdminProfileRow = { id: string; display_name: string | null; created_at: string }
+export type AdminProfileRow = { id: string; display_name: string | null; email: string; created_at: string }
 export type AdminAccessRow = { user_id: string; role: string; status: string }
 export type AdminJobRow = {
   id: string
@@ -70,14 +71,18 @@ export async function fetchAdminOverview(): Promise<AdminOverview> {
   }
 }
 
+/**
+ * Danh sách user quản trị, đọc qua Edge Function `admin-users` vì email nằm
+ * trong auth.users (PostgREST không trả được). Hàm trả về hai mảng cùng
+ * nội dung như trước để call-site không phải đổi; lỗi thì trả mảng rỗng.
+ */
 export async function fetchAdminUsers(): Promise<{ profiles: AdminProfileRow[]; access: AdminAccessRow[] }> {
-  const [profileResult, accessResult] = await Promise.all([
-    supabase.from('profiles').select('id,display_name,created_at').order('created_at', { ascending: false }).limit(500),
-    supabase.from('user_access').select('user_id,role,status').limit(500),
-  ])
+  const result = await adminUsersList()
+  if (!result.ok) return { profiles: [], access: [] }
+  const rows: AdminUserRow[] = result.value ?? []
   return {
-    profiles: (profileResult.data ?? []) as AdminProfileRow[],
-    access: (accessResult.data ?? []) as AdminAccessRow[],
+    profiles: rows.map(row => ({ id: row.user_id, display_name: row.display_name || null, email: row.email ?? '', created_at: row.created_at ?? '' })),
+    access: rows.map(row => ({ user_id: row.user_id, role: row.role, status: row.status })),
   }
 }
 

@@ -2,6 +2,7 @@
 // Logic thuần (phân loại lỗi, ánh xạ kết quả) nằm trong ./aiLogic.ts.
 
 import { supabase } from './supabase'
+import type { AdminUserRow } from './adminLogic.ts'
 import {
   classifyAiError,
   gradingViewFromRow,
@@ -175,6 +176,16 @@ export async function fetchAdminUsage(from: string, to: string): Promise<AiResul
 
 export async function adminUserAction(action: 'suspend' | 'restore' | 'make_admin' | 'remove_admin', userId: string): Promise<AiResult<unknown>> {
   return invoke('admin-users', { action, userId })
+}
+
+/** Danh sách user cho bảng quản trị (có email, đọc bằng service role ở server). */
+export async function adminUsersList(): Promise<AiResult<AdminUserRow[]>> {
+  return invoke<AdminUserRow[]>('admin-users', { action: 'list' })
+}
+
+/** Xoá vĩnh viễn tài khoản user thường; server kiểm tra lại email xác nhận. */
+export async function adminDeleteUser(userId: string, confirmEmail: string): Promise<AiResult<unknown>> {
+  return invoke('admin-users', { action: 'delete', userId, confirmEmail })
 }
 
 export async function adminContentAction(action: 'upsert' | 'publish' | 'hide' | 'delete', entry: Record<string, unknown>, translations?: Record<string, unknown>[]): Promise<AiResult<unknown>> {
