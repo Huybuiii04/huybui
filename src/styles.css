@@ -604,6 +604,40 @@ html[data-theme='light']:not([data-lang='vi']) .language-switch button[data-lang
 .admin-donate-preview img { width: 180px; height: auto; border-radius: var(--radius-sm); background: #fff; padding: 8px; box-shadow: var(--shadow-sm); }
 .admin-donate-preview > div { flex: 1 1 220px; display: grid; gap: 12px; justify-items: start; }
 .admin-donate-preview .helper-text { overflow-wrap: anywhere; }
+
+/* ---------- Danh sách người dùng + xoá tài khoản ---------- */
+.admin-users-table .usage-row { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.4fr) .7fr .8fr minmax(0, 1.3fr); }
+.admin-user-email { overflow-wrap: anywhere; }
+.admin-users-notice { margin: 0 0 14px; color: var(--brand-ink); }
+.admin-delete-modal { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 18px; background: rgba(6, 24, 22, .55); backdrop-filter: blur(5px); }
+.admin-delete-panel { width: min(520px, 100%); max-height: calc(100dvh - 36px); overflow-y: auto; display: grid; gap: 14px; padding: 26px; color: var(--text); background: var(--surface-solid); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-lg); }
+.admin-delete-panel h2 { font-size: 19px; }
+.admin-delete-warning { display: grid; gap: 8px; padding: 14px 16px; border: 1px solid var(--border); border-left: 3px solid var(--danger); border-radius: var(--radius-sm); background: var(--danger-soft); font-size: 13px; line-height: 1.7; }
+.admin-delete-warning strong { font-size: 13px; }
+.admin-delete-list { margin: 0; padding-left: 20px; display: grid; gap: 3px; color: var(--text-muted); }
+.admin-delete-confirm-row { display: grid; gap: 8px; }
+.admin-delete-confirm-row label { margin: 0; font-size: 13px; font-weight: 500; color: var(--text-muted); }
+.admin-delete-email { padding: 9px 12px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; color: var(--text); background: var(--surface-soft); border: 1px solid var(--border); border-radius: var(--radius-sm); overflow-wrap: anywhere; }
+.admin-delete-confirm-row input { width: 100%; }
+.admin-delete-error { margin: 0; }
+.admin-delete-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; }
+.admin-delete-actions .button.danger-outline { border-color: var(--danger); background: var(--danger-soft); }
+@media (prefers-reduced-motion: no-preference) {
+  .admin-delete-modal { animation: admin-delete-fade .18s ease-out both; }
+  .admin-delete-panel { animation: admin-delete-rise .18s ease-out both; }
+}
+@keyframes admin-delete-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes admin-delete-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@media (max-width: 900px) {
+  .admin-users-table .usage-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .admin-users-table .usage-row > span:last-child { display: flex; grid-column: 1 / -1; flex-wrap: wrap; }
+}
+@media (max-width: 420px) {
+  .admin-delete-modal { padding: 10px; }
+  .admin-delete-panel { padding: 18px 14px; gap: 12px; }
+  .admin-delete-actions { flex-direction: column; }
+  .admin-delete-actions .button { width: 100%; }
+}
 @media (max-width: 900px) {
   .admin-columns { grid-template-columns: 1fr; }
   .admin-form-grid { grid-template-columns: 1fr; }
