@@ -51,7 +51,8 @@ Các URL public canonical được phát hành:
 
 Ứng dụng hiện chọn ngôn ngữ bằng `localStorage`, mặc định tiếng Anh; không có URL locale riêng. Vì vậy:
 
-- Bản HTML tĩnh dùng tiếng Anh, khai báo `<html lang="en">` và canonical không có locale suffix.
+- Landing tĩnh chứa cùng nội dung VI/EN trong một semantic markup và chọn bản hiển thị bằng `data-lang`; mặc định là tiếng Anh khi JavaScript không chạy. Khi JavaScript được bật, một inline preference script đọc `localStorage` trước lần paint đầu tiên, nên người dùng đã lưu tiếng Việt vẫn thấy bản tĩnh tiếng Việt trước khi React hydrate.
+- Trust page tĩnh dùng tiếng Anh, khai báo `<html lang="en">` và canonical không có locale suffix.
 - Không thêm `hreflang` vì không tồn tại URL VI/EN riêng.
 - Markdown dùng cùng bản tiếng Anh để nội dung HTML và Markdown nhất quán.
 - Nội dung React sau hydration tiếp tục dùng lựa chọn VI/EN hiện tại của ứng dụng.
