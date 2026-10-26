@@ -11,8 +11,15 @@ export const agentResourceLinks = [
   { label: 'llms.txt', href: '/llms.txt' },
 ] as const
 
+// Ký tự có thể biến văn bản thuần thành cấu trúc Markdown: escape chúng trong
+// mọi trường văn bản thuần (tiêu đề, tóm tắt, heading, đoạn, mục danh sách).
+// Dấu gạch ngang, dấu cộng và số thứ tự chỉ nguy hiểm ở đầu dòng nên chỉ escape
+// khi đứng đầu chuỗi.
+const markdownSpecials = /([\\`*_\[\]<>|#~])/g
+
 function escapeInline(value: string) {
-  return value.replace(/([\[\]])/g, '\\$1')
+  const escaped = value.replace(markdownSpecials, '\\$1')
+  return escaped.replace(/^([-+]|\d+\.)/, '\\$1')
 }
 
 // CommonMark: một code span mở bằng một chuỗi backtick và đóng bằng chuỗi
@@ -20,19 +27,26 @@ function escapeInline(value: string) {
 // dài bằng fence (backtick sẽ kết thúc span sớm). Vì vậy fence phải dài hơn
 // chuỗi backtick dài nhất trong nội dung, và nội dung bắt đầu hoặc kết thúc bằng
 // backtick cần thêm một khoảng trắng mỗi bên: CommonMark bỏ đúng một khoảng
-// trắng ở hai đầu nội dung, nên fence không còn bị nhập nhằng.
+// trắng ở hai đầu nội dung, nên fence không còn bị nhập nhằng và văn bản vẫn
+// hiện ra đúng như cũ.
 function codeSpan(value: string) {
   const content = value.replace(/[\u0000-\u001f\u007f]/g, '')
+  // CommonMark không có code span rỗng: hai backtick liền nhau bị đọc thành một
+  // backtick string chứ không phải code span, nên đường dẫn rỗng dùng fence hai
+  // backtick với một khoảng trắng bên trong.
+  if (!content) return '`` ``'
   const longestRun = (content.match(/`+/g) ?? []).reduce((longest, run) => Math.max(longest, run.length), 0)
   const fence = '`'.repeat(longestRun + 1)
-  const needsPadding = content.length === 0 || content.startsWith('`') || content.endsWith('`')
+  // Nội dung chỉ gồm khoảng trắng không được padding: CommonMark chỉ bỏ một
+  // khoảng trắng ở hai đầu khi nội dung không chỉ gồm khoảng trắng.
+  const needsPadding = content.startsWith('`') || content.endsWith('`')
   return `${fence}${needsPadding ? ` ${content} ` : content}${fence}`
 }
 
 export function renderMarkdown(page: ContentPage, lang: 0 | 1 = 1): string {
-  const lines: string[] = [`# ${page.title[lang]}`, '', `> ${page.summary[lang]}`, '']
+  const lines: string[] = [`# ${escapeInline(page.title[lang])}`, '', `> ${escapeInline(page.summary[lang])}`, '']
   for (const section of page.sections) {
-    lines.push(`## ${section.heading[lang]}`, '')
+    lines.push(`## ${escapeInline(section.heading[lang])}`, '')
     for (const paragraph of section.body) lines.push(escapeInline(paragraph[lang]), '')
     if (section.list) {
       for (const item of section.list) lines.push(`- ${escapeInline(item[lang])}`)

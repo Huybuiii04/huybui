@@ -6,8 +6,6 @@ export const site = {
   url: 'https://huybui.vercel.app',
   description:
     'IELTS Writing Studio is a free practice space for IELTS Writing Task 1 and Task 2: ready-made prompts, AI grading with band feedback, a personal vocabulary and a review loop that keeps your progress visible.',
-  locale: 'en',
-  repository: 'https://github.com/Huybuiii04/huybui',
 } as const
 
 export const ogImage = `${site.url}/og-image.png`

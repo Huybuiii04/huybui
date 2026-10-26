@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { site, buildJsonLd, buildHeadTags, htmlLang } from '../src/agent/site.ts'
-import { pages, pageById, pageByPath, plainText } from '../src/agent/content.ts'
+import { pages, pageById, pageByPath, plainText, type ContentPage } from '../src/agent/content.ts'
 import { renderMarkdown, renderNotFoundMarkdown } from '../src/agent/markdown.ts'
 import { matchPath, spaRoutes, staticFiles, apiRoutes, markdownPageIds } from '../src/agent/routes.ts'
 
@@ -37,6 +37,16 @@ function pathCodeSpan(markdown: string) {
 
 function longestBacktickRun(value: string) {
   return (value.match(/`+/g) ?? []).reduce((longest, run) => Math.max(longest, run.length), 0)
+}
+
+// Nội dung hiển thị của một code span: CommonMark bỏ đúng một khoảng trắng ở
+// mỗi đầu khi nội dung bắt đầu và kết thúc bằng khoảng trắng, trừ khi nội dung
+// chỉ gồm khoảng trắng.
+function visibleSpanContent(content: string) {
+  if (content.startsWith(' ') && content.endsWith(' ') && content.trim() !== '') {
+    return content.slice(1, -1)
+  }
+  return content
 }
 
 test('only the four verified public pages are published', () => {
@@ -193,6 +203,63 @@ test('not found markdown strips control characters from the path', () => {
   assert.equal(span.content, '/abcd')
   assert.ok(!/[\u0000-\u001f\u007f]/.test(span.content), 'control characters must be stripped from the path')
   assert.ok(!/[\u0000-\u001f\u007f]/.test(markdown.replace(/\n/g, '')), 'control characters must be stripped from the body')
+})
+
+test('the code span keeps a path that starts or ends with a backtick visible', () => {
+  for (const path of ['`start', 'end`', '/a`', '`', '/``']) {
+    const markdown = renderNotFoundMarkdown(path)
+    const span = pathCodeSpan(markdown)
+    assert.ok(span, `no code span for ${path}`)
+    assert.equal(visibleSpanContent(span.content), path, `the path must stay visible for ${path}`)
+    assert.ok(longestBacktickRun(span.content) < span.fence.length, `the path must not close the span for ${path}`)
+    assert.ok(span.after.startsWith(' does not exist on '), `the span must end where the sentence continues for ${path}`)
+  }
+})
+
+test('the code span keeps a path that only contains spaces visible', () => {
+  const markdown = renderNotFoundMarkdown('   ')
+  const span = pathCodeSpan(markdown)
+  assert.ok(span, 'no code span')
+  assert.equal(visibleSpanContent(span.content), '   ')
+  assert.ok(span.after.startsWith(' does not exist on '))
+})
+
+test('an empty path still produces a well formed code span', () => {
+  // CommonMark không có code span rỗng: hai backtick liền nhau bị đọc thành một
+  // backtick string, nên fence phải dài hơn một backtick.
+  const markdown = renderNotFoundMarkdown('')
+  const span = pathCodeSpan(markdown)
+  assert.ok(span, 'no code span')
+  assert.equal(span.fence.length, 2)
+  assert.equal(span.content, ' ')
+  assert.ok(span.after.startsWith(' does not exist on '))
+})
+
+test('markdown escapes plain text so content cannot inject structure', () => {
+  const hostile: ContentPage = {
+    id: 'hostile',
+    path: '/hostile',
+    title: ['# Tiêu đề', '# Title'],
+    summary: ['> Tóm tắt', '> Summary'],
+    sections: [
+      {
+        id: 'section',
+        heading: ['## Heading', '## Heading'],
+        body: [['- mục', '- item']],
+        list: [['* nhấn mạnh', '* emphasis']],
+      },
+    ],
+  }
+  const markdown = renderMarkdown(hostile, 1)
+  assert.ok(markdown.startsWith('# \\# Title'), markdown)
+  assert.ok(markdown.includes('> \\> Summary'), markdown)
+  assert.ok(markdown.includes('## \\#\\# Heading'), markdown)
+  assert.ok(markdown.includes('\\- item'), markdown)
+  assert.ok(markdown.includes('- \\* emphasis'), markdown)
+  assert.equal((markdown.match(/^#{1,6} /gm) ?? []).length, 2)
+  const lines = markdown.split('\n')
+  assert.ok(!lines.includes('- item'), 'a paragraph must not turn into a list item')
+  assert.ok(!lines.includes('* emphasis'), 'a list item must not turn into emphasis')
 })
 
 test('json-ld exposes only the verified SoftwareApplication identity', () => {

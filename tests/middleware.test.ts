@@ -11,8 +11,8 @@ function call(path: string, accept = 'text/html,application/xhtml+xml') {
 test('homepage answers markdown requests with markdown body and vary header', async () => {
   const response = await call('/', 'text/markdown')
   assert.equal(response.status, 200)
-  assert.match(response.headers.get('content-type') ?? '', /text\/markdown/)
-  assert.match(response.headers.get('vary') ?? '', /Accept/)
+  assert.equal(response.headers.get('content-type'), 'text/markdown; charset=utf-8')
+  assert.equal(response.headers.get('vary'), 'Accept')
   const body = await response.text()
   assert.match(body, /^# /)
   assert.ok(body.length > 500)
@@ -24,26 +24,129 @@ test('html requests continue to the app with a vary header', async () => {
   assert.match(response.headers.get('vary') ?? '', /Accept/)
 })
 
+test('wildcard accept keeps browsers on html', async () => {
+  for (const accept of ['*/*', 'text/*', 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8']) {
+    const response = await call('/', accept)
+    assert.equal(response.headers.get('x-middleware-next'), '1', accept)
+  }
+})
+
+test('media specificity wins before the q value', async () => {
+  const downgraded = await call('/', 'text/markdown;q=0, */*;q=1')
+  assert.equal(downgraded.headers.get('x-middleware-next'), '1')
+  assert.equal(downgraded.headers.get('content-type'), null)
+  const preferred = await call('/', 'text/markdown;q=1, text/*;q=0.1')
+  assert.match(preferred.headers.get('content-type') ?? '', /text\/markdown/)
+})
+
+test('markdown is only used when the client prefers it over html', async () => {
+  const html = await call('/', 'text/html')
+  assert.equal(html.headers.get('x-middleware-next'), '1')
+  const downgraded = await call('/', 'text/markdown;q=0, text/html;q=1')
+  assert.equal(downgraded.headers.get('x-middleware-next'), '1')
+  const lowerQuality = await call('/', 'text/markdown;q=0.9, text/html;q=1')
+  assert.equal(lowerQuality.headers.get('x-middleware-next'), '1')
+  const tie = await call('/', 'text/markdown;q=1, text/html;q=1')
+  assert.equal(tie.headers.get('x-middleware-next'), '1')
+  const wildcard = await call('/', '*/*')
+  assert.equal(wildcard.headers.get('x-middleware-next'), '1')
+  const preferred = await call('/', 'text/markdown, text/html;q=0.9')
+  assert.match(preferred.headers.get('content-type') ?? '', /text\/markdown/)
+})
+
+test('an accept header without a supported format answers 406', async () => {
+  const response = await call('/', 'application/json')
+  assert.equal(response.status, 406)
+  assert.equal(response.headers.get('content-type'), 'text/html; charset=utf-8')
+  const body = await response.text()
+  assert.match(body, /text\/html/)
+  assert.match(body, /text\/markdown/)
+})
+
 test('unknown paths return a real 404 status', async () => {
   const response = await call('/some-path-that-does-not-exist')
   assert.equal(response.status, 404)
-  assert.match(response.headers.get('content-type') ?? '', /text\/html/)
+  assert.equal(response.headers.get('content-type'), 'text/html; charset=utf-8')
+})
+
+test('an unknown page path explains the error and links to the real resources', async () => {
+  const response = await call('/khong-ton-tai')
+  assert.equal(response.status, 404)
+  assert.equal(response.headers.get('content-type'), 'text/html; charset=utf-8')
+  const body = await response.text()
+  assert.match(body, /404/)
+  assert.match(body, /href="\/"/)
+  assert.match(body, /href="\/llms\.txt"/)
+  assert.match(body, /href="\/sitemap\.xml"/)
+  assert.ok(!body.includes('/docs'))
 })
 
 test('unknown paths return markdown body when markdown is requested', async () => {
   const response = await call('/some-path-that-does-not-exist', 'text/markdown')
   assert.equal(response.status, 404)
-  assert.match(response.headers.get('content-type') ?? '', /text\/markdown/)
+  assert.equal(response.headers.get('content-type'), 'text/markdown; charset=utf-8')
   const body = await response.text()
   assert.ok(body.length >= 20)
   assert.match(body, /404/)
-  assert.match(body, /\/sitemap\.xml/)
-  assert.match(body, /\/llms\.txt/)
+  assert.match(body, /\]\(\/\)/)
+  assert.match(body, /\]\(\/llms\.txt\)/)
+  assert.match(body, /\]\(\/sitemap\.xml\)/)
   assert.ok(!body.includes('/docs'))
 })
 
+test('a missing technical resource is never negotiated into markdown', async () => {
+  const paths = [
+    '/missing.json',
+    '/missing.xml',
+    '/missing.txt',
+    '/missing.css',
+    '/missing.js',
+    '/missing.mjs',
+    '/missing.map',
+    '/missing.png',
+    '/missing.svg',
+    '/missing.ico',
+    '/missing.webmanifest',
+  ]
+  for (const path of paths) {
+    const response = await call(path, 'text/markdown')
+    assert.equal(response.status, 404, path)
+    assert.equal(response.headers.get('content-type'), 'text/html; charset=utf-8', path)
+  }
+})
+
+test('an unknown api path answers a structured json 404', async () => {
+  const response = await call('/api/does-not-exist')
+  assert.equal(response.status, 404)
+  assert.equal(response.headers.get('content-type'), 'application/json; charset=utf-8')
+  const body = await response.json() as { error: { code: string; message: string; hint: string; status: number } }
+  assert.equal(body.error.code, 'unknown_endpoint')
+  assert.equal(body.error.message, 'No API endpoint is published at this path.')
+  assert.equal(body.error.hint, 'Use the website navigation for app features. This project does not currently offer a public REST API.')
+  assert.equal(body.error.status, 404)
+  assert.deepEqual(body, {
+    error: {
+      code: 'unknown_endpoint',
+      message: 'No API endpoint is published at this path.',
+      hint: 'Use the website navigation for app features. This project does not currently offer a public REST API.',
+      status: 404,
+    },
+  })
+})
+
+test('every api path answers the same json error', async () => {
+  for (const path of ['/api', '/api/', '/api/prompts', '/api/health']) {
+    const response = await call(path)
+    assert.equal(response.status, 404, path)
+    assert.equal(response.headers.get('content-type'), 'application/json; charset=utf-8', path)
+    const body = await response.json() as { error: { code: string; status: number } }
+    assert.equal(body.error.code, 'unknown_endpoint', path)
+    assert.equal(body.error.status, 404, path)
+  }
+})
+
 test('known routes are not treated as missing', async () => {
-  for (const path of ['/app/write', '/app/prompts', '/about', '/contact', '/privacy', '/auth']) {
+  for (const path of ['/app/write', '/app/essays/abc', '/auth/callback', '/about', '/privacy', '/app', '/donate', '/admin', '/auth']) {
     const response = await call(path)
     assert.equal(response.status, 200, path)
     assert.equal(response.headers.get('x-middleware-next'), '1', path)
@@ -63,12 +166,46 @@ test('the removed mcp manifest is not published', async () => {
   assert.match(response.headers.get('content-type') ?? '', /text\/html/)
 })
 
-test('api paths are handed over to the functions', async () => {
-  const response = await call('/api/prompts')
-  assert.equal(response.headers.get('x-middleware-next'), '1')
+test('head requests get the same status and headers without a body', async () => {
+  const get = await call('/khong-ton-tai', 'text/markdown')
+  const head = await middleware(new Request(`${origin}/khong-ton-tai`, { method: 'HEAD', headers: { accept: 'text/markdown' } }))
+  assert.equal(head.status, get.status)
+  assert.equal(head.headers.get('content-type'), get.headers.get('content-type'))
+  assert.equal(head.headers.get('vary'), get.headers.get('vary'))
+  assert.equal(head.headers.get('cache-control'), get.headers.get('cache-control'))
+  assert.equal(await head.text(), '')
+})
+
+test('control characters in the missing path are stripped', async () => {
+  const response = await call('/khong%0A%20ton%20tai', 'text/markdown')
+  const body = await response.text()
+  assert.ok(!/[\u0000-\u001f\u007f]/.test(body.replace(/\n/g, '')), 'control characters must not reach the body')
+  assert.match(body, /khong ton tai/)
+})
+
+test('generated responses forbid sniffing and force revalidation', async () => {
+  const responses = [
+    await call('/', 'text/markdown'),
+    await call('/', 'application/json'),
+    await call('/khong-ton-tai'),
+    await call('/khong-ton-tai', 'text/markdown'),
+    await call('/missing.json', 'text/markdown'),
+    await call('/api/does-not-exist'),
+  ]
+  for (const response of responses) {
+    assert.equal(response.headers.get('x-content-type-options'), 'nosniff')
+    assert.equal(response.headers.get('cache-control'), 'public, max-age=0, must-revalidate')
+  }
 })
 
 test('middleware matcher keeps static assets out of the function path', () => {
   const matcher = String((config as { matcher: string[] }).matcher[0])
   assert.match(matcher, /assets/)
+  const regex = new RegExp(`^${matcher}$`)
+  for (const path of ['/assets/missing.js', '/favicon.svg', '/donate-qr.png', '/og-image.png', '/robots.txt', '/sitemap.xml', '/llms.txt']) {
+    assert.equal(regex.test(path), false, path)
+  }
+  for (const path of ['/', '/about', '/missing.json', '/api/does-not-exist']) {
+    assert.equal(regex.test(path), true, path)
+  }
 })

@@ -45,16 +45,8 @@ export function renderStaticHtml(page: ContentPage): string {
   return parts.join('')
 }
 
-// Trang 404 tĩnh: dùng khi agent hoặc người dùng gõ sai đường dẫn.
-export function renderNotFoundHtml(path: string) {
-  return `<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>404 — Page not found — IELTS Writing Studio</title>
-    <meta name="robots" content="noindex" />
-    <style>
+// Khung HTML dùng chung cho các trang lỗi tĩnh (404, 406).
+const errorStyles = `
       :root { color-scheme: light dark; --bg: #f7f5ef; --surface: #ffffff; --border: #d4e1db; --text: #183c38; --muted: #496660; --brand: #00635e; }
       @media (prefers-color-scheme: dark) { :root { --bg: #090a0b; --surface: #131516; --border: #2b3032; --text: #edf1f0; --muted: #bac3c1; --brand: #4dd6bd; } }
       * { box-sizing: border-box; }
@@ -67,20 +59,55 @@ export function renderNotFoundHtml(path: string) {
       ul { margin: 18px 0 0; padding-left: 20px; }
       li { font-size: 14px; color: var(--muted); margin-bottom: 8px; }
       a { color: var(--brand); }
-    </style>
+`
+
+function errorDocument(input: { code: string; title: string; heading: string; content: string }) {
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>${escapeHtml(input.title)}</title>
+    <meta name="robots" content="noindex" />
+    <style>${errorStyles}    </style>
   </head>
   <body>
     <main>
-      <p class="code">Error 404</p>
-      <h1>This page is not here</h1>
-      <p>The address <code>${escapeHtml(path)}</code> does not exist on IELTS Writing Studio, so there is no page to read at this URL.</p>
-      <p>If you are looking for machine-readable resources, use one of these:</p>
-      <ul>
-        <li><a href="/">Home</a></li>
-        <li><a href="/llms.txt">llms.txt</a> and the <a href="/sitemap.xml">sitemap</a></li>
-      </ul>
+      <p class="code">Error ${escapeHtml(input.code)}</p>
+      <h1>${escapeHtml(input.heading)}</h1>
+      ${input.content}
     </main>
   </body>
 </html>
 `
+}
+
+// Trang 404 tĩnh: dùng khi agent hoặc người dùng gõ sai đường dẫn.
+export function renderNotFoundHtml(path: string) {
+  return errorDocument({
+    code: '404',
+    title: '404 — Page not found — IELTS Writing Studio',
+    heading: 'This page is not here',
+    content: `<p>The address <code>${escapeHtml(path)}</code> does not exist on IELTS Writing Studio, so there is no page to read at this URL.</p>
+      <p>If you are looking for machine-readable resources, use one of these:</p>
+      <ul>
+        <li><a href="/">Home</a></li>
+        <li><a href="/llms.txt">llms.txt</a> and the <a href="/sitemap.xml">sitemap</a></li>
+      </ul>`,
+  })
+}
+
+// Trang 406: client không chấp nhận bất kỳ định dạng nào site này tạo ra.
+export function renderNotAcceptableHtml() {
+  return errorDocument({
+    code: '406',
+    title: '406 — Not Acceptable — IELTS Writing Studio',
+    heading: 'This format is not available',
+    content: `<p>The Accept header of this request does not allow any format this site can produce. Every public page is available in two formats:</p>
+      <ul>
+        <li><code>text/html</code> — the readable web page</li>
+        <li><code>text/markdown</code> — the same page as plain Markdown for agents</li>
+      </ul>
+      <p>Ask for one of them explicitly, for example <code>Accept: text/markdown</code>.</p>`,
+  })
 }
