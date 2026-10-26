@@ -1,0 +1,196 @@
+{
+  "base": "https://huybui.vercel.app",
+  "capturedAt": "2026-10-26T00:36:59.672Z",
+  "results": [
+    {
+      "path": "/",
+      "accept": "text/html,application/xhtml+xml",
+      "status": 200,
+      "contentType": "text/html; charset=utf-8",
+      "vary": null,
+      "bytes": 626,
+      "textCharacters": 22,
+      "durationMs": 602
+    },
+    {
+      "path": "/",
+      "accept": "text/markdown",
+      "status": 200,
+      "contentType": "text/html; charset=utf-8",
+      "vary": null,
+      "bytes": 626,
+      "textCharacters": 22,
+      "durationMs": 229
+    },
+    {
+      "path": "/",
+      "accept": "text/markdown;q=0, text/html;q=1",
+      "status": 200,
+      "contentType": "text/html; charset=utf-8",
+      "vary": null,
+      "bytes": 626,
+      "textCharacters": 22,
+      "durationMs": 104
+    },
+    {
+      "path": "/agent-audit-missing-20261026",
+      "accept": "text/html",
+      "status": 200,
+      "contentType": "text/html; charset=utf-8",
+      "vary": null,
+      "bytes": 626,
+      "textCharacters": 22,
+      "durationMs": 81
+    },
+    {
+      "path": "/agent-audit-missing-20261026",
+      "accept": "text/markdown",
+      "status": 200,
+      "contentType": "text/html; charset=utf-8",
+      "vary": null,
+      "bytes": 626,
+      "textCharacters": 22,
+      "durationMs": 81
+    },
+    {
+      "path": "/about",
+      "accept": "text/html",
+      "status": 200,
+      "contentType": "text/html; charset=utf-8",
+      "vary": null,
+      "bytes": 626,
+      "textCharacters": 22,
+      "durationMs": 248
+    },
+    {
+      "path": "/contact",
+      "accept": "text/html",
+      "status": 200,
+      "contentType": "text/html; charset=utf-8",
+      "vary": null,
+      "bytes": 626,
+      "textCharacters": 22,
+      "durationMs": 140
+    },
+    {
+      "path": "/privacy",
+      "accept": "text/html",
+      "status": 200,
+      "contentType": "text/html; charset=utf-8",
+      "vary": null,
+      "bytes": 626,
+      "textCharacters": 22,
+      "durationMs": 75
+    },
+    {
+      "path": "/developers",
+      "accept": "text/html",
+      "status": 200,
+      "contentType": "text/html; charset=utf-8",
+      "vary": null,
+      "bytes": 626,
+      "textCharacters": 22,
+      "durationMs": 82
+    },
+    {
+      "path": "/docs",
+      "accept": "text/html",
+      "status": 200,
+      "contentType": "text/html; charset=utf-8",
+      "vary": null,
+      "bytes": 626,
+      "textCharacters": 22,
+      "durationMs": 113
+    },
+    {
+      "path": "/openapi.json",
+      "accept": "application/json",
+      "status": 200,
+      "contentType": "text/html; charset=utf-8",
+      "vary": null,
+      "bytes": 626,
+      "textCharacters": 22,
+      "durationMs": 90
+    },
+    {
+      "path": "/llms.txt",
+      "accept": "text/plain",
+      "status": 200,
+      "contentType": "text/html; charset=utf-8",
+      "vary": null,
+      "bytes": 626,
+      "textCharacters": 22,
+      "durationMs": 75
+    },
+    {
+      "path": "/robots.txt",
+      "accept": "text/plain",
+      "status": 200,
+      "contentType": "text/html; charset=utf-8",
+      "vary": null,
+      "bytes": 626,
+      "textCharacters": 22,
+      "durationMs": 104
+    },
+    {
+      "path": "/sitemap.xml",
+      "accept": "application/xml",
+      "status": 200,
+      "contentType": "text/html; charset=utf-8",
+      "vary": null,
+      "bytes": 626,
+      "textCharacters": 22,
+      "durationMs": 85
+    },
+    {
+      "path": "/.well-known/mcp",
+      "accept": "application/json",
+      "status": 200,
+      "contentType": "text/html; charset=utf-8",
+      "vary": null,
+      "bytes": 626,
+      "textCharacters": 22,
+      "durationMs": 87
+    },
+    {
+      "path": "/api/health",
+      "accept": "application/json",
+      "status": 404,
+      "contentType": "application/json",
+      "vary": null,
+      "bytes": 68,
+      "textCharacters": 68,
+      "durationMs": 240
+    },
+    {
+      "path": "/api/prompts?limit=2",
+      "accept": "application/json",
+      "status": 404,
+      "contentType": "application/json",
+      "vary": null,
+      "bytes": 68,
+      "textCharacters": 68,
+      "durationMs": 88
+    },
+    {
+      "path": "/api/agent-audit-missing",
+      "accept": "application/json",
+      "status": 404,
+      "contentType": "application/json",
+      "vary": null,
+      "bytes": 68,
+      "textCharacters": 68,
+      "durationMs": 77
+    },
+    {
+      "path": "/assets/does-not-exist.js",
+      "accept": "application/javascript",
+      "status": 200,
+      "contentType": "text/html; charset=utf-8",
+      "vary": null,
+      "bytes": 626,
+      "textCharacters": 22,
+      "durationMs": 125
+    }
+  ]
+}
