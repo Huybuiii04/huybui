@@ -2330,96 +2330,109 @@ git commit -m "feat(skills): grade reading and listening attempts server-side"
 `tests/skillRepository.test.ts`:
 
 ```ts
-import { test } from 'node:test'
-import assert from 'node:assert/strict'
-import { loadSkillTest, loadSkillTests, type SkillSource } from '../src/lib/skillRepository.ts'
+// Gọi Edge Function `grade-skill` và đọc lịch sử làm bài.
+//
+// Client KHÔNG tự chấm điểm và không đọc cột đáp án từ Postgres: việc chấm
+// nằm trong Edge Function (service role), giải thích chỉ về sau khi nộp bài.
 
-const source: SkillSource = { url: 'https://demo.test', key: 'test-key' }
+import { supabase } from './supabase'
 
-/** Stub fetch trả body khác nhau theo bảng được truy vấn. */
-function stubFetch(routes: Record<string, unknown>, capture?: (url: string) => void) {
-  const original = globalThis.fetch
-  globalThis.fetch = (async (input: RequestInfo | URL) => {
-    const url = String(input)
-    capture?.(url)
-    const table = Object.keys(routes).find(name => url.includes(`/rest/v1/${name}?`))
-    const body = table ? routes[table] : []
-    return new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } })
-  }) as typeof fetch
-  return () => { globalThis.fetch = original }
+export type SkillResultItem = {
+  order: number
+  isCorrect: boolean
+  correctAnswer: string
+  userAnswer: string
+  explanation: string
 }
 
-test('repository lists published tests of one skill', async () => {
-  let seen = ''
-  const restore = stubFetch(
-    { skill_tests: [{ id: 't1', slug: 'cam-9-1', skill: 'reading', series: 'Cambridge', series_no: 9, title: 'Cambridge 9 - Test 1', description: '', level: 'Band 5.5-8.0', duration_minutes: 60, test_type: 'academic', question_count: 40, status: 'published' }] },
-    url => { seen = url },
-  )
-  try {
-    const tests = await loadSkillTests('reading', source)
-    assert.equal(tests.length, 1)
-    assert.equal(tests[0].slug, 'cam-9-1')
-    assert.equal(tests[0].series, 'Cambridge')
-    assert.equal(tests[0].questionCount, 40)
-    assert.match(seen, /skill=eq\.reading/)
-    assert.match(seen, /status=eq\.published/)
-  } finally {
-    restore()
-  }
-})
+export type SkillGrade = {
+  attemptId: string | null
+  skill: 'reading' | 'listening'
+  title: string
+  correctCount: number
+  totalCount: number
+  band: number | null
+  results: SkillResultItem[]
+}
 
-test('repository never asks for the answer columns', async () => {
-  const seen: string[] = []
-  const restore = stubFetch(
-    {
-      skill_tests: [{ id: 't1', slug: 'cam-9-1', skill: 'reading', series: 'Cambridge', series_no: 9, title: 'Cambridge 9 - Test 1', description: '', level: '', duration_minutes: 60, test_type: 'academic', question_count: 40, status: 'published' }],
-      skill_sections: [{ id: 's1', test_id: 't1', section_no: 1, title: 'Stepwells', topic: '', content_html: '<p>x</p>', audio_path: '', transcript: '' }],
-      skill_question_groups: [{ id: 'g1', section_id: 's1', order_index: 1, instruction_html: '<p>Questions 1–13</p>', display_type: 'tfng', config: {} }],
-      skill_questions: [{ id: 'q1', group_id: 'g1', order_index: 1, question_type: 'tfng', display_type: 'tfng', prompt: 'Statement', question_html: '', options: [], locator: '' }],
-    },
-    url => { seen.push(url) },
-  )
-  try {
-    await loadSkillTest('cam-9-1', source)
-    assert.equal(seen.length, 4)
-    for (const url of seen) {
-      assert.doesNotMatch(url, /answer_key/)
-      assert.doesNotMatch(url, /accepted_answers/)
-      assert.doesNotMatch(url, /explanation/)
-    }
-  } finally {
-    restore()
-  }
-})
+export type SkillAttempt = {
+  id: string
+  skill: 'reading' | 'listening'
+  testId: string
+  correctCount: number
+  totalCount: number
+  band: number | null
+  createdAt: string
+}
 
-test('repository maps a test with sections, groups and questions', async () => {
-  const restore = stubFetch({
-    skill_tests: [{ id: 't1', slug: 'cam-9-1', skill: 'reading', series: 'Cambridge', series_no: 9, title: 'Cambridge 9 - Test 1', description: '', level: '', duration_minutes: 60, test_type: 'academic', question_count: 1, status: 'published' }],
-    skill_sections: [{ id: 's1', test_id: 't1', section_no: 1, title: 'Stepwells', topic: 'Culture', content_html: '<p>first</p>', audio_path: '', transcript: '' }],
-    skill_question_groups: [{ id: 'g1', section_id: 's1', order_index: 1, instruction_html: '<p>Questions 1–13</p>', display_type: 'tfng', config: { qStart: 1 } }],
-    skill_questions: [{ id: 'q1', group_id: 'g1', order_index: 1, question_type: 'tfng', display_type: 'tfng', prompt: 'Statement', question_html: '', options: [], locator: '' }],
-  })
-  try {
-    const test = await loadSkillTest('cam-9-1', source)
-    assert.ok(test)
-    assert.equal(test.sections.length, 1)
-    assert.equal(test.sections[0].groups.length, 1)
-    assert.equal(test.sections[0].groups[0].questions.length, 1)
-    assert.equal(test.sections[0].groups[0].questions[0].type, 'tfng')
-    assert.equal(test.sections[0].groups[0].questions[0].options.length, 0)
-  } finally {
-    restore()
-  }
-})
+export type GradeResult = { ok: true; value: SkillGrade } | { ok: false; code: string }
 
-test('repository returns null when the test does not exist', async () => {
-  const restore = stubFetch({ skill_tests: [] })
+/**
+ * Mã lỗi do Edge Function trả về; mất thì dùng 'unknown_error'.
+ *
+ * `_shared/http.ts` trả lỗi dạng `{ error: { code, message } }` và supabase-js
+ * gói body đó vào `error.context`, nên đọc cả `context.code` lẫn
+ * `context.error.code` cho chắc.
+ */
+function errorCode(error: unknown): string {
+  const context = (error as { context?: { code?: string; error?: { code?: string } } } | null)?.context
+  return context?.error?.code ?? context?.code ?? 'unknown_error'
+}
+
+/** Nộp bài để chấm. Server chấm và lưu lịch sử, client không tự tính điểm. */
+export async function gradeSkill(input: {
+  testId: string
+  answers: Record<string, string>
+  timeSpentSeconds: number
+}): Promise<GradeResult> {
   try {
-    assert.equal(await loadSkillTest('missing', source), null)
-  } finally {
-    restore()
+    const { data, error } = await supabase.functions.invoke('grade-skill', {
+      body: { testId: input.testId, answers: input.answers, timeSpentSeconds: input.timeSpentSeconds },
+    })
+    if (error) return { ok: false, code: errorCode(error) }
+    return { ok: true, value: (data ?? null) as SkillGrade }
+  } catch {
+    return { ok: false, code: 'unknown_error' }
   }
-})
+}
+
+/** Xem lại một lần làm bài đã lưu (server chấm lại từ đáp án đã lưu). */
+export async function loadSkillGrade(attemptId: string): Promise<SkillGrade | null> {
+  try {
+    const { data, error } = await supabase.functions.invoke('grade-skill', {
+      method: 'GET',
+      headers: { 'x-attempt-id': attemptId },
+    })
+    if (error || !data) return null
+    return data as SkillGrade
+  } catch {
+    return null
+  }
+}
+
+/** Lịch sử làm bài của người dùng, mới nhất trước. */
+export async function loadSkillAttempts(skill?: 'reading' | 'listening'): Promise<SkillAttempt[]> {
+  try {
+    const query = supabase
+      .from('skill_attempts')
+      .select('id,skill,test_id,correct_count,total_count,band,created_at')
+      .order('created_at', { ascending: false })
+      .limit(50)
+    const { data, error } = skill ? await query.eq('skill', skill) : await query
+    if (error) return []
+    return (data ?? []).map(row => ({
+      id: row.id as string,
+      skill: row.skill as 'reading' | 'listening',
+      testId: row.test_id as string,
+      correctCount: row.correct_count as number,
+      totalCount: row.total_count as number,
+      band: row.band === null || row.band === undefined ? null : Number(row.band),
+      createdAt: row.created_at as string,
+    }))
+  } catch {
+    return []
+  }
+}
 ```
 
 - [ ] **Step 2: Chạy test đỏ**
