@@ -1143,6 +1143,89 @@ progress::-webkit-progress-value { background: var(--text-muted); border-radius:
   [data-theme='light'] :is(.topic-card, .practice-card, .vocab-topic-card, .landing-feature, .task-type-card):not(:disabled):not(.active):hover { border-color: var(--border-strong); }
 }
 
+/* ── Reading ─────────────────────────────────────────────────────────── */
+.skill-question {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem 1.1rem;
+  display: grid;
+  gap: .75rem;
+  box-shadow: var(--shadow-sm);
+}
+.skill-question-head { display: flex; gap: .75rem; align-items: flex-start; }
+.skill-question-number {
+  flex: 0 0 auto; width: 2rem; height: 2rem; border-radius: 10px;
+  display: grid; place-items: center; font-weight: 700; font-size: .85rem;
+  background: var(--surface-soft); color: var(--text-muted);
+}
+.skill-question-number.is-answered { background: var(--success-soft); color: var(--success); }
+.skill-question-text { flex: 1; min-width: 0; display: grid; gap: .35rem; }
+.skill-question-prompt { margin: 0; font-weight: 600; line-height: 1.55; }
+.skill-flag { border: 1px solid transparent; background: transparent; color: var(--text-subtle); border-radius: 8px; padding: .3rem; cursor: pointer; }
+.skill-flag.is-active { color: var(--accent); background: var(--accent-soft); border-color: var(--accent); }
+.skill-options { display: grid; gap: .4rem; padding-left: 2.75rem; }
+/* .skill-option là <label>: cần đặt lại flex-direction và margin của rule `label` chung. */
+.skill-option { display: flex; flex-direction: row; gap: .6rem; align-items: flex-start; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: .5rem .7rem; cursor: pointer; margin-bottom: 0; color: var(--text); }
+/* Rule `input` chung đặt width:100% và min-height:46px — radio phải trở lại kích thước mặc định. */
+.skill-option input[type='radio'] { width: auto; min-height: 0; padding: 0; margin: .2rem 0 0; flex: 0 0 auto; accent-color: var(--brand); }
+.skill-option select { width: 100%; border: 1px solid var(--control-border); border-radius: var(--radius-sm); padding: .45rem .6rem; background: var(--surface); color: var(--text); }
+.skill-tfng { display: flex; flex-wrap: wrap; gap: .4rem; padding-left: 2.75rem; }
+.skill-chip { border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); border-radius: 999px; padding: .35rem .85rem; font-size: .75rem; font-weight: 700; cursor: pointer; }
+.skill-chip.is-selected { background: var(--brand); border-color: var(--brand); color: var(--on-brand); }
+.skill-fill { padding-left: 2.75rem; }
+.skill-fill input { width: 100%; border: 1px solid var(--control-border); border-radius: var(--radius-sm); padding: .5rem .7rem; background: var(--surface); color: var(--text); }
+.skill-group { display: grid; gap: .8rem; }
+.skill-group-instruction { font-size: .9rem; line-height: 1.6; color: var(--text-muted); }
+.skill-group-instruction p { margin: .2rem 0; }
+.skill-group-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .35rem; }
+.skill-group-list li { display: flex; gap: .6rem; align-items: center; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: .5rem .7rem; background: var(--surface); }
+.skill-group-prompt { flex: 1; font-size: .85rem; }
+.skill-completion { line-height: 2; font-size: .95rem; }
+.skill-completion p { margin: .4rem 0; }
+/* Selector có độ ưu tiên cao hơn rule `input` chung để ô nhập nội tuyến giữ dạng inline. */
+.skill-completion input.skill-inline-input {
+  display: inline-block; width: 8rem; min-height: 0; margin: 0 .2rem; padding: .1rem .35rem;
+  border: 0; border-bottom: 2px solid var(--control-border); background: var(--surface-soft);
+  border-radius: 4px 4px 0 0; font-weight: 600; color: var(--brand-ink);
+}
+.skill-passage { display: flex; flex-direction: column; min-height: 0; }
+.skill-passage-head { padding: 1rem 1.2rem; border-bottom: 1px solid var(--border); display: grid; gap: .3rem; }
+.skill-passage-body { padding: 1.1rem 1.2rem; overflow-y: auto; line-height: 1.8; }
+.skill-passage-body p { margin: 0 0 .9rem; }
+.skill-passage-body h2 { font-size: 1.05rem; margin: 1rem 0 .5rem; }
+.skill-timer { display: grid; gap: .2rem; min-width: 7rem; }
+.skill-timer-label { font-size: .65rem; letter-spacing: .08em; text-transform: uppercase; color: var(--text-subtle); }
+.skill-timer-value { font-size: 1.15rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.skill-timer-bar { display: block; height: .3rem; border-radius: 999px; background: var(--surface-soft); overflow: hidden; }
+.skill-timer-bar span { display: block; height: 100%; background: var(--brand); transition: width .3s linear; }
+.skill-timer.is-low .skill-timer-value { color: var(--danger); }
+.skill-timer.is-low .skill-timer-bar span { background: var(--danger); }
+.skill-review { display: grid; gap: .6rem; }
+.skill-review-grid { display: flex; flex-wrap: wrap; gap: .3rem; }
+.skill-review-cell { width: 2rem; height: 2rem; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); font-size: .75rem; font-weight: 700; cursor: pointer; }
+.skill-review-cell.is-answered { background: var(--success-soft); border-color: var(--success); color: var(--success); }
+.skill-review-cell.is-flagged { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-ink); }
+.skill-review-cell.is-empty { background: var(--surface); border-color: var(--border); color: var(--text-subtle); }
+.skill-review-legend { display: flex; flex-wrap: wrap; gap: .8rem; list-style: none; margin: 0; padding: 0; font-size: .72rem; color: var(--text-subtle); }
+.skill-review-legend li { display: flex; align-items: center; gap: .35rem; }
+.skill-review-legend span { width: .8rem; height: .8rem; border-radius: 4px; border: 1px solid var(--border); display: inline-block; }
+.skill-review-legend .is-answered { background: var(--success-soft); border-color: var(--success); }
+.skill-review-legend .is-flagged { background: var(--accent-soft); border-color: var(--accent); }
+.skill-review-legend .is-empty { background: var(--surface); border-color: var(--border); }
+.skill-result { display: grid; gap: 1rem; }
+.skill-result-summary { text-align: center; display: grid; gap: .35rem; justify-items: center; }
+.skill-result-band { margin: 0; font-size: 3rem; font-weight: 800; color: var(--brand); line-height: 1; }
+.skill-result-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .6rem; }
+.skill-result-list li { display: flex; gap: .7rem; align-items: flex-start; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: .7rem .8rem; background: var(--surface); }
+.skill-result-list li.is-correct { border-color: var(--success); }
+.skill-result-list li.is-wrong { border-color: var(--danger); }
+.skill-result-icon { flex: 0 0 auto; display: grid; place-items: center; width: 1.6rem; height: 1.6rem; border-radius: 999px; }
+.skill-result-list li.is-correct .skill-result-icon { background: var(--success-soft); color: var(--success); }
+.skill-result-list li.is-wrong .skill-result-icon { background: var(--danger-soft); color: var(--danger); }
+.skill-result-prompt { margin: 0; font-weight: 600; }
+.skill-explanation { margin: .3rem 0 0; font-size: .82rem; color: var(--text-muted); white-space: pre-line; }
+
 /* ---------- Trang tài liệu công khai (dùng chung bản tĩnh + bản React) ---------- */
 .doc-shell { min-height: 100vh; display: flex; flex-direction: column; }
 .doc-nav { max-width: 1180px; width: 100%; margin: auto; display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 24px 24px 4px; }
