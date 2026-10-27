@@ -1,5 +1,5 @@
 /**
- * Deploy 10 Edge Function lên Supabase và set secrets.
+ * Deploy 13 Edge Function lên Supabase và set secrets.
  *
  *   node --env-file-if-exists=.env.local supabase/scripts/deploy-functions.mjs
  *   node --env-file-if-exists=.env.local supabase/scripts/deploy-functions.mjs --secrets-only
@@ -29,6 +29,7 @@ const FUNCTIONS = [
   'admin-session',
   'admin-data',
   'process-ai-jobs',
+  'grade-skill',
 ]
 
 const args = process.argv.slice(2)

@@ -391,3 +391,30 @@ export function parseUsageQuery(input: unknown): UsageQueryInput {
   }
   return { from: new Date(fromTime).toISOString(), to: new Date(toTime).toISOString() };
 }
+
+export interface GradeSkillInput {
+  testId: string;
+  answers: Record<string, string>;
+  timeSpentSeconds: number;
+}
+
+export function parseGradeSkill(input: unknown): GradeSkillInput {
+  const record = asRecord(input);
+  const testId = requiredUuid(record, "testId");
+  const rawAnswers = record.answers;
+  if (rawAnswers === null || typeof rawAnswers !== "object" || Array.isArray(rawAnswers)) {
+    fail("answers", "answers must be an object");
+  }
+  const answers: Record<string, string> = {};
+  for (const [key, value] of Object.entries(rawAnswers as Record<string, unknown>)) {
+    if (!/^\d{1,3}$/.test(key)) fail("answers", "answer keys must be question numbers");
+    if (typeof value !== "string") fail("answers", "answer values must be strings");
+    if (value.length > 200) fail("answers", "an answer is too long");
+    answers[key] = value;
+  }
+  const timeSpentSeconds = record.timeSpentSeconds ?? 0;
+  if (typeof timeSpentSeconds !== "number" || !Number.isFinite(timeSpentSeconds) || timeSpentSeconds < 0) {
+    fail("timeSpentSeconds", "timeSpentSeconds must be a positive number");
+  }
+  return { testId, answers, timeSpentSeconds: Math.floor(timeSpentSeconds) };
+}

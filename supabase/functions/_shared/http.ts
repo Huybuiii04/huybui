@@ -110,6 +110,9 @@ export const ERROR_HINTS: Readonly<Record<string, string>> = {
   invalid_mime_type: "Upload a PNG, JPEG or WebP image.",
   invalid_status: "Use one of the supported statuses.",
   invalid_action: "Use one of the supported admin actions.",
+  test_not_found: "Reload the test list and open the test again.",
+  test_unavailable: "This test is not available right now. Choose another one.",
+  attempt_not_found: "Reload the attempt list and open the attempt again.",
 };
 
 /**

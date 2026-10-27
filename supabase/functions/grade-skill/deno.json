@@ -1,0 +1,12 @@
+{
+  "imports": {
+    "@supabase/supabase-js": "npm:@supabase/supabase-js@2.118.0"
+  },
+  "compilerOptions": {
+    "strict": true,
+    "lib": ["deno.window", "deno.ns", "dom", "dom.iterable", "esnext"]
+  },
+  "tasks": {
+    "test:node": "node --test \"supabase/functions/_shared/tests/*.test.ts\""
+  }
+}
