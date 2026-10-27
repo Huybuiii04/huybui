@@ -1231,6 +1231,39 @@ function normalizeDisplay(raw, fallback) {
   return fallback
 }
 
+/**
+ * Kiểu đã chuẩn hoá -> kiểu hiển thị hợp lệ.
+ * Khi câu hỏi không khai báo displayType, fallback phải là 1 trong 13 kiểu hợp lệ
+ * (không dùng 'mcq'/'matching' vì đó là kiểu câu hỏi, không phải kiểu hiển thị).
+ */
+const DISPLAY_FOR_TYPE = {
+  tfng: 'tfng',
+  ynng: 'ynng',
+  mcq: 'multiple-choice',
+  matching: 'matching-info',
+  fill: 'fill-blank',
+}
+
+/** Chỗ trống trong HTML: "31_______", "7 ………..", "12.____". */
+const BLANK_PATTERN = /\b(\d{1,3})\s*[._…]{4,}/g
+
+/** Đề nguồn để câu hỏi ở nhiều trường khác nhau; lấy biến thể đầu tiên dùng được. */
+const PROMPT_KEYS = ['question', 'text', 'question_text', 'questionText', 'statement']
+
+/**
+ * Lấy nội dung câu hỏi. Một biến thể rỗng (hoặc chỉ toàn khoảng trắng) thì thử
+ * biến thể kế tiếp — không chấp nhận chuỗi rỗng khi còn biến thể dùng được.
+ */
+function resolvePrompt(question) {
+  for (const key of PROMPT_KEYS) {
+    const value = question[key]
+    if (value === null || value === undefined) continue
+    const trimmed = String(value).trim()
+    if (trimmed) return trimmed
+  }
+  return ''
+}
+
 // ── 1. Đọc catalogue: test nào gồm passage nào ───────────────────────────────
 const testCatalogue = new Map()
 
@@ -1320,7 +1353,46 @@ for (const name of passageFiles) {
 
   const groupList = [...groups.entries()].map(([groupId, items], groupIndex) => {
     const first = items[0]
-    const displayType = normalizeDisplay(first.displayType ?? first._blockConfig?.type, normalizeType(first.type))
+    const displayType = normalizeDisplay(
+      first.displayType ?? first._blockConfig?.type,
+      DISPLAY_FOR_TYPE[normalizeType(first.type)] ?? 'fill-blank',
+    )
+
+    // ── Số câu gốc trong đề ──────────────────────────────────────────────────
+    // Ưu tiên question.id khi nó là số. Nhưng đề nguồn có vài nhóm bị lỗi:
+    //   - câu không có id (ew-1-1: 14 câu),
+    //   - câu có id trùng nhau (cam-11-3-1: id "8" xuất hiện 2 lần, thiếu id 9).
+    // Khi đó, số trong chỗ trống "N_______" của HTML chính là số câu gốc —
+    // dùng chỗ trống để suy ra, miễn là chỗ trống khớp 1-1 với số câu của nhóm.
+    const numericIds = items.map(question =>
+      /^\d+$/.test(String(question.id ?? '')) ? Number(question.id) : null)
+    const idsUsable = numericIds.every(value => value !== null)
+      && new Set(numericIds).size === items.length
+    const firstWithHtml = items.find(question => (question.questionHtml ?? '').trim().length > 0)
+    const blankNumbers = [...(firstWithHtml?.questionHtml ?? '').matchAll(BLANK_PATTERN)]
+      .map(match => Number(match[1]))
+    // Chỉ dùng chỗ trống khi đủ số chỗ trống và chúng là dãy liên tiếp —
+    // nếu không thì thứ tự chỗ trống có thể không khớp thứ tự câu hỏi.
+    const blanksUsable = blankNumbers.length === items.length
+      && blankNumbers.every((value, index) => index === 0 || value === blankNumbers[index - 1] + 1)
+    const useBlankNumbers = !idsUsable && blanksUsable
+
+    // Nhóm không có id dùng được mà cũng không có chỗ trống thì lấy qStart:
+    // _blockConfig.qStart là số câu đầu tiên của nhóm trong đề gốc
+    // (ew-1-1: 1-4, 5-8, 9-14). Nếu không có qStart thì mới dùng vị trí trong nhóm.
+    const qStart = Number(first._blockConfig?.qStart)
+    const hasQStart = Number.isInteger(qStart) && qStart > 0
+    const useQStart = !idsUsable && !useBlankNumbers && hasQStart
+
+    /** Thứ tự ưu tiên: id hợp lệ → chỗ trống → qStart → vị trí trong nhóm. */
+    const sourceNumberFor = (question, questionIndex) => {
+      const ownId = /^\d+$/.test(String(question.id ?? '')) ? Number(question.id) : null
+      if (idsUsable) return ownId
+      if (useBlankNumbers) return blankNumbers[questionIndex]
+      if (useQStart) return ownId ?? qStart + questionIndex
+      return ownId ?? questionIndex + 1
+    }
+
     return {
       key: groupId,
       order: groupIndex + 1,
@@ -1330,11 +1402,11 @@ for (const name of passageFiles) {
       questions: items.map((question, questionIndex) => ({
         sourceId: String(question.id ?? ''),
         // Số câu gốc trong đề — dùng để ánh xạ chỗ trống "31_______" trong HTML.
-        sourceNumber: /^\d+$/.test(String(question.id ?? '')) ? Number(question.id) : questionIndex + 1,
+        sourceNumber: sourceNumberFor(question, questionIndex),
         order: questionIndex + 1,
         type: normalizeType(question.type),
         displayType,
-        prompt: question.question ?? question.text ?? question.statement ?? '',
+        prompt: resolvePrompt(question),
         questionHtml: question.questionHtml ?? question.question_html ?? '',
         options: question.options ?? [],
         answerKey: String(question.answer ?? ''),
@@ -1471,7 +1543,7 @@ Kiểm tra số câu có đáp án và có số thứ tự gốc:
 node -e "const d=require('./supabase/seed/skill-reading-data.json'); const all=d.tests.flatMap(t=>t.passages.flatMap(p=>p.groups.flatMap(g=>g.questions))); console.log('câu:',all.length,'| có đáp án:',all.filter(q=>q.answerKey).length,'| có sourceNumber:',all.filter(q=>q.sourceNumber).length,'| có options:',all.filter(q=>q.options.length).length)"
 ```
 
-Expected: `câu: 2998 | có đáp án: 2998 | có sourceNumber: 2998 | có options: 738`.
+Expected: `câu: 2998 | có đáp án: 2995 | có sourceNumber: 2998 | có options: 734`.
 
 - [ ] **Step 4: Thêm script npm**
 
@@ -1642,7 +1714,7 @@ npm run db:seed:skills
 Expected:
 
 ```
-Reading: 77 test · 233 passage · 806 nhóm · 2998 câu
+Reading: 77 test · 233 passage · 582 nhóm · 2998 câu
 Tổng 2998 câu hỏi trong skill_questions
 ```
 
@@ -2800,7 +2872,7 @@ export function QuestionGroup({
 }: {
   group: SkillQuestionGroup
   numbers: Record<string, number>
-  /** Số câu gốc -> id câu, dựng ở cấp cả đề. */
+  /** Số câu gốc -> id câu, dựng RIÊNG cho passage đang hiển thị. */
   bySourceNumber: Record<number, string>
   answers: Record<string, string>
   flagged: Set<string>
@@ -3214,14 +3286,26 @@ export default function ReadingTest() {
     allQuestions.forEach((question, index) => { map[question.id] = index + 1 })
     return map
   }, [allQuestions])
-  /** Số câu gốc -> id câu: dùng để ánh xạ chỗ trống "31_______" trong HTML. */
-  const bySourceNumber = useMemo(() => {
-    const map: Record<number, string> = {}
-    for (const question of allQuestions) {
-      if (question.sourceNumber > 0) map[question.sourceNumber] = question.id
+  /**
+   * Số câu gốc -> id câu, dựng RIÊNG cho từng passage.
+   *
+   * Phải scope theo passage, không theo cả đề: 17/77 test đánh số câu lại
+   * cho từng passage (ew-*, tid-wb-*), và `cam-11-2` có câu 14 ở cả hai
+   * passage. Một map toàn đề sẽ âm thầm bỏ sót câu ở các test đó.
+   */
+  const bySourceNumberBySection = useMemo(() => {
+    const map: Record<string, Record<number, string>> = {}
+    for (const item of test?.sections ?? []) {
+      const sectionMap: Record<number, string> = {}
+      for (const group of item.groups) {
+        for (const question of group.questions) {
+          if (question.sourceNumber > 0) sectionMap[question.sourceNumber] = question.id
+        }
+      }
+      map[item.id] = sectionMap
     }
     return map
-  }, [allQuestions])
+  }, [test])
   const answered = answeredCount(answers, allQuestions)
   const section = test?.sections[activeSection] ?? null
 
@@ -3297,7 +3381,7 @@ export default function ReadingTest() {
           key={group.id}
           group={group}
           numbers={numbers}
-          bySourceNumber={bySourceNumber}
+          bySourceNumber={bySourceNumberBySection[section.id] ?? {}}
           answers={answers}
           flagged={flagged}
           onAnswer={setAnswer}
