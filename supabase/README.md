@@ -58,6 +58,7 @@ Thứ tự chạy = thứ tự tên file. Tất cả idempotent, chạy lại an
 | `007_prompt_topics.sql` | bảng `prompt_topics` (danh sách chủ đề) |
 | `008_prompt_chart_types.sql` | bảng `prompt_chart_types` (7 dạng biểu đồ Task 1 Academic) + trigger kiểm tra `subtype` |
 | `009_prompt_backend.sql` | cột `updated_by`, index `(task, set_name)`, RPC `get_prompt(slug)`, quyền ghi cho admin, bỏ `writing_prompts` |
+| `021_reading_listening.sql` | bảng đề Reading (`skill_tests` → `skill_sections` → `skill_question_groups` → `skill_questions`), lịch sử `skill_attempts`, RLS + thu hồi quyền đọc cột đáp án |
 
 ## Bảng
 
@@ -66,6 +67,12 @@ Thứ tự chạy = thứ tự tên file. Tất cả idempotent, chạy lại an
 **Viết & AI:** `essays`, `essay_revisions`, `essay_assets`, `revision_assets`, `ai_jobs`, `grading_results`, `essay_features`, `ai_tool_results`, `ai_usage`
 **Học tập:** `study_cards`, `review_events`, `error_logs`, `guide_progress`
 **Vận hành:** `donation_settings`, `admin_audit_logs`, `rate_limit_buckets`
+**Đề & lịch sử làm bài:**
+
+| Bảng | Vai trò |
+|---|---|
+| `skill_tests` · `skill_sections` · `skill_question_groups` · `skill_questions` | Đề Reading; cột đáp án chỉ service role đọc |
+| `skill_attempts` | Lịch sử làm bài, RLS theo chủ sở hữu, chỉ service role ghi |
 
 ## RPC
 
@@ -133,4 +140,11 @@ Rồi chạy lại `npm run db:migrate` và `npm run db:seed`.
 
 ## Edge Functions + AI
 
-Hướng dẫn 10 Edge Function, hợp đồng input/output, secrets, pipeline Anthropic, cron worker và cách deploy nằm tại [`supabase/functions/README.md`](functions/README.md).
+Hướng dẫn Edge Function, hợp đồng input/output, secrets, pipeline Anthropic, cron worker và cách deploy nằm tại [`supabase/functions/README.md`](functions/README.md).
+
+Module Reading thêm hai function:
+
+| Function | Mục đích |
+|---|---|
+| `grade-skill` | Chấm bài Reading, ghi `skill_attempts` |
+| `admin-skills` | Đổi trạng thái đề (publish / draft / hidden) |

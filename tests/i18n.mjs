@@ -2,7 +2,7 @@
 import { chromium } from 'playwright'
 
 const base = process.env.TEST_URL ?? 'http://127.0.0.1:5173'
-const routes = ['/', '/app', '/app/write', '/app/essays', '/app/essays/demo', '/app/prompts', '/app/prompts?task=academic_task1', '/app/vocabulary', '/app/review', '/app/errors', '/donate', '/app/settings', '/admin', '/auth']
+const routes = ['/', '/app', '/app/write', '/app/essays', '/app/essays/demo', '/app/prompts', '/app/prompts?task=academic_task1', '/app/vocabulary', '/app/review', '/app/errors', '/app/reading', '/app/reading/cam-9-1', '/donate', '/app/settings', '/admin', '/auth']
 
 // Dấu tiếng Việt đặc trưng. Không kiểm tra "é" vì thường là chữ mượn trong dữ liệu
 // biểu đồ tiếng Anh (café, cliché) — đề thi luôn dùng nhãn tiếng Anh.

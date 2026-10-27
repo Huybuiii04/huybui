@@ -17,11 +17,12 @@ npm run preview                # xem bản build
 ## Kiểm thử
 
 ```bash
-npm test                       # 46 test logic thuần: học tập, auth, đồng bộ, AI, từ vựng
-npm run test:edge              # 70 test hợp đồng của Edge Function
+npm test                       # 203 test logic thuần: học tập, auth, đồng bộ, AI, từ vựng, đề Reading
+npm run test:edge              # 112 test hợp đồng của Edge Function
 node tests/browser.mjs         # luồng trình duyệt thật (Playwright, cần dev server)
+node tests/skill-flow.mjs      # luồng Reading: kho đề → phòng làm bài (đồng hồ, passage, câu hỏi)
 node tests/accessibility.mjs   # axe WCAG 2.1 AA trên 6 route, cả theme sáng và tối
-node tests/i18n.mjs            # kiểm tra song ngữ VI/EN trên 14 route
+node tests/i18n.mjs            # kiểm tra song ngữ VI/EN trên 16 route
 node tests/vocabulary-library.mjs  # thư viện 25 chủ đề: chọn chủ đề, thêm từ vào sổ, lọc
 node tests/prompt-images.mjs   # ảnh đề Task 1: cuộn hết lưới rồi xác nhận không ảnh hỏng
 node tests/writing-space.mjs   # không gian viết: ảnh đề, tiêu đề theo ngôn ngữ, đăng ký
@@ -36,17 +37,19 @@ TEST_URL=https://huybui.vercel.app node tests/production.mjs   # smoke test bả
 TEST_URL=https://huybui.vercel.app node tests/browser.mjs       # toàn bộ luồng trên production
 ```
 
-`tests/browser.mjs` bỏ qua các luồng cần đăng nhập nếu thiếu `TEST_EMAIL` / `TEST_PASSWORD`.
+`tests/browser.mjs` bỏ qua các luồng cần đăng nhập nếu thiếu `TEST_EMAIL` / `TEST_PASSWORD`. `tests/skill-flow.mjs` cũng vậy — route `/app/reading` nằm sau `RouteGuard` nên không đăng nhập thì chỉ chạy được phần kiểm tra công khai.
 
 ## Backend
 
 ```bash
-npm run db:migrate             # áp dụng 16 file migration (idempotent)
+npm run db:migrate             # áp dụng 21 file migration (idempotent)
 npm run db:verify              # kiểm tra schema + RLS
 npm run db:seed                # nạp nội dung, đề bài và bảng giá AI
 npm run db:seed:vocabulary     # nạp thư viện từ vựng 25 chủ đề (5.000 mục)
+npm run db:import:reading      # sinh lại dataset đề từ repo nguồn (cần clone repo nguồn)
+npm run db:seed:skills         # nạp toàn bộ đề Reading
 npm run db:prune               # dọn đề Task 1 trùng (dry-run, thêm --apply để xoá)
-npm run db:deploy              # deploy 10 Edge Function + set secrets
+npm run db:deploy              # deploy 14 Edge Function + set secrets
 npm run db:cron                # bật cron gọi worker mỗi 10 giây
 npm run auth:autoconfirm       # tắt bước xác nhận email khi đăng ký
 ```
@@ -146,12 +149,15 @@ Cần `SUPABASE_ACCESS_TOKEN` trong `.env.local`. Xem `supabase/README.md` cho t
 | `src/lib/ai.ts` · `aiLogic.ts` | Gọi Edge Function (chấm bài, công cụ AI, admin) + logic thuần đi kèm |
 | `src/lib/promptRepository.ts` | Đọc đề/chủ đề/dạng biểu đồ từ PostgREST |
 | `src/lib/vocabularyLogic.ts` · `vocabularyRepository.ts` | Thư viện từ vựng 25 chủ đề: map hàng, lọc, tạo thẻ ôn tập + đọc PostgREST |
+| `src/lib/skillLogic.ts` · `skillRepository.ts` · `skillApi.ts` | Kiểu dữ liệu + helper thuần, đọc đề từ PostgREST, gọi Edge Function chấm điểm |
 | `src/components/GradingResult.tsx` | Hiển thị kết quả chấm: 4 tiêu chí, dẫn chứng, hành động |
 | `src/components/ChartPreview.tsx` | Dựng biểu đồ SVG từ dữ liệu của đề |
+| `src/components/skill/` | Thẻ câu hỏi, passage, đồng hồ, lưới rà soát, khung kết quả |
 | `src/pages/` | Tổng quan, viết bài, bài viết, kho đề, từ vựng, ôn tập, thư viện, Master Guide, công cụ, donate, cài đặt, quản trị |
-| `supabase/migrations/` | 12 migration: identity, content, essays/jobs/grading, learning, admin, kho đề, hardening AI |
-| `supabase/functions/` | 10 Edge Function + `_shared` (client Anthropic, schema, hợp đồng AI) |
-| `supabase/seed/` | Nạp nội dung, 244 đề Task 2, 70 đề Task 1 có ảnh, bảng giá AI |
+| `src/pages/Reading*.tsx` | Kho đề, phòng làm bài và kết quả cho Reading |
+| `supabase/migrations/` | 21 migration: identity, content, essays/jobs/grading, learning, admin, kho đề, hardening AI, đề Reading |
+| `supabase/functions/` | 14 Edge Function + `_shared` (client Anthropic, schema, hợp đồng AI, chấm điểm Reading) |
+| `supabase/seed/` | Nạp nội dung, 244 đề Task 2, 70 đề Task 1 có ảnh, bảng giá AI, toàn bộ đề Reading |
 | `debai/` | Bộ đề gốc (190 đề Task 2 + 70 đề Task 1 kèm ảnh) dùng làm nguồn cho seed |
 
 ## Kho đề bài (`/app/prompts`)
@@ -163,6 +169,14 @@ Cần `SUPABASE_ACCESS_TOKEN` trong `.env.local`. Xem `supabase/README.md` cho t
 - Lưới chủ đề của Task 2 / Task 1 General đọc từ bảng `prompt_topics`; danh sách đề lọc phía server bằng `topics=cs.{key}`.
 - Dưới lưới chủ đề là lưới **tất cả đề** của loại bài đang chọn, kèm ô tìm kiếm và thẻ *Tự nhập đề bài của bạn*.
 - Khi mở tab *Bài viết*, **đề vẫn hiện ngay trên đầu vùng viết**.
+
+## Reading
+
+- **Đề nằm trong Postgres**: `skill_tests` → `skill_sections` → `skill_question_groups` → `skill_questions`, lịch sử ở `skill_attempts`.
+- **Toàn bộ kho đề** được sinh từ `public/data/reading/` của repo `khanh020905/SWP391-PROJECT`: 77 test · 233 passage · 582 nhóm · 2998 câu hỏi (Cambridge 9–20, Essential Words, TID Vol / Set 20 / Workbook, chủ đề B1).
+- **Đáp án không lộ ra trình duyệt**: `skill_questions` chỉ cấp quyền đọc cho các cột không phải đáp án; Edge Function `grade-skill` chấm điểm bằng service role rồi ghi lịch sử. Chỉ service role được ghi `skill_attempts`, nên người dùng không tự khai được điểm.
+- **Quy đổi band**: bảng Cambridge trong `supabase/functions/_shared/skillGrading.ts`.
+- **Chạy lại đề**: `npm run db:import:reading` rồi `npm run db:seed:skills` (idempotent).
 
 ## Hành vi hiện tại
 
