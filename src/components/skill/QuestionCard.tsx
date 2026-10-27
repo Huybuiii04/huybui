@@ -1,9 +1,17 @@
 import { Flag } from 'lucide-react'
 import { useCopy } from '../../i18n'
-import type { SkillQuestion } from '../../lib/skillLogic.ts'
+import type { SkillOption, SkillQuestion } from '../../lib/skillLogic.ts'
 
 const TFNG_OPTIONS = ['TRUE', 'FALSE', 'NOT GIVEN'] as const
 const YNNG_OPTIONS = ['YES', 'NO', 'NOT GIVEN'] as const
+
+/**
+ * Nhãn hiển thị của một lựa chọn: "A. nội dung", hoặc chỉ "A" khi nội dung
+ * chính là nhãn (option dạng chữ cái trần của câu matching).
+ */
+function optionLabel(option: SkillOption): string {
+  return option.text === option.key ? option.key : `${option.key}. ${option.text}`
+}
 
 /**
  * Một câu hỏi dạng thẻ: số câu, đề bài, cờ đánh dấu và ô trả lời theo `question.type`.
@@ -56,7 +64,7 @@ export function QuestionCard({
     {question.type === 'mcq' && <div className="skill-options">
       {question.options.map(option => <label key={option.key} className={`skill-option ${selected === option.key ? 'is-selected' : ''}`}>
         <input type="radio" name={`question-${number}`} value={option.key} checked={selected === option.key} onChange={() => onAnswer(option.key)} />
-        <span><strong>{option.key}.</strong> {option.text}</span>
+        <span><strong>{option.key}.</strong>{option.text === option.key ? '' : ` ${option.text}`}</span>
       </label>)}
     </div>}
 
@@ -64,7 +72,7 @@ export function QuestionCard({
       <label className={`skill-option ${selected ? 'is-selected' : ''}`}>
         <select value={selected} onChange={event => onAnswer(event.target.value)} aria-label={c('Chọn đáp án', 'Choose an answer')}>
           <option value="">{c('— Chọn đáp án —', '— Choose an answer —')}</option>
-          {question.options.map(option => <option key={option.key} value={option.key}>{option.key}. {option.text}</option>)}
+          {question.options.map(option => <option key={option.key} value={option.key}>{optionLabel(option)}</option>)}
         </select>
       </label>
     </div>}

@@ -45,6 +45,8 @@ export type SkillQuestionGroup = {
   order: number
   instructionHtml: string
   displayType: SkillDisplayType
+  /** Dữ liệu gốc của nhóm (headings, featureOptions, sectionLabels…) từ repo nguồn. */
+  config: Record<string, unknown>
   questions: SkillQuestion[]
 }
 
@@ -133,6 +135,105 @@ export function parseOptions(raw: unknown): SkillOption[] {
     }
     return { key: fallbackKey, text: String(option) }
   })
+}
+
+/**
+ * Nguồn danh sách lựa chọn cho từng kiểu câu matching — tên key trong `config` của nhóm.
+ * Kiểu `matching` (không rõ) thử lần lượt từng nguồn.
+ */
+const MATCHING_OPTION_SOURCES: Record<string, readonly string[]> = {
+  'matching-heading': ['headings'],
+  'matching-feature': ['featureOptions'],
+  'matching-info': ['sectionLabels'],
+  matching: ['headings', 'featureOptions', 'sectionLabels'],
+}
+
+/**
+ * Cách đặt nhãn cho mỗi lựa chọn:
+ * - `roman`: số La Mã theo thứ tự (i, ii, iii…) — matching-heading yêu cầu "write the correct number, i–xi".
+ * - `letter`: chữ cái theo thứ tự (A, B, C…) — matching-feature yêu cầu "match with the correct option, A–C".
+ * - `own`: chính chuỗi có sẵn trong danh sách — matching-info đã là chữ cái A, B, C…
+ */
+type MatchingLabelStyle = 'roman' | 'letter' | 'own'
+
+const MATCHING_LABEL_STYLE: Record<string, MatchingLabelStyle | undefined> = {
+  headings: 'roman',
+  featureOptions: 'letter',
+  sectionLabels: 'own',
+}
+
+/** Nhãn La Mã theo vị trí (0 → i, 1 → ii…). */
+const ROMAN_LABELS = [
+  '', 'i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii', 'viii', 'ix',
+  'x', 'xi', 'xii', 'xiii', 'xiv', 'xv', 'xvi', 'xvii', 'xviii', 'xix', 'xx',
+]
+
+function romanLabel(index: number): string {
+  return ROMAN_LABELS[index + 1] ?? String.fromCharCode(65 + index)
+}
+
+function letterLabel(index: number): string {
+  return String.fromCharCode(65 + (index % 26))
+}
+
+/**
+ * Đọc một mảng lựa chọn thô trong `config` thành `SkillOption[]`.
+ * Bỏ qua phần tử rỗng; phần tử dạng đối tượng `{ key, text }` dùng nguyên trạng.
+ */
+function optionsFromConfig(value: unknown, style: MatchingLabelStyle): SkillOption[] {
+  if (!Array.isArray(value)) return []
+  const options: SkillOption[] = []
+  for (const entry of value) {
+    if (typeof entry === 'string') {
+      const text = entry.trim()
+      if (!text) continue
+      const index = options.length
+      if (style === 'own') {
+        options.push({ key: /^[A-Za-z]$/.test(text) ? text : letterLabel(index), text })
+        continue
+      }
+      if (style === 'letter') {
+        const label = /^[A-Za-z0-9]{1,3}\.\s+/.exec(text)
+        if (label) {
+          const dot = text.indexOf('.')
+          options.push({ key: text.slice(0, dot).trim(), text: text.slice(label[0].length).trim() })
+          continue
+        }
+        options.push({ key: letterLabel(index), text })
+        continue
+      }
+      options.push({ key: romanLabel(index), text })
+      continue
+    }
+    if (entry && typeof entry === 'object') {
+      const item = entry as { key?: unknown; text?: unknown }
+      const key = typeof item.key === 'string' ? item.key.trim() : ''
+      const text = typeof item.text === 'string' ? item.text.trim() : ''
+      if (!key && !text) continue
+      options.push({ key: key || text, text: text || key })
+    }
+  }
+  return options
+}
+
+/**
+ * Danh sách lựa chọn cho câu matching, lấy từ config của nhóm.
+ * Nhiều câu matching trong dữ liệu gốc không mang options riêng —
+ * danh sách nằm ở config của nhóm theo đúng kiểu câu hỏi.
+ *
+ * `key` là nhãn thí sinh ghi ra (La Mã cho matching-heading, chữ cái cho
+ * matching-feature, chữ cái sẵn có cho matching-info) nên đáp án gửi lên
+ * khớp với `answer_key` mà server dùng để chấm.
+ */
+export function matchingOptionsFor(group: SkillQuestionGroup): SkillOption[] {
+  const sources = MATCHING_OPTION_SOURCES[group.displayType]
+  if (!sources) return []
+  const config = group.config ?? {}
+  for (const source of sources) {
+    const options = optionsFromConfig(config[source], MATCHING_LABEL_STYLE[source] ?? 'own')
+    if (options.length) return options
+  }
+  return []
 }
 
 /** Chuẩn hoá 11 kiểu câu hỏi của repo nguồn về 5 kiểu của app. */

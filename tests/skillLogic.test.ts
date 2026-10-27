@@ -247,10 +247,11 @@ test('splitHtmlByBlanks finds numbered blanks', () => {
   assert.match(segments[0].html, /cost was/)
 })
 
-test('module exports exactly the 9 public helpers', () => {
+test('module exports exactly the 10 public helpers', () => {
   assert.deepEqual(Object.keys(skillLogic).sort(), [
     'answeredCount',
     'formatClock',
+    'matchingOptionsFor',
     'normalizeDisplayType',
     'normalizeQuestionType',
     'parseOptions',

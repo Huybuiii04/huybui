@@ -4,9 +4,14 @@ import { useCopy } from '../../i18n'
 import { sanitizeHtml, splitHtmlByBlanks, type SkillQuestionGroup } from '../../lib/skillLogic.ts'
 import { QuestionCard } from './QuestionCard.tsx'
 
-/** Các dạng completion có ô trống nằm trong HTML của nhóm. */
+/**
+ * Các dạng có ô trống nằm trong HTML của nhóm.
+ * `fill-blank` cũng nằm ở đây: câu của nhóm này chỉ có prompt cụt, câu đầy đủ
+ * nằm trong `questionHtml` của nhóm nên phải nhúng ô nhập vào HTML.
+ */
 const INLINE_TYPES = new Set([
   'note-completion', 'table-completion', 'summary-completion', 'sentence-completion', 'sentence-ending',
+  'fill-blank',
 ])
 
 /**
@@ -44,19 +49,27 @@ export function QuestionGroup({
   const segments = useMemo(() => splitHtmlByBlanks(html), [html])
 
   // Số trong chỗ trống là số câu của đề gốc.
-  const blankIds = useMemo(() => {
-    const ids = new Set<string>()
+  // Chỉ dùng được khi số đó trỏ tới câu CỦA NHÓM NÀY: cùng một số câu có thể
+  // xuất hiện ở nhóm khác của cùng passage, nếu không sẽ hiển thị trùng.
+  const blankIdByNumber = useMemo(() => {
+    const map: Record<number, string> = {}
+    const own = new Set(group.questions.map(question => question.id))
     for (const segment of segments) {
       if (segment.kind !== 'blank') continue
       const id = bySourceNumber[segment.sourceNumber]
-      if (id) ids.add(id)
+      if (id && own.has(id)) map[segment.sourceNumber] = id
     }
-    return ids
-  }, [segments, bySourceNumber])
+    return map
+  }, [segments, bySourceNumber, group.questions])
 
+  const blankIds = useMemo(() => new Set(Object.values(blankIdByNumber)), [blankIdByNumber])
   const inlineQuestions = group.questions.filter(question => blankIds.has(question.id))
-  const fallbackQuestions = group.questions.filter(question => !blankIds.has(question.id))
   const useInline = INLINE_TYPES.has(group.displayType) && inlineQuestions.length > 0
+  // Nhóm không nhúng ô nhập thì MỌI câu đều phải hiện dạng thẻ — kể cả câu có
+  // số trùng với một chỗ trống trong HTML, nếu không câu đó sẽ biến mất khỏi giao diện.
+  const cardQuestions = useInline
+    ? group.questions.filter(question => !blankIds.has(question.id))
+    : group.questions
 
   return <section className="skill-group">
     {instruction && <div className="skill-group-instruction" dangerouslySetInnerHTML={{ __html: instruction }} />}
@@ -64,12 +77,15 @@ export function QuestionGroup({
     {useInline && <div className="skill-completion">
       {segments.map((segment, index) => {
         if (segment.kind === 'html') return <span key={index} dangerouslySetInnerHTML={{ __html: segment.html }} />
-        const id = bySourceNumber[segment.sourceNumber] ?? ''
+        const id = blankIdByNumber[segment.sourceNumber] ?? ''
+        // Chỗ trống không thuộc nhóm này (số câu trùng với nhóm khác của passage)
+        // thì để nguyên dạng chữ, nhóm sở hữu câu đó sẽ vẽ ô nhập.
+        if (!id) return <span key={index} className="skill-inline-input">{segment.sourceNumber}</span>
         return <input
           key={index}
           className="skill-inline-input"
           type="text"
-          value={id ? answers[id] ?? '' : ''}
+          value={answers[id] ?? ''}
           onChange={event => onAnswer(id, event.target.value)}
           aria-label={c(`Đáp án câu ${segment.sourceNumber}`, `Answer for question ${segment.sourceNumber}`)}
           placeholder="________"
@@ -77,7 +93,7 @@ export function QuestionGroup({
       })}
     </div>}
 
-    {fallbackQuestions.map(question => <QuestionCard
+    {cardQuestions.map(question => <QuestionCard
       key={question.id}
       question={question}
       number={numbers[question.id] ?? 0}
@@ -87,7 +103,7 @@ export function QuestionGroup({
       onToggleFlag={() => onToggleFlag(question.id)}
     />)}
 
-    {useInline && fallbackQuestions.length === 0 && <ul className="skill-group-list">
+    {useInline && cardQuestions.length === 0 && <ul className="skill-group-list">
       {group.questions.map(question => <li key={question.id}>
         <span className="skill-question-number">{numbers[question.id] ?? 0}</span>
         <span className="skill-group-prompt">{question.prompt}</span>

@@ -4,6 +4,7 @@
 // mọi truy vấn ở đây đều ghi tên cột tường minh — không dùng select=* cho bảng này.
 
 import {
+  matchingOptionsFor,
   parseOptions,
   type SkillDisplayType,
   type SkillKind,
@@ -48,6 +49,7 @@ type GroupRow = {
   order_index: number
   instruction_html: string | null
   display_type: string | null
+  config: unknown
 }
 
 type QuestionRow = {
@@ -64,7 +66,7 @@ type QuestionRow = {
 
 const TEST_COLUMNS = 'id,slug,skill,series,series_no,title,description,level,duration_minutes,test_type,question_count,status'
 const SECTION_COLUMNS = 'id,test_id,section_no,title,topic,content_html,audio_path,transcript'
-const GROUP_COLUMNS = 'id,section_id,order_index,instruction_html,display_type'
+const GROUP_COLUMNS = 'id,section_id,order_index,instruction_html,display_type,config'
 const QUESTION_COLUMNS = 'id,group_id,order_index,source_number,question_type,display_type,prompt,question_html,options'
 
 /** Nguồn mặc định lấy từ biến môi trường Vite (được inject lúc build). */
@@ -149,25 +151,35 @@ export async function loadSkillTest(slug: string, source = defaultSkillSource())
     hasTranscript: Boolean((section.transcript ?? '').trim()),
     groups: groups
       .filter(group => group.section_id === section.id)
-      .map<SkillQuestionGroup>(group => ({
-        id: group.id,
-        order: group.order_index,
-        instructionHtml: group.instruction_html ?? '',
-        displayType: (group.display_type ?? 'fill-blank') as SkillDisplayType,
-        questions: questions
+      .map<SkillQuestionGroup>(group => {
+        const mapped: SkillQuestionGroup = {
+          id: group.id,
+          order: group.order_index,
+          instructionHtml: group.instruction_html ?? '',
+          displayType: (group.display_type ?? 'fill-blank') as SkillDisplayType,
+          config: (group.config ?? {}) as Record<string, unknown>,
+          questions: [],
+        }
+        // Câu matching không có options riêng thì lấy danh sách lựa chọn của nhóm.
+        const sharedOptions = matchingOptionsFor(mapped)
+        mapped.questions = questions
           .filter(question => question.group_id === group.id)
-          .map<SkillQuestion>(question => ({
-            id: question.id,
-            order: question.order_index,
-            sourceNumber: question.source_number ?? question.order_index,
-            type: (question.question_type ?? 'fill') as SkillQuestionType,
-            displayType: (question.display_type ?? 'fill-blank') as SkillDisplayType,
-            prompt: question.prompt ?? '',
-            questionHtml: question.question_html ?? '',
-            options: parseOptions(question.options),
-            explanation: '',
-          })),
-      })),
+          .map<SkillQuestion>(question => {
+            const options = parseOptions(question.options)
+            return {
+              id: question.id,
+              order: question.order_index,
+              sourceNumber: question.source_number ?? question.order_index,
+              type: (question.question_type ?? 'fill') as SkillQuestionType,
+              displayType: (question.display_type ?? 'fill-blank') as SkillDisplayType,
+              prompt: question.prompt ?? '',
+              questionHtml: question.question_html ?? '',
+              options: options.length ? options : sharedOptions,
+              explanation: '',
+            }
+          })
+        return mapped
+      }),
   }))
 
   return { ...toTest(testRow), sections: mappedSections }
