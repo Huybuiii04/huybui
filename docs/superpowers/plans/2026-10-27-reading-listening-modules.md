@@ -1837,7 +1837,7 @@ Expected: FAIL — `Cannot find module '.../skillGrading.ts'`.
 `supabase/functions/_shared/skillGrading.ts`:
 
 ```ts
-// Logic chấm điểm cho Reading.
+// Logic chấm điểm cho Reading / Listening.
 //
 // NGUỒN SỰ THẬT DUY NHẤT của quy tắc chấm. File này thuần (không import Deno,
 // không import React) để chạy được trong Edge Function lẫn test của Node.
@@ -2084,6 +2084,8 @@ export function parseGradeSkill(input: unknown): GradeSkillInput {
 `supabase/functions/grade-skill/index.ts`:
 
 ```ts
+import type { SupabaseClient } from "@supabase/supabase-js";
+
 import { requireAuthenticatedUser } from "../_shared/auth.ts";
 import {
   AppError,
@@ -2109,8 +2111,11 @@ type QuestionRow = {
 
 type GroupRow = { id: string; section_id: string; order_index: number };
 
+/** Kết quả có kèm giải thích: cột `explanation` không mở cho client đọc. */
+type GradedResultItem = GradingResultItem & { explanation: string };
+
 /** Đọc nhóm + câu hỏi của một đề theo đúng thứ tự section → group → order. */
-async function loadQuestions(service: any, testId: string): Promise<QuestionRow[]> {
+async function loadQuestions(service: SupabaseClient, testId: string): Promise<QuestionRow[]> {
   const sectionResult = await service
     .from("skill_sections")
     .select("id,section_no")
@@ -2150,7 +2155,7 @@ async function loadQuestions(service: any, testId: string): Promise<QuestionRow[
 }
 
 /** Chấm và gắn thêm giải thích cho từng câu. */
-function buildResults(rows: QuestionRow[], answers: Record<string, string>): GradingResultItem[] {
+function buildResults(rows: QuestionRow[], answers: Record<string, string>): GradedResultItem[] {
   const graded = gradeQuestions(
     rows.map((row, index) => ({
       order: index + 1,
@@ -2278,7 +2283,14 @@ Deno.serve(async (request) => {
 ```json
 {
   "imports": {
-    "@supabase/supabase-js": "jsr:@supabase/supabase-js@2"
+    "@supabase/supabase-js": "npm:@supabase/supabase-js@2.118.0"
+  },
+  "compilerOptions": {
+    "strict": true,
+    "lib": ["deno.window", "deno.ns", "dom", "dom.iterable", "esnext"]
+  },
+  "tasks": {
+    "test:node": "node --test \"supabase/functions/_shared/tests/*.test.ts\""
   }
 }
 ```
