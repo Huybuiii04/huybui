@@ -162,18 +162,24 @@ using (user_id = auth.uid());
 -- Dọn policy INSERT cũ nếu có: client không được tự ghi lần làm bài.
 drop policy if exists skill_attempts_owner_insert on public.skill_attempts;
 
+-- Quyền mặc định của Supabase cấp ALL cho `authenticated` trên bảng mới trong schema public.
+-- RLS chặn INSERT/UPDATE/DELETE nhưng KHÔNG chặn TRUNCATE, nên phải thu hồi tường minh.
 revoke all on public.skill_tests from anon;
 revoke all on public.skill_sections from anon;
 revoke all on public.skill_question_groups from anon;
 revoke all on public.skill_questions from anon;
 revoke all on public.skill_attempts from anon;
+revoke all on public.skill_tests from authenticated;
+revoke all on public.skill_sections from authenticated;
+revoke all on public.skill_question_groups from authenticated;
+revoke all on public.skill_questions from authenticated;
+revoke all on public.skill_attempts from authenticated;
+
 grant select on public.skill_tests to anon, authenticated;
 grant select on public.skill_sections to anon, authenticated;
 grant select on public.skill_question_groups to anon, authenticated;
-
 -- skill_attempts chỉ được ghi bởi service role (Edge Function `grade-skill`).
 -- Client KHÔNG có quyền insert: nếu không, người dùng tự khai điểm và band.
-revoke all on public.skill_attempts from authenticated;
 grant select on public.skill_attempts to authenticated;
 
 -- Chỉ cấp quyền đọc các cột KHÔNG chứa đáp án cho skill_questions.
