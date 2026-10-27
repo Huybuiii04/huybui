@@ -80,6 +80,7 @@ test('sanitizeHtml keeps safe attributes on allowed tags', () => {
 
 test('sanitizeHtml drops attributes outside the allow list', () => {
   assert.equal(sanitizeHtml('<p id="intro" draggable="true">text</p>'), '<p>text</p>')
+  assert.equal(sanitizeHtml('<p class="lead">text</p>'), '<p>text</p>')
 })
 
 test('sanitizeHtml drops unquoted javascript: links', () => {
@@ -147,8 +148,8 @@ test('sanitizeHtml drops unsafe style values', () => {
   assert.match(scriptUrl, /<td>x<\/td>/)
 })
 
-test('sanitizeHtml keeps class attributes', () => {
-  assert.equal(sanitizeHtml('<p class="lead">x</p>'), '<p class="lead">x</p>')
+test('sanitizeHtml drops class attributes', () => {
+  assert.equal(sanitizeHtml('<p class="lead" id="x" data-word="y">t</p>'), '<p>t</p>')
 })
 
 test('sanitizeHtml decodes entities before checking the url scheme', () => {
@@ -168,6 +169,37 @@ test('sanitizeHtml still drops data attributes and id', () => {
   assert.equal(clean, '<p>text</p>')
 })
 
+test('sanitizeHtml drops style values with css escapes or absolute positioning', () => {
+  const escaped = sanitizeHtml('<td style="background:\\75 rl(evil.png)">x</td>')
+  assert.doesNotMatch(escaped, /style=/i)
+  assert.match(escaped, /<td>x<\/td>/)
+
+  const absolute = sanitizeHtml('<td style="position:absolute">x</td>')
+  assert.doesNotMatch(absolute, /style=/i)
+  assert.match(absolute, /<td>x<\/td>/)
+
+  const fixed = sanitizeHtml('<td style="position:fixed;top:0">x</td>')
+  assert.match(fixed, /<td>x<\/td>/)
+
+  const sticky = sanitizeHtml('<td style="position:sticky">x</td>')
+  assert.match(sticky, /<td>x<\/td>/)
+
+  const relative = sanitizeHtml('<td style="position:relative">x</td>')
+  assert.match(relative, /<td style="position:relative">x<\/td>/)
+
+  const staticPosition = sanitizeHtml('<td style="position:static">x</td>')
+  assert.match(staticPosition, /<td style="position:static">x<\/td>/)
+})
+
+test('sanitizeHtml removes html comments including their content', () => {
+  assert.equal(sanitizeHtml('<!-- secret --><p>x</p>'), '<p>x</p>')
+  const hidden = sanitizeHtml('<p>a</p><!-- <script>alert(1)</script> --><p>b</p>')
+  assert.doesNotMatch(hidden, /script/i)
+  assert.doesNotMatch(hidden, /secret/i)
+  assert.match(hidden, /<p>a<\/p>/)
+  assert.match(hidden, /<p>b<\/p>/)
+})
+
 test('splitHtmlByBlanks finds numbered blanks', () => {
   const segments = splitHtmlByBlanks('<p>cost was <strong>1_______</strong> each</p>')
   assert.equal(segments.length, 3)
@@ -179,4 +211,13 @@ test('splitHtmlByBlanks returns plain html when there is no blank', () => {
   const segments = splitHtmlByBlanks('<p>no blanks here</p>')
   assert.equal(segments.length, 1)
   assert.equal(segments[0].kind, 'html')
+})
+
+test('splitHtmlByBlanks matches the documented placeholder examples', () => {
+  const examples = [['<p>a 2____ b</p>', 2], ['<p>a 3…….. b</p>', 3]] as const
+  for (const [html, number] of examples) {
+    const segments = splitHtmlByBlanks(html)
+    assert.equal(segments.length, 3)
+    assert.deepEqual(segments[1], { kind: 'blank', questionId: number })
+  }
 })

@@ -157,9 +157,13 @@ const ALLOWED_TAGS = new Set([
   'span', 'div', 'a', 'img', 'figure', 'figcaption',
 ])
 
-/** Thuộc tính được giữ lại khi lọc HTML — mọi thuộc tính khác bị bỏ. */
+/**
+ * Thuộc tính được giữ lại khi lọc HTML — mọi thuộc tính khác bị bỏ.
+ * `class` cố ý không có trong danh sách: class của repo nguồn trùng tên với
+ * utility class của Tailwind trong app này, giữ lại sẽ cho nội dung tự định vị.
+ */
 const SAFE_ATTRIBUTES = new Set([
-  'href', 'src', 'alt', 'title', 'class', 'style',
+  'href', 'src', 'alt', 'title', 'style',
   'colspan', 'rowspan', 'width', 'height', 'lang', 'dir',
 ])
 
@@ -200,14 +204,24 @@ function isSafeUrl(value: string): boolean {
 
 /**
  * Kiểm tra giá trị `style` trước khi giữ lại.
- * Đề dùng `style` cho định dạng bảng nên chỉ loại bỏ giá trị chứa
- * biểu thức hoặc URL độc, phần còn lại giữ nguyên.
+ * Đề dùng `style` cho định dạng bảng nên chỉ loại bỏ giá trị nguy hiểm, phần còn lại giữ nguyên:
+ * - không có dấu `\` (CSS escape như `\75 rl(...)` đều là kẻ lách),
+ * - không có `expression(`, `javascript:` hay `url(`,
+ * - không khai báo `position` là `absolute`, `fixed` hoặc `sticky` (tránh tràn khung).
  */
 function isSafeStyle(value: string): boolean {
   const normalized = decodeEntities(value).replace(/[\u0000-\u0020]/g, '').toLowerCase()
+  if (normalized.includes('\\')) return false
   if (normalized.includes('expression(')) return false
   if (normalized.includes('javascript:')) return false
   if (normalized.includes('url(')) return false
+  const position = /(^|[^-\w])position:([-\w]+)/g
+  let match = position.exec(normalized)
+  while (match) {
+    const declaration = match[2]
+    if (declaration !== 'relative' && declaration !== 'static') return false
+    match = position.exec(normalized)
+  }
   return true
 }
 
@@ -240,6 +254,9 @@ export function sanitizeHtml(html: string): string {
   // Bỏ cả khối script/style/iframe/object/embed, kể cả nội dung bên trong.
   clean = clean.replace(/<\s*(script|style|iframe|object|embed)\b[\s\S]*?<\s*\/\s*\1\s*>/gi, '')
   clean = clean.replace(/<\s*(script|style|iframe|object|embed)\b[^>]*\/?>/gi, '')
+  // Bỏ comment HTML kèm nội dung, kể cả comment chưa đóng.
+  clean = clean.replace(/<!--[\s\S]*?-->/g, '')
+  clean = clean.replace(/<!--[\s\S]*$/g, '')
   // Chỉ giữ thẻ an toàn, kèm thuộc tính an toàn và URL an toàn.
   clean = clean.replace(/<\/?([a-zA-Z0-9]+)((?:"[^"]*"|'[^']*'|[^'">])*)>/g, (match, tag: string, rawAttributes: string) => {
     const name = tag.toLowerCase()
@@ -264,7 +281,7 @@ export type HtmlSegment =
 
 /**
  * Tách HTML thành các đoạn, chỗ trống có số (số + từ 4 ký tự gạch/dấu chấm trở lên,
- * ví dụ "2____" hoặc "3…….") thành segment riêng
+ * ví dụ "2____" hoặc "3……..") thành segment riêng
  * để React chèn ô nhập nội tuyến — không dùng dangerouslySetInnerHTML cho phần có ô nhập.
  */
 export function splitHtmlByBlanks(html: string): HtmlSegment[] {
