@@ -86,7 +86,7 @@ export type SkillAttempt = {
 
 /** Định dạng số giây thành mm:ss (phủ số 0 ở đầu phần giây). */
 export function formatClock(totalSeconds: number): string {
-  const safe = Math.max(0, Math.floor(totalSeconds))
+  const safe = Number.isFinite(totalSeconds) ? Math.max(0, Math.floor(totalSeconds)) : 0
   const minutes = Math.floor(safe / 60)
   const seconds = safe % 60
   return `${minutes}:${String(seconds).padStart(2, '0')}`
@@ -97,10 +97,10 @@ export function answeredCount(answers: Record<string, string>, questions: { id: 
   return questions.filter(question => Boolean(answers[question.id]?.trim())).length
 }
 
-/** Tỉ lệ phần trăm đã trả lời; đề rỗng thì trả 0 thay vì NaN. */
+/** Tỉ lệ phần trăm đã trả lời; đề rỗng thì trả 0 thay vì NaN, không vượt quá 100. */
 export function progressPercent(answered: number, total: number): number {
   if (total <= 0) return 0
-  return Math.round((answered / total) * 100)
+  return Math.min(100, Math.round((answered / total) * 100))
 }
 
 /** Tách nội dung đoạn văn theo dòng trống. */
@@ -111,14 +111,20 @@ export function splitParagraphs(content: string): string[] {
     .filter(Boolean)
 }
 
-/** Đưa option dạng "A. text" về { key, text }. */
+/**
+ * Đưa option dạng "A. text" về { key, text }.
+ * Chỉ coi phần đầu là nhãn khi khớp `/^[A-Za-z0-9]{1,3}\.\s+/`, còn lại dùng chữ cái fallback.
+ */
 export function parseOptions(raw: unknown): SkillOption[] {
   if (!Array.isArray(raw)) return []
   return raw.map((option, index) => {
-    const fallbackKey = String.fromCharCode(65 + index)
+    const fallbackKey = String.fromCharCode(65 + (index % 26))
     if (typeof option === 'string') {
-      const dot = option.indexOf('.')
-      if (dot !== -1) return { key: option.slice(0, dot).trim(), text: option.slice(dot + 1).trim() }
+      const label = /^[A-Za-z0-9]{1,3}\.\s+/.exec(option)
+      if (label) {
+        const dot = option.indexOf('.')
+        return { key: option.slice(0, dot).trim(), text: option.slice(label[0].length).trim() }
+      }
       return { key: fallbackKey, text: option.trim() }
     }
     if (option && typeof option === 'object') {
@@ -130,7 +136,7 @@ export function parseOptions(raw: unknown): SkillOption[] {
 }
 
 /** Chuẩn hoá 11 kiểu câu hỏi của repo nguồn về 5 kiểu của app. */
-export function normalizeQuestionType(raw: string): SkillQuestionType {
+export function normalizeQuestionType(raw?: string | null): SkillQuestionType {
   const type = (raw ?? '').toLowerCase()
   if (type === 'tfng' || type === 't_f_ng') return 'tfng'
   if (type === 'ynng' || type === 'yes-no' || type === 'yes_no') return 'ynng'
@@ -139,15 +145,31 @@ export function normalizeQuestionType(raw: string): SkillQuestionType {
   return 'fill'
 }
 
+/**
+ * Mọi kiểu hiển thị hợp lệ — khai báo dạng `Record` để TypeScript bắt buộc bổ sung
+ * khi `SkillDisplayType` có thêm giá trị mới.
+ */
+const DISPLAY_TYPES: Record<SkillDisplayType, true> = {
+  tfng: true,
+  ynng: true,
+  'multiple-choice': true,
+  'multiple-choice-2': true,
+  'matching-heading': true,
+  'matching-info': true,
+  'matching-feature': true,
+  'fill-blank': true,
+  'note-completion': true,
+  'table-completion': true,
+  'summary-completion': true,
+  'sentence-completion': true,
+  'sentence-ending': true,
+}
+
 /** Chuẩn hoá `displayType`; giá trị lạ thì coi như fill-blank. */
-export function normalizeDisplayType(raw: string): SkillDisplayType {
+export function normalizeDisplayType(raw?: string | null): SkillDisplayType {
   const type = (raw ?? '').toLowerCase()
-  const known: SkillDisplayType[] = [
-    'tfng', 'ynng', 'multiple-choice', 'multiple-choice-2',
-    'matching-heading', 'matching-info', 'matching-feature', 'fill-blank',
-    'note-completion', 'table-completion', 'summary-completion', 'sentence-completion', 'sentence-ending',
-  ]
-  return known.find(item => item === type) ?? 'fill-blank'
+  if (Object.hasOwn(DISPLAY_TYPES, type)) return type as SkillDisplayType
+  return 'fill-blank'
 }
 
 const ALLOWED_TAGS = new Set([
@@ -168,34 +190,42 @@ const SAFE_ATTRIBUTES = new Set([
 ])
 
 /** Entity HTML có tên cần giải mã khi kiểm tra scheme URL. */
-const NAMED_ENTITIES: Record<string, string> = {
+const NAMED_ENTITIES: Record<string, string | undefined> = {
   '&colon;': ':',
   '&tab;': '\t',
   '&newline;': '\n',
 }
 
 /**
- * Giải mã entity HTML để không bị lách scheme độc
- * (ví dụ `&#106;avascript:` hay `jav&#x09;ascript:`).
+ * Giải mã entity dùng để lách scheme độc.
+ * Chỉ giải mã entity số và ba entity có tên ở trên — không phải bộ giải mã HTML đầy đủ.
+ * Dấu `;` ở entity số là tuỳ chọn vì trình duyệt cũng vậy (`&#106avascript:` vẫn ra `javascript:`),
+ * còn entity có tên thì bắt buộc có `;`.
  */
-function decodeEntities(value: string): string {
+function decodeObfuscatingEntities(value: string): string {
   const fromCodePoint = (code: number): string => {
     if (!Number.isFinite(code) || code < 0 || code > 0x10ffff) return ''
     return String.fromCodePoint(code)
   }
   return value
-    .replace(/&#x([0-9a-f]+);/gi, (_, code: string) => fromCodePoint(parseInt(code, 16)))
-    .replace(/&#(\d+);/g, (_, code: string) => fromCodePoint(parseInt(code, 10)))
-    .replace(/&(colon|tab|newline);/gi, (_, name: string) => NAMED_ENTITIES[`&${name.toLowerCase()};`])
+    .replace(/&#x([0-9a-f]+);?/gi, (_, code: string) => fromCodePoint(parseInt(code, 16)))
+    .replace(/&#(\d+);?/g, (_, code: string) => fromCodePoint(parseInt(code, 10)))
+    .replace(/&(colon|tab|newline);/gi, (_, name: string) => NAMED_ENTITIES[`&${name.toLowerCase()};`] ?? '')
+}
+
+/**
+ * Chuẩn hoá giá trị trước khi kiểm tra scheme: giải mã entity, bỏ ký tự điều khiển
+ * và khoảng trắng, viết thường — để chặn `java\nscript:`, `&#106;avascript:` và ` JaVaScRiPt: `.
+ */
+function normalizeForSchemeCheck(value: string): string {
+  return decodeObfuscatingEntities(value).replace(/[\u0000-\u0020]/g, '').toLowerCase()
 }
 
 /**
  * Kiểm tra URL có an toàn để đặt trong `href`/`src` hay không.
- * Giải mã entity rồi bỏ ký tự điều khiển và khoảng trắng trước khi so khớp
- * để chặn cả `java\nscript:`, `&#106;avascript:` và ` JaVaScRiPt: `.
  */
 function isSafeUrl(value: string): boolean {
-  const normalized = decodeEntities(value).replace(/[\u0000-\u0020]/g, '').toLowerCase()
+  const normalized = normalizeForSchemeCheck(value)
   if (normalized.startsWith('javascript:')) return false
   if (normalized.startsWith('vbscript:')) return false
   if (normalized.startsWith('data:')) return false
@@ -210,7 +240,7 @@ function isSafeUrl(value: string): boolean {
  * - không khai báo `position` là `absolute`, `fixed` hoặc `sticky` (tránh tràn khung).
  */
 function isSafeStyle(value: string): boolean {
-  const normalized = decodeEntities(value).replace(/[\u0000-\u0020]/g, '').toLowerCase()
+  const normalized = normalizeForSchemeCheck(value)
   if (normalized.includes('\\')) return false
   if (normalized.includes('expression(')) return false
   if (normalized.includes('javascript:')) return false
@@ -251,19 +281,19 @@ function parseAttributes(raw: string): HtmlAttribute[] {
 export function sanitizeHtml(html: string): string {
   if (!html) return ''
   let clean = html
-  // Bỏ cả khối script/style/iframe/object/embed, kể cả nội dung bên trong.
-  clean = clean.replace(/<\s*(script|style|iframe|object|embed)\b[\s\S]*?<\s*\/\s*\1\s*>/gi, '')
-  clean = clean.replace(/<\s*(script|style|iframe|object|embed)\b[^>]*\/?>/gi, '')
   // Bỏ comment HTML kèm nội dung, kể cả comment chưa đóng.
   clean = clean.replace(/<!--[\s\S]*?-->/g, '')
   clean = clean.replace(/<!--[\s\S]*$/g, '')
-  // Chỉ giữ thẻ an toàn, kèm thuộc tính an toàn và URL an toàn.
-  clean = clean.replace(/<\/?([a-zA-Z0-9]+)((?:"[^"]*"|'[^']*'|[^'">])*)>/g, (match, tag: string, rawAttributes: string) => {
+  // Bỏ cả khối script/style/iframe/object/embed; thẻ chưa đóng thì bỏ tới cuối chuỗi.
+  clean = clean.replace(/<\s*(script|style|iframe|object|embed)\b[\s\S]*?(?:<\s*\/\s*\1\s*>|$)/gi, '')
+  // Chỉ giữ thẻ an toàn, kèm thuộc tính an toàn và URL an toàn; dấu '<' lạ thì escape.
+  clean = clean.replace(/<\/?([a-zA-Z0-9]+)((?:"[^"]*"|'[^']*'|[^'">])*)>|</g, (match, tag: string | undefined, rawAttributes: string | undefined) => {
+    if (tag === undefined) return '&lt;'
     const name = tag.toLowerCase()
     if (!ALLOWED_TAGS.has(name)) return ''
     if (match.startsWith('</')) return `</${name}>`
     const kept: string[] = []
-    for (const attribute of parseAttributes(rawAttributes)) {
+    for (const attribute of parseAttributes(rawAttributes ?? '')) {
       if (attribute.name.startsWith('on')) continue
       if (!SAFE_ATTRIBUTES.has(attribute.name)) continue
       if ((attribute.name === 'href' || attribute.name === 'src') && !isSafeUrl(attribute.value)) continue
@@ -277,7 +307,7 @@ export function sanitizeHtml(html: string): string {
 
 export type HtmlSegment =
   | { kind: 'html'; html: string }
-  | { kind: 'blank'; questionId: number }
+  | { kind: 'blank'; sourceNumber: number }
 
 /**
  * Tách HTML thành các đoạn, chỗ trống có số (số + từ 4 ký tự gạch/dấu chấm trở lên,
@@ -286,12 +316,12 @@ export type HtmlSegment =
  */
 export function splitHtmlByBlanks(html: string): HtmlSegment[] {
   const segments: HtmlSegment[] = []
-  const pattern = /\b(\d{1,3})\s*[._…]{4,}/g
+  const pattern = /(?<!\d)(\d{1,3})\s*[._…]{4,}/g
   let lastIndex = 0
   let match = pattern.exec(html)
   while (match) {
     if (match.index > lastIndex) segments.push({ kind: 'html', html: html.slice(lastIndex, match.index) })
-    segments.push({ kind: 'blank', questionId: Number(match[1]) })
+    segments.push({ kind: 'blank', sourceNumber: Number(match[1]) })
     lastIndex = match.index + match[0].length
     match = pattern.exec(html)
   }

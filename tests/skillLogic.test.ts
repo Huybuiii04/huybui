@@ -1,5 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import * as skillLogic from '../src/lib/skillLogic.ts'
 import {
   answeredCount,
   formatClock,
@@ -200,11 +201,93 @@ test('sanitizeHtml removes html comments including their content', () => {
   assert.match(hidden, /<p>b<\/p>/)
 })
 
+test('sanitizeHtml drops numeric character references without a trailing semicolon', () => {
+  const clean = sanitizeHtml('<a href="&#106avascript:alert(1)" title="safe">x</a>')
+  assert.doesNotMatch(clean, /javascript:/i)
+  assert.match(clean, /<a title="safe">x<\/a>/)
+})
+
+test('sanitizeHtml rejects every obfuscated url scheme', () => {
+  const payloads = [
+    '&#106avascript:alert(1)',
+    '&#106;avascript:alert(1)',
+    'jav&#x09;ascript:alert(1)',
+    'javascript&colon;alert(1)',
+  ]
+  for (const payload of payloads) {
+    const clean = sanitizeHtml(`<a href="${payload}" title="safe">x</a>`)
+    assert.doesNotMatch(clean, /javascript:/i, payload)
+    assert.match(clean, /<a title="safe">x<\/a>/, payload)
+  }
+})
+
+test('sanitizeHtml keeps plain urls untouched', () => {
+  assert.equal(
+    sanitizeHtml('<a href="https://example.com/x?a=1&b=2">x</a>'),
+    '<a href="https://example.com/x?a=1&b=2">x</a>',
+  )
+  assert.equal(sanitizeHtml('<img src="/img/a.png">'), '<img src="/img/a.png">')
+})
+
+test('sanitizeHtml escapes markup it cannot parse', () => {
+  const clean = sanitizeHtml('<a href="x onmouseover=alert(1)>')
+  assert.doesNotMatch(clean, /<a/)
+  assert.match(clean, /&lt;/)
+})
+
+test('sanitizeHtml removes an unclosed script block to the end of the content', () => {
+  assert.equal(sanitizeHtml('<script>alert(1)'), '')
+  assert.equal(sanitizeHtml('<p>a</p><style>body{}'), '<p>a</p>')
+})
+
 test('splitHtmlByBlanks finds numbered blanks', () => {
   const segments = splitHtmlByBlanks('<p>cost was <strong>1_______</strong> each</p>')
   assert.equal(segments.length, 3)
-  assert.deepEqual(segments[1], { kind: 'blank', questionId: 1 })
+  assert.deepEqual(segments[1], { kind: 'blank', sourceNumber: 1 })
   assert.match(segments[0].html, /cost was/)
+})
+
+test('module exports exactly the 9 public helpers', () => {
+  assert.deepEqual(Object.keys(skillLogic).sort(), [
+    'answeredCount',
+    'formatClock',
+    'normalizeDisplayType',
+    'normalizeQuestionType',
+    'parseOptions',
+    'progressPercent',
+    'sanitizeHtml',
+    'splitHtmlByBlanks',
+    'splitParagraphs',
+  ])
+})
+
+test('normalizeDisplayType keeps known types and falls back to fill-blank', () => {
+  assert.equal(skillLogic.normalizeDisplayType('note-completion'), 'note-completion')
+  assert.equal(skillLogic.normalizeDisplayType('NOTE-COMPLETION'), 'note-completion')
+  assert.equal(skillLogic.normalizeDisplayType('bogus'), 'fill-blank')
+  assert.equal(skillLogic.normalizeDisplayType(null), 'fill-blank')
+})
+
+test('parseOptions handles empty, invalid and unusual input', () => {
+  assert.deepEqual(parseOptions([]), [])
+  assert.deepEqual(parseOptions('A. x'), [])
+  assert.deepEqual(parseOptions(null), [])
+  assert.deepEqual(parseOptions(['.']), [{ key: 'A', text: '.' }])
+  assert.deepEqual(parseOptions(['3.5 million']), [{ key: 'A', text: '3.5 million' }])
+  assert.deepEqual(parseOptions([{ key: 'X' }]), [{ key: 'X', text: '' }])
+  assert.deepEqual(parseOptions(['A', 'B', 'C']), [
+    { key: 'A', text: 'A' },
+    { key: 'B', text: 'B' },
+    { key: 'C', text: 'C' },
+  ])
+})
+
+test('progressPercent never exceeds 100', () => {
+  assert.equal(progressPercent(5, 4), 100)
+})
+
+test('formatClock falls back to zero for invalid input', () => {
+  assert.equal(formatClock(NaN), '0:00')
 })
 
 test('splitHtmlByBlanks returns plain html when there is no blank', () => {
@@ -218,6 +301,38 @@ test('splitHtmlByBlanks matches the documented placeholder examples', () => {
   for (const [html, number] of examples) {
     const segments = splitHtmlByBlanks(html)
     assert.equal(segments.length, 3)
-    assert.deepEqual(segments[1], { kind: 'blank', questionId: number })
+    assert.deepEqual(segments[1], { kind: 'blank', sourceNumber: number })
   }
+})
+
+test('splitHtmlByBlanks finds a placeholder next to letters and to another placeholder', () => {
+  const leading = splitHtmlByBlanks('1____abc')
+  assert.equal(leading.length, 2)
+  assert.deepEqual(leading[0], { kind: 'blank', sourceNumber: 1 })
+  assert.deepEqual(leading[1], { kind: 'html', html: 'abc' })
+
+  const trailing = splitHtmlByBlanks('abc 1____')
+  assert.equal(trailing.length, 2)
+  assert.deepEqual(trailing[0], { kind: 'html', html: 'abc ' })
+  assert.deepEqual(trailing[1], { kind: 'blank', sourceNumber: 1 })
+
+  const adjacent = splitHtmlByBlanks('1____2____')
+  assert.equal(adjacent.length, 2)
+  assert.deepEqual(adjacent[0], { kind: 'blank', sourceNumber: 1 })
+  assert.deepEqual(adjacent[1], { kind: 'blank', sourceNumber: 2 })
+
+  const spaced = splitHtmlByBlanks('1____ 2____')
+  assert.equal(spaced.length, 3)
+  assert.deepEqual(spaced[0], { kind: 'blank', sourceNumber: 1 })
+  assert.deepEqual(spaced[1], { kind: 'html', html: ' ' })
+  assert.deepEqual(spaced[2], { kind: 'blank', sourceNumber: 2 })
+
+  const afterLetters = splitHtmlByBlanks('the answer is1____')
+  assert.equal(afterLetters.length, 2)
+  assert.deepEqual(afterLetters[0], { kind: 'html', html: 'the answer is' })
+  assert.deepEqual(afterLetters[1], { kind: 'blank', sourceNumber: 1 })
+
+  const longNumber = splitHtmlByBlanks('12345____')
+  assert.equal(longNumber.length, 1)
+  assert.equal(longNumber[0].kind, 'html')
 })
