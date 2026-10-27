@@ -86,9 +86,13 @@ const promptRead = query(`select has_table_privilege('anon', 'public.prompts', '
 check('anon read on prompts/topics (must be truetrue)', promptRead, 'truetrue')
 
 // Đáp án của skill_questions phải KHÔNG đọc được bởi client (chấm ở Edge Function).
-// has_table_privilege KHÔNG tính quyền cấp ở mức cột, nên cả ba giá trị đều kiểm riêng.
-const skillQuestionPrivileges = query(`select has_table_privilege('anon', 'public.skill_questions', 'SELECT')::text || has_column_privilege('anon', 'public.skill_questions', 'answer_key', 'SELECT')::text || has_column_privilege('anon', 'public.skill_questions', 'prompt', 'SELECT')::text`)
-check('anon read on skill_questions (must be falsefalsetrue)', skillQuestionPrivileges, 'falsefalsetrue')
+// has_table_privilege KHÔNG tính quyền cấp ở mức cột, nên từng quyền được kiểm riêng.
+// Thứ tự: anon table | anon answer_key | anon prompt | authenticated answer_key | authenticated prompt
+const skillQuestionPrivileges = query(`select has_table_privilege('anon', 'public.skill_questions', 'SELECT')::text || has_column_privilege('anon', 'public.skill_questions', 'answer_key', 'SELECT')::text || has_column_privilege('anon', 'public.skill_questions', 'prompt', 'SELECT')::text || has_column_privilege('authenticated', 'public.skill_questions', 'answer_key', 'SELECT')::text || has_column_privilege('authenticated', 'public.skill_questions', 'prompt', 'SELECT')::text`)
+check('read on skill_questions (must be falsefalsetruefalsetrue)', skillQuestionPrivileges, 'falsefalsetruefalsetrue')
+
+const attemptsInsert = query(`select has_table_privilege('authenticated', 'public.skill_attempts', 'INSERT')::text`)
+check('authenticated INSERT on skill_attempts (must be false)', attemptsInsert, 'false')
 
 const dropped = query(`select count(*) from information_schema.tables where table_schema='public' and table_name='writing_prompts'`)
 check('writing_prompts removed (must be 0)', dropped, '0')
