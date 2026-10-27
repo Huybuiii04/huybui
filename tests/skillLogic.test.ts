@@ -50,6 +50,7 @@ test('normalizeQuestionType maps every source type to an app type', () => {
   assert.equal(normalizeQuestionType('ynng'), 'ynng')
   assert.equal(normalizeQuestionType('yes-no'), 'ynng')
   assert.equal(normalizeQuestionType('multiple-choice'), 'mcq')
+  assert.equal(normalizeQuestionType('matching'), 'matching')
   assert.equal(normalizeQuestionType('matching-info'), 'matching')
   assert.equal(normalizeQuestionType('matching-feature'), 'matching')
   assert.equal(normalizeQuestionType('MATCHING_HEADING'), 'matching')
@@ -68,6 +69,63 @@ test('sanitizeHtml drops scripts and event handlers but keeps markup', () => {
 
 test('sanitizeHtml drops javascript: links', () => {
   assert.doesNotMatch(sanitizeHtml('<a href="javascript:alert(1)">x</a>'), /javascript:/i)
+})
+
+test('sanitizeHtml keeps safe attributes on allowed tags', () => {
+  const clean = sanitizeHtml('<img src="/img/a.png" alt="A" width="100"><a href="https://example.com">link</a><td colspan="2">x</td>')
+  assert.match(clean, /<img src="\/img\/a\.png" alt="A" width="100">/)
+  assert.match(clean, /<a href="https:\/\/example\.com">link<\/a>/)
+  assert.match(clean, /<td colspan="2">x<\/td>/)
+})
+
+test('sanitizeHtml drops attributes outside the allow list', () => {
+  assert.equal(sanitizeHtml('<p class="lead" id="intro">text</p>'), '<p>text</p>')
+})
+
+test('sanitizeHtml drops unquoted javascript: links', () => {
+  const clean = sanitizeHtml('<a href=javascript:alert(1) title="safe">x</a>')
+  assert.doesNotMatch(clean, /javascript:/i)
+  assert.match(clean, /<a title="safe">x<\/a>/)
+})
+
+test('sanitizeHtml drops javascript: href but keeps the tag', () => {
+  const clean = sanitizeHtml('<a href="javascript:alert(1)" title="safe">x</a>')
+  assert.doesNotMatch(clean, /javascript:/i)
+  assert.match(clean, /<a title="safe">x<\/a>/)
+})
+
+test('sanitizeHtml drops dangerous url schemes', () => {
+  const vbscript = sanitizeHtml('<a href="vbscript:msgbox(1)" title="safe">x</a>')
+  assert.doesNotMatch(vbscript, /vbscript:/i)
+  assert.match(vbscript, /<a title="safe">x<\/a>/)
+
+  const data = sanitizeHtml('<img src="data:image/png;base64,AAA" alt="A">')
+  assert.doesNotMatch(data, /data:/i)
+  assert.match(data, /<img alt="A">/)
+
+  const newline = sanitizeHtml('<a href="java\nscript:alert(1)" title="safe">x</a>')
+  assert.doesNotMatch(newline, /javascript:/i)
+  assert.match(newline, /<a title="safe">x<\/a>/)
+
+  const mixedCase = sanitizeHtml('<a href="  JaVaScRiPt:alert(1)" title="safe">x</a>')
+  assert.doesNotMatch(mixedCase, /javascript:/i)
+  assert.match(mixedCase, /<a title="safe">x<\/a>/)
+})
+
+test('sanitizeHtml removes script blocks including their content', () => {
+  const clean = sanitizeHtml('<div>keep</div><script>alert("x")</script><style>body{color:red}</style>')
+  assert.match(clean, /<div>keep<\/div>/)
+  assert.doesNotMatch(clean, /alert/)
+  assert.doesNotMatch(clean, /script/i)
+  assert.doesNotMatch(clean, /style/i)
+})
+
+test('sanitizeHtml removes dangerous and disallowed elements but keeps inner text', () => {
+  assert.equal(
+    sanitizeHtml('<p>a</p><iframe src="https://evil.test"></iframe><object data="x"></object><embed src="y">'),
+    '<p>a</p>',
+  )
+  assert.equal(sanitizeHtml('<form>keep text</form>'), 'keep text')
 })
 
 test('splitHtmlByBlanks finds numbered blanks', () => {

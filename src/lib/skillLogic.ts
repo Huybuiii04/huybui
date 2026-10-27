@@ -157,27 +157,66 @@ const ALLOWED_TAGS = new Set([
   'span', 'div', 'a', 'img', 'figure', 'figcaption',
 ])
 
+/** Thuộc tính được giữ lại khi lọc HTML — mọi thuộc tính khác bị bỏ. */
+const SAFE_ATTRIBUTES = new Set([
+  'href', 'src', 'alt', 'title', 'colspan', 'rowspan', 'width', 'height', 'lang', 'dir',
+])
+
+/**
+ * Kiểm tra URL có an toàn để đặt trong `href`/`src` hay không.
+ * Bỏ ký tự điều khiển và khoảng trắng trước khi so khớp để chặn cả
+ * `java\nscript:` và ` JaVaScRiPt: `.
+ */
+function isSafeUrl(value: string): boolean {
+  const normalized = value.replace(/[\u0000-\u0020]/g, '').toLowerCase()
+  if (normalized.startsWith('javascript:')) return false
+  if (normalized.startsWith('vbscript:')) return false
+  if (normalized.startsWith('data:')) return false
+  return true
+}
+
+type HtmlAttribute = { name: string; value: string }
+
+/** Tách chuỗi thuộc tính thô thành các cặp { name, value }. */
+function parseAttributes(raw: string): HtmlAttribute[] {
+  const attributes: HtmlAttribute[] = []
+  const pattern = /([a-zA-Z_:][-a-zA-Z0-9_:.]*)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'`=<>]+)))?/g
+  let match = pattern.exec(raw)
+  while (match) {
+    attributes.push({
+      name: match[1].toLowerCase(),
+      value: match[2] ?? match[3] ?? match[4] ?? '',
+    })
+    match = pattern.exec(raw)
+  }
+  return attributes
+}
+
 /**
  * Lọc HTML của đề trước khi render.
  * Nội dung đến từ seed nội bộ nhưng vẫn phải lọc: không cho script, style,
- * iframe, thuộc tính sự kiện (on*) và đường dẫn javascript:.
+ * iframe, thuộc tính sự kiện (on*), thẻ không nằm trong `ALLOWED_TAGS`,
+ * thuộc tính ngoài `SAFE_ATTRIBUTES` và URL có scheme nguy hiểm.
  */
 export function sanitizeHtml(html: string): string {
   if (!html) return ''
   let clean = html
+  // Bỏ cả khối script/style/iframe/object/embed, kể cả nội dung bên trong.
   clean = clean.replace(/<\s*(script|style|iframe|object|embed)\b[\s\S]*?<\s*\/\s*\1\s*>/gi, '')
   clean = clean.replace(/<\s*(script|style|iframe|object|embed)\b[^>]*\/?>/gi, '')
-  clean = clean.replace(/\son[a-z]+\s*=\s*"[^"]*"/gi, '')
-  clean = clean.replace(/\son[a-z]+\s*=\s*'[^']*'/gi, '')
-  clean = clean.replace(/\son[a-z]+\s*=\s*[^\s>]+/gi, '')
-  clean = clean.replace(/(href|src)\s*=\s*"\s*javascript:[^"]*"/gi, '$1="#"')
-  clean = clean.replace(/(href|src)\s*=\s*'\s*javascript:[^']*'/gi, '$1="#"')
-  clean = clean.replace(/<\/?([a-zA-Z0-9]+)(\s[^>]*)?>/g, (match, tag: string) => {
+  // Chỉ giữ thẻ an toàn, kèm thuộc tính an toàn và URL an toàn.
+  clean = clean.replace(/<\/?([a-zA-Z0-9]+)((?:"[^"]*"|'[^']*'|[^'">])*)>/g, (match, tag: string, rawAttributes: string) => {
     const name = tag.toLowerCase()
     if (!ALLOWED_TAGS.has(name)) return ''
     if (match.startsWith('</')) return `</${name}>`
-    const attributes = (match.match(/\s[^>]*$/)?.[0] ?? '').replace(/\son[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '')
-    return `<${name}${attributes}>`
+    const kept: string[] = []
+    for (const attribute of parseAttributes(rawAttributes)) {
+      if (attribute.name.startsWith('on')) continue
+      if (!SAFE_ATTRIBUTES.has(attribute.name)) continue
+      if ((attribute.name === 'href' || attribute.name === 'src') && !isSafeUrl(attribute.value)) continue
+      kept.push(` ${attribute.name}="${attribute.value.replace(/"/g, '&quot;')}"`)
+    }
+    return `<${name}${kept.join('')}>`
   })
   return clean
 }
@@ -187,7 +226,8 @@ export type HtmlSegment =
   | { kind: 'blank'; questionId: number }
 
 /**
- * Tách HTML thành các đoạn, chỗ trống có số ("1_______", "2……") thành segment riêng
+ * Tách HTML thành các đoạn, chỗ trống có số (số + từ 4 ký tự gạch/dấu chấm trở lên,
+ * ví dụ "2____" hoặc "3…….") thành segment riêng
  * để React chèn ô nhập nội tuyến — không dùng dangerouslySetInnerHTML cho phần có ô nhập.
  */
 export function splitHtmlByBlanks(html: string): HtmlSegment[] {
