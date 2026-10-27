@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router'
-import { ArrowUpRight, BookOpen, ChevronRight, CircleHelp, ClipboardList, FileText, Heart, LayoutDashboard, Lightbulb, LogOut, Menu, Moon, NotebookPen, PanelLeftClose, PenLine, RotateCcw, Settings, ShieldCheck, Sun, X } from 'lucide-react'
+import { ArrowUpRight, BookMarked, BookOpen, ChevronRight, CircleHelp, ClipboardList, FileText, Heart, LayoutDashboard, Lightbulb, LogOut, Menu, Moon, NotebookPen, PanelLeftClose, PenLine, RotateCcw, Settings, ShieldCheck, Sun, X } from 'lucide-react'
 import { useCopy } from '../i18n'
 import { useStore } from '../lib/store'
 import { useAdminRole } from '../lib/adminRole'
@@ -41,6 +41,7 @@ export default function Layout() {
     { group: c('LUYỆN VIẾT', 'PRACTICE'), path: '/app', icon: LayoutDashboard, label: c('Tổng quan', 'Overview'), end: true },
     { path: '/app/write', icon: PenLine, label: c('Không gian viết', 'Writing space') },
     { path: '/app/prompts', icon: ClipboardList, label: c('Kho đề bài', 'Prompt library') },
+    { path: '/app/reading', icon: BookMarked, label: c('Luyện đọc', 'Reading') },
     { path: '/app/essays', icon: FileText, label: c('Bài viết của tôi', 'My writing') },
     { group: c('GÓC HỌC TẬP', 'MY LEARNING'), path: '/app/vocabulary', icon: BookOpen, label: c('Sổ từ vựng', 'Vocabulary') },
     { path: '/app/review', icon: RotateCcw, label: c('Ôn tập', 'Review'), badge: due },

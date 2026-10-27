@@ -13,6 +13,9 @@ const Prompts = lazy(() => import('./pages/Prompts'))
 import { useCopy } from './i18n'
 
 const Writing = lazy(() => import('./pages/Writing'))
+const Reading = lazy(() => import('./pages/Reading'))
+const ReadingTest = lazy(() => import('./pages/ReadingTest'))
+const ReadingResult = lazy(() => import('./pages/ReadingResult'))
 
 export function AppFallback() {
   const { c } = useCopy()
@@ -38,6 +41,9 @@ export function routes() {
           <Route path="/app/review" element={<Review />} />
           <Route path="/app/errors" element={<Errors />} />
           <Route path="/app/settings" element={<Settings />} />
+          <Route path="/app/reading" element={<Suspense fallback={<AppFallback />}><Reading /></Suspense>} />
+          <Route path="/app/reading/result/:attemptId" element={<Suspense fallback={<AppFallback />}><ReadingResult /></Suspense>} />
+          <Route path="/app/reading/:slug" element={<Suspense fallback={<AppFallback />}><ReadingTest /></Suspense>} />
           <Route path="/admin" element={<Admin />} />
         </Route>
         <Route path="*" element={<NotFound />} />
