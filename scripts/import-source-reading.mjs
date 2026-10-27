@@ -205,6 +205,22 @@ for (const name of passageFiles) {
       && blankNumbers.every((value, index) => index === 0 || value === blankNumbers[index - 1] + 1)
     const useBlankNumbers = !idsUsable && blanksUsable
 
+    // Nhóm không có id dùng được mà cũng không có chỗ trống thì lấy qStart:
+    // _blockConfig.qStart là số câu đầu tiên của nhóm trong đề gốc
+    // (ew-1-1: 1-4, 5-8, 9-14). Nếu không có qStart thì mới dùng vị trí trong nhóm.
+    const qStart = Number(first._blockConfig?.qStart)
+    const hasQStart = Number.isInteger(qStart) && qStart > 0
+    const useQStart = !idsUsable && !useBlankNumbers && hasQStart
+
+    /** Thứ tự ưu tiên: id hợp lệ → chỗ trống → qStart → vị trí trong nhóm. */
+    const sourceNumberFor = (question, questionIndex) => {
+      const ownId = /^\d+$/.test(String(question.id ?? '')) ? Number(question.id) : null
+      if (idsUsable) return ownId
+      if (useBlankNumbers) return blankNumbers[questionIndex]
+      if (useQStart) return ownId ?? qStart + questionIndex
+      return ownId ?? questionIndex + 1
+    }
+
     return {
       key: groupId,
       order: groupIndex + 1,
@@ -214,9 +230,7 @@ for (const name of passageFiles) {
       questions: items.map((question, questionIndex) => ({
         sourceId: String(question.id ?? ''),
         // Số câu gốc trong đề — dùng để ánh xạ chỗ trống "31_______" trong HTML.
-        sourceNumber: useBlankNumbers
-          ? blankNumbers[questionIndex]
-          : (/^\d+$/.test(String(question.id ?? '')) ? Number(question.id) : questionIndex + 1),
+        sourceNumber: sourceNumberFor(question, questionIndex),
         order: questionIndex + 1,
         type: normalizeType(question.type),
         displayType,
