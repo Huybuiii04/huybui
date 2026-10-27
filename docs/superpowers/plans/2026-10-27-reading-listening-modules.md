@@ -532,7 +532,7 @@ export type SourceQuestionType =
 export type SkillDisplayType =
   | 'tfng' | 'ynng'
   | 'multiple-choice' | 'multiple-choice-2'
-  | 'matching-heading' | 'matching-info' | 'matching-feature'
+  | 'matching' | 'matching-heading' | 'matching-info' | 'matching-feature'
   | 'fill-blank'
   | 'note-completion' | 'table-completion' | 'summary-completion' | 'sentence-completion' | 'sentence-ending'
 
@@ -556,6 +556,8 @@ export type SkillQuestionGroup = {
   order: number
   instructionHtml: string
   displayType: SkillDisplayType
+  /** Dữ liệu gốc của nhóm (headings, featureOptions, sectionLabels…) từ repo nguồn. */
+  config: Record<string, unknown>
   questions: SkillQuestion[]
 }
 
@@ -583,16 +585,6 @@ export type SkillTest = {
   testType: 'academic' | 'general'
   questionCount: number
   sections: SkillSection[]
-}
-
-export type SkillAttempt = {
-  id: string
-  skill: SkillKind
-  testId: string
-  correctCount: number
-  totalCount: number
-  band: number | null
-  createdAt: string
 }
 
 /** Định dạng số giây thành mm:ss (phủ số 0 ở đầu phần giây). */
@@ -646,6 +638,216 @@ export function parseOptions(raw: unknown): SkillOption[] {
   })
 }
 
+/**
+ * Nguồn danh sách lựa chọn cho từng kiểu câu matching — tên key trong `config` của nhóm.
+ * Kiểu `matching` (không rõ) thử lần lượt từng nguồn.
+ */
+const MATCHING_OPTION_SOURCES: Record<string, readonly string[]> = {
+  'matching-heading': ['headings'],
+  'matching-feature': ['featureOptions'],
+  'matching-info': ['sectionLabels'],
+  matching: ['headings', 'featureOptions', 'sectionLabels'],
+}
+
+/**
+ * Cách đặt nhãn cho mỗi lựa chọn:
+ * - `roman`: số La Mã theo thứ tự (i, ii, iii…) — matching-heading yêu cầu "write the correct number, i–xi".
+ * - `letter`: chữ cái theo thứ tự (A, B, C…) — matching-feature yêu cầu "match with the correct option, A–C".
+ * - `own`: chính chuỗi có sẵn trong danh sách — matching-info đã là chữ cái A, B, C…
+ */
+type MatchingLabelStyle = 'roman' | 'letter' | 'own'
+
+const MATCHING_LABEL_STYLE: Record<string, MatchingLabelStyle | undefined> = {
+  headings: 'roman',
+  featureOptions: 'letter',
+  sectionLabels: 'own',
+}
+
+/** Nhãn La Mã theo vị trí (0 → i, 1 → ii…). */
+const ROMAN_LABELS = [
+  '', 'i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii', 'viii', 'ix',
+  'x', 'xi', 'xii', 'xiii', 'xiv', 'xv', 'xvi', 'xvii', 'xviii', 'xix', 'xx',
+]
+
+function romanLabel(index: number): string {
+  return ROMAN_LABELS[index + 1] ?? String.fromCharCode(65 + index)
+}
+
+function letterLabel(index: number): string {
+  return String.fromCharCode(65 + (index % 26))
+}
+
+/**
+ * Đọc một mảng lựa chọn thô trong `config` thành `SkillOption[]`.
+ * Bỏ qua phần tử rỗng; phần tử dạng đối tượng `{ key, text }` dùng nguyên trạng.
+ */
+function optionsFromConfig(value: unknown, style: MatchingLabelStyle): SkillOption[] {
+  if (!Array.isArray(value)) return []
+  const options: SkillOption[] = []
+  for (const entry of value) {
+    if (typeof entry === 'string') {
+      const raw = entry.trim()
+      if (!raw) continue
+      const index = options.length
+      if (style === 'own') {
+        // Danh sách đã là chữ cái sẵn có ("A", "B"…); lỡ không phải thì lấy theo thứ tự.
+        options.push({ key: /^[A-Za-z]$/.test(raw) ? raw : letterLabel(index), text: raw })
+        continue
+      }
+      const label = style === 'roman' ? romanLabel(index) : letterLabel(index)
+      // Bỏ tiền tố "A. " khi nó trùng nhãn, khỏi hiện "A. A. nội dung".
+      const text = raw.startsWith(`${label}. `) ? raw.slice(label.length + 2).trim() : raw
+      options.push({ key: label, text })
+      continue
+    }
+    if (entry && typeof entry === 'object') {
+      const item = entry as { key?: unknown; text?: unknown }
+      const key = typeof item.key === 'string' ? item.key.trim() : ''
+      const text = typeof item.text === 'string' ? item.text.trim() : ''
+      if (!key && !text) continue
+      options.push({ key: key || text, text: text || key })
+    }
+  }
+  return options
+}
+
+/**
+ * Dải chữ cái nêu trong hướng dẫn của nhóm: "Choose the correct letter, A-I".
+ * Chấp nhận cả gạch ngang, gạch en và gạch em.
+ */
+const LETTER_RANGE_PATTERN = /letter,?\s*([A-Za-z])\s*[–—-]\s*([A-Za-z])/i
+
+/**
+ * Sinh lựa chọn chữ cái từ dải nêu trong hướng dẫn của nhóm.
+ * Một số nhóm matching không có danh sách lựa chọn trong config,
+ * nhưng hướng dẫn vẫn nói rõ "choose the correct letter, A-I".
+ */
+function letterRangeOptions(instructionHtml: string): SkillOption[] {
+  const text = (instructionHtml ?? '').replace(/<[^>]+>/g, ' ')
+  const match = LETTER_RANGE_PATTERN.exec(text)
+  if (!match) return []
+  const start = match[1].toUpperCase().charCodeAt(0) - 65
+  const end = match[2].toUpperCase().charCodeAt(0) - 65
+  if (start < 0 || end < start || end - start > 25) return []
+  const options: SkillOption[] = []
+  for (let index = start; index <= end; index += 1) {
+    const letter = String.fromCharCode(65 + index)
+    options.push({ key: letter, text: letter })
+  }
+  return options
+}
+
+/**
+ * Danh sách lựa chọn cho câu matching, lấy từ config của nhóm.
+ * Nhiều câu matching trong dữ liệu gốc không mang options riêng —
+ * danh sách nằm ở config của nhóm theo đúng kiểu câu hỏi.
+ *
+ * `key` là nhãn thí sinh ghi ra (La Mã cho matching-heading, chữ cái cho
+ * matching-feature, chữ cái sẵn có cho matching-info) nên đáp án gửi lên
+ * khớp với `answer_key` mà server dùng để chấm.
+ *
+ * Khi config không có danh sách nào dùng được, dải chữ cái trong hướng dẫn
+ * của nhóm là nguồn cuối cùng.
+ */
+export function matchingOptionsFor(group: SkillQuestionGroup): SkillOption[] {
+  const sources = MATCHING_OPTION_SOURCES[group.displayType]
+  if (!sources) return []
+  const config = group.config ?? {}
+  for (const source of sources) {
+    const options = optionsFromConfig(config[source], MATCHING_LABEL_STYLE[source] ?? 'own')
+    if (options.length) return options
+  }
+  return letterRangeOptions(group.instructionHtml)
+}
+
+/**
+ * Có phải nhóm matching không — câu hỏi của nhóm này chọn trong danh sách
+ * (La Mã cho matching-heading, chữ cái cho matching-feature/matching-info).
+ *
+ * Dùng `displayType` chứ không dùng `type` của câu: nhiều câu trong nhóm
+ * matching bị ghi nhầm kiểu `fill` nên sẽ rơi về ô nhập chữ thay vì danh sách.
+ */
+export function isMatchingDisplayType(displayType: SkillDisplayType): boolean {
+  return displayType === 'matching-heading'
+    || displayType === 'matching-info'
+    || displayType === 'matching-feature'
+    || displayType === 'matching'
+}
+
+/** Số từ tiếng Anh nói số đáp án cần chọn. */
+const ANSWER_COUNT_WORDS: Record<string, number> = {
+  two: 2,
+  three: 3,
+  four: 4,
+  five: 5,
+  six: 6,
+  seven: 7,
+}
+
+/**
+ * Số đáp án cần chọn, đọc từ đề bài: "Choose TWO correct answers",
+ * "Which TWO are mentioned by the writer?", "Choose THREE …".
+ *
+ * Chỉ nhận số từ đứng ngay sau `choose`/`which` — "Choose NO MORE THAN THREE
+ * WORDS" là giới hạn số từ, không phải số đáp án nên không được nhận nhầm.
+ */
+const ANSWER_COUNT_PATTERN = /\b(?:choose|which)\s+(two|three|four|five|six|seven)\b/i
+
+/** Bóc số đáp án khỏi một đoạn text (bỏ thẻ HTML trước). */
+function detectAnswerCount(text: string): number {
+  const match = ANSWER_COUNT_PATTERN.exec((text ?? '').replace(/<[^>]+>/g, ' '))
+  if (!match) return 0
+  return ANSWER_COUNT_WORDS[match[1].toLowerCase()] ?? 0
+}
+
+/**
+ * Số đáp án của một câu hỏi nhiều đáp án (0 = câu chỉ chọn một đáp án).
+ *
+ * Nhóm Cambridge nói số đáp án ở hướng dẫn nhóm ("Choose TWO correct answers,
+ * A–E") hoặc ở đề bài của câu ("Which TWO are mentioned by the writer?"),
+ * nên đề bài được ưu tiên, hướng dẫn nhóm là phương án dự phòng.
+ */
+export function multiAnswerCount(prompt: string, instructionHtml: string): number {
+  return detectAnswerCount(prompt) || detectAnswerCount(instructionHtml)
+}
+
+/**
+ * Số đáp án của cả nhóm: hướng dẫn nhóm trước, sau đó tới đề bài các câu MCQ.
+ *
+ * Nhóm `multiple-choice-2` luôn có hướng dẫn kiểu "Choose TWO correct answers",
+ * nhưng vài nhóm chỉ nói số đáp án ở đề bài của một câu ("Which TWO are
+ * mentioned by the writer?") — câu anh em trong nhóm phải mượn số đó.
+ */
+export function groupAnswerCount(group: SkillQuestionGroup): number {
+  const fromInstruction = detectAnswerCount(group.instructionHtml)
+  if (fromInstruction) return fromInstruction
+  return group.questions.reduce((most, question) => {
+    if (question.type !== 'mcq') return most
+    return Math.max(most, detectAnswerCount(question.prompt))
+  }, 0)
+}
+
+/**
+ * Đề bài của câu bị mất (chỉ còn "Question 12" hoặc rỗng) — câu đó phải mượn
+ * số đáp án của nhóm, không thể tự suy ra từ đề bài rỗng.
+ */
+export function isPlaceholderPrompt(prompt: string): boolean {
+  const text = (prompt ?? '').trim()
+  if (!text) return true
+  return /^question\s*\d+$/i.test(text)
+}
+
+/**
+ * Đề chỉ tải được đủ câu thì mới nộp được.
+ *
+ * Server chấm theo số thứ tự câu (1..N) nên nếu thiếu câu, mọi đáp án sẽ bị
+ * gán nhầm câu mà vẫn được chấm điểm.
+ */
+export function hasCompleteQuestionSet(questionCount: number, loadedCount: number): boolean {
+  if (questionCount <= 0) return true
+  return loadedCount === questionCount
+}
+
 /** Chuẩn hoá 11 kiểu câu hỏi của repo nguồn về 5 kiểu của app. */
 export function normalizeQuestionType(raw?: string | null): SkillQuestionType {
   const type = (raw ?? '').toLowerCase()
@@ -665,6 +867,7 @@ const DISPLAY_TYPES: Record<SkillDisplayType, true> = {
   ynng: true,
   'multiple-choice': true,
   'multiple-choice-2': true,
+  matching: true,
   'matching-heading': true,
   'matching-info': true,
   'matching-feature': true,
@@ -747,21 +950,30 @@ function isSafeUrl(value: string): boolean {
  * Kiểm tra giá trị `style` trước khi giữ lại.
  * Đề dùng `style` cho định dạng bảng nên chỉ loại bỏ giá trị nguy hiểm, phần còn lại giữ nguyên:
  * - không có dấu `\` (CSS escape như `\75 rl(...)` đều là kẻ lách),
- * - không có `expression(`, `javascript:` hay `url(`,
+ * - không có `expression`, `javascript:` hay `url`,
  * - không khai báo `position` là `absolute`, `fixed` hoặc `sticky` (tránh tràn khung).
+ *
+ * Comment CSS phải bị bỏ TRƯỚC khi kiểm tra: trình duyệt bỏ comment nên một
+ * comment chen giữa `position:` và `absolute` vẫn được tính là `position:absolute`.
  */
 function isSafeStyle(value: string): boolean {
-  const normalized = normalizeForSchemeCheck(value)
-  if (normalized.includes('\\')) return false
-  if (normalized.includes('expression(')) return false
-  if (normalized.includes('javascript:')) return false
-  if (normalized.includes('url(')) return false
+  // Bỏ comment CSS: trình duyệt bỏ comment nên một comment chen giữa
+  // `position:` và `absolute` vẫn bị tính là position tuyệt đối.
+  const withoutComments = value.replace(/\/\*[\s\S]*?\*\//g, '')
+  // Bỏ khoảng trắng quanh dấu ':' để "position : absolute" không lọt.
+  const normalized = withoutComments.replace(/\s*:\s*/g, ':')
+  const compact = normalizeForSchemeCheck(normalized)
+  if (compact.includes('\\')) return false
+  if (compact.includes('expression')) return false
+  if (compact.includes('javascript:')) return false
+  if (compact.includes('url')) return false
+  // "background-position" KHÔNG phải khai báo position — cần ranh giới trước tên.
   const position = /(^|[^-\w])position:([-\w]+)/g
-  let match = position.exec(normalized)
+  let match = position.exec(compact)
   while (match) {
     const declaration = match[2]
     if (declaration !== 'relative' && declaration !== 'static') return false
-    match = position.exec(normalized)
+    match = position.exec(compact)
   }
   return true
 }
@@ -797,9 +1009,11 @@ export function sanitizeHtml(html: string): string {
   clean = clean.replace(/<!--[\s\S]*$/g, '')
   // Bỏ cả khối script/style/iframe/object/embed; thẻ chưa đóng thì bỏ tới cuối chuỗi.
   clean = clean.replace(/<\s*(script|style|iframe|object|embed)\b[\s\S]*?(?:<\s*\/\s*\1\s*>|$)/gi, '')
-  // Chỉ giữ thẻ an toàn, kèm thuộc tính an toàn và URL an toàn; dấu '<' lạ thì escape.
-  clean = clean.replace(/<\/?([a-zA-Z0-9]+)((?:"[^"]*"|'[^']*'|[^'">])*)>|</g, (match, tag: string | undefined, rawAttributes: string | undefined) => {
-    if (tag === undefined) return '&lt;'
+  // Chỉ giữ thẻ an toàn, kèm thuộc tính an toàn và URL an toàn.
+  // Nhánh thứ hai bắt thẻ HỎNG (dấu nháy không đóng) và BỎ HẲN — nếu chỉ escape
+  // '<' thì phần còn lại của thẻ lọt ra thành chữ hiển thị ("onerror=alert(1)").
+  clean = clean.replace(/<\/?([a-zA-Z0-9]+)((?:"[^"]*"|'[^']*'|[^'">])*)>|<\/?[a-zA-Z][^<>]*>?|</g, (match, tag: string | undefined, rawAttributes: string | undefined) => {
+    if (tag === undefined) return match === '<' ? '&lt;' : ''
     const name = tag.toLowerCase()
     if (!ALLOWED_TAGS.has(name)) return ''
     if (match.startsWith('</')) return `</${name}>`
@@ -1811,6 +2025,46 @@ test('matchesAnswerKey accepts alternatives separated by a slash', () => {
   assert.equal(matchesAnswerKey('after 11:00', "after 11(:00)/eleven (o'clock)"), true)
 })
 
+test('matchesAnswerKey requires every letter of a comma separated multi-answer key', () => {
+  assert.equal(matchesAnswerKey('A,C', 'A,C'), true)
+  assert.equal(matchesAnswerKey('C,A', 'A,C'), true)
+  assert.equal(matchesAnswerKey('a,c', 'A,C'), true)
+  assert.equal(matchesAnswerKey('A', 'A,C'), false)
+  assert.equal(matchesAnswerKey('A,B', 'A,C'), false)
+  assert.equal(matchesAnswerKey('A,C,D', 'A,C'), false)
+  assert.equal(matchesAnswerKey('A, C', 'A,C'), true)
+})
+
+test('matchesAnswerKey accepts a pipe separated multi-answer key', () => {
+  assert.equal(matchesAnswerKey('B,C', 'B|C'), true)
+  assert.equal(matchesAnswerKey('C,B', 'B|C'), true)
+  assert.equal(matchesAnswerKey('B', 'B|C'), false)
+  assert.equal(matchesAnswerKey('B,D', 'B|C'), false)
+})
+
+test('matchesAnswerKey requires every letter of a five letter multi-answer key', () => {
+  assert.equal(matchesAnswerKey('A,D,E,F,J', 'A,D,E,F,J'), true)
+  assert.equal(matchesAnswerKey('A,D,E,F', 'A,D,E,F,J'), false)
+  assert.equal(matchesAnswerKey('A,D,E', 'A,D,E,F,J'), false)
+  assert.equal(matchesAnswerKey('A,D,E,F,J,K', 'A,D,E,F,J'), false)
+})
+
+test('matchesAnswerKey keeps matching a comma separated word answer', () => {
+  // "breathing, reproduction" là hai TỪ, không phải hai chữ cái — không được
+  // áp luật chấm nhiều chữ cái vào đáp án điền từ.
+  assert.equal(matchesAnswerKey('breathing, reproduction', 'breathing, reproduction'), true)
+  assert.equal(matchesAnswerKey('breathing', 'breathing, reproduction'), false)
+})
+
+test('matchesAnswerKey accepts the option label of a key that carries the option text', () => {
+  // Câu matching-feature: đáp án ghi kèm nội dung lựa chọn, thí sinh chọn nhãn.
+  const key = 'D. to give money or goods to a person or organisation that needs help'
+  assert.equal(matchesAnswerKey('D', key), true)
+  assert.equal(matchesAnswerKey('d', key), true)
+  assert.equal(matchesAnswerKey('C', key), false)
+  assert.equal(matchesAnswerKey(key, key), true)
+})
+
 test('matchesAnswerKey accepts the [or] notation', () => {
   assert.equal(matchesAnswerKey('October 22', '22(nd) October [or] October 22(nd)'), true)
 })
@@ -1844,8 +2098,6 @@ Expected: FAIL — `Cannot find module '.../skillGrading.ts'`.
 //
 // Đáp án chỉ được đọc bằng service role trong Edge Function `grade-skill`;
 // frontend không bao giờ nhận answer_key trước khi nộp bài.
-
-export type SkillKind = "reading" | "listening";
 
 export type GradingQuestion = {
   order: number;
@@ -1996,13 +2248,26 @@ export function matchesAnswerKey(
     return user === key || user.startsWith(`${key} `) || user.startsWith(`${key}.`);
   }
 
-  const keyParts = answerKey.split(",").map((part) => normalize(part)).filter(Boolean);
-  if (keyParts.length > 1 && keyParts.every((part) => /^[a-z]$/.test(part))) {
-    const userParts = user.split(",").map((part) => part.trim()).filter(Boolean);
-    if (userParts.length > 1) {
-      return [...userParts].sort().join(",") === [...keyParts].sort().join(",");
-    }
-    return keyParts.includes(user);
+  // Đáp án nhiều chữ cái: "A,C" hoặc "B|C".
+  //
+  // Học viên phải chọn ĐÚNG số chữ cái như đáp án: thiếu một chữ cái là sai
+  // (không chấp nhận bộ con), thứ tự không quan trọng.
+  //
+  // Chỉ coi "," và "|" là dấu phân cách khi mọi phần đều là MỘT chữ cái, nhờ vậy
+  // "after 11(:00)/eleven (o'clock)" hay "breathing, reproduction" không bị đụng tới.
+  const letterParts = answerKey.split(/[,|]/).map((part) => normalize(part)).filter(Boolean);
+  if (letterParts.length > 1 && letterParts.every((part) => /^[a-z]$/.test(part))) {
+    const userParts = user.split(/[,|]/).map((part) => part.trim()).filter(Boolean);
+    if (userParts.length !== letterParts.length) return false;
+    return [...userParts].sort().join(",") === [...letterParts].sort().join(",");
+  }
+
+  // Đáp án ghi kèm nhãn của lựa chọn ("D. to give money …" cho câu matching):
+  // thí sinh chỉ chọn nhãn nên nhãn đơn cũng phải được chấp.
+  const labelledKey = /^([a-z])\.\s/.exec(key);
+  if (labelledKey) {
+    if (user === labelledKey[1]) return true;
+    return expandAnswerKey(answerKey).includes(user);
   }
 
   return expandAnswerKey(answerKey).includes(user);
@@ -2445,12 +2710,13 @@ Expected: FAIL — `Cannot find module '.../src/lib/skillRepository.ts'`.
 `src/lib/skillRepository.ts`:
 
 ```ts
-// Đọc đề Reading từ PostgREST.
+// Đọc đề Reading / Listening từ PostgREST.
 //
 // Bảng skill_questions chỉ cấp quyền đọc cho các cột KHÔNG chứa đáp án, nên
 // mọi truy vấn ở đây đều ghi tên cột tường minh — không dùng select=* cho bảng này.
 
 import {
+  matchingOptionsFor,
   parseOptions,
   type SkillDisplayType,
   type SkillKind,
@@ -2495,6 +2761,7 @@ type GroupRow = {
   order_index: number
   instruction_html: string | null
   display_type: string | null
+  config: unknown
 }
 
 type QuestionRow = {
@@ -2511,7 +2778,7 @@ type QuestionRow = {
 
 const TEST_COLUMNS = 'id,slug,skill,series,series_no,title,description,level,duration_minutes,test_type,question_count,status'
 const SECTION_COLUMNS = 'id,test_id,section_no,title,topic,content_html,audio_path,transcript'
-const GROUP_COLUMNS = 'id,section_id,order_index,instruction_html,display_type'
+const GROUP_COLUMNS = 'id,section_id,order_index,instruction_html,display_type,config'
 const QUESTION_COLUMNS = 'id,group_id,order_index,source_number,question_type,display_type,prompt,question_html,options'
 
 /** Nguồn mặc định lấy từ biến môi trường Vite (được inject lúc build). */
@@ -2522,16 +2789,24 @@ export function defaultSkillSource(): SkillSource | null {
   return url && key ? { url, key } : null
 }
 
-async function request(source: SkillSource, path: string, params: URLSearchParams): Promise<unknown[]> {
+/** Kết quả một truy vấn: `ok` là false khi fetch lỗi hoặc HTTP không thành công. */
+type QueryResult = { rows: unknown[]; ok: boolean }
+
+async function query(source: SkillSource, path: string, params: URLSearchParams): Promise<QueryResult> {
   try {
     const response = await fetch(`${source.url}/rest/v1/${path}?${params.toString()}`, {
       headers: { apikey: source.key, Authorization: `Bearer ${source.key}` },
     })
-    if (!response.ok) return []
-    return (await response.json()) as unknown[]
+    if (!response.ok) return { rows: [], ok: false }
+    return { rows: (await response.json()) as unknown[], ok: true }
   } catch {
-    return []
+    return { rows: [], ok: false }
   }
+}
+
+/** Đọc một bảng; lỗi thì trả về mảng rỗng (danh sách đề không được ném lỗi ra UI). */
+async function request(source: SkillSource, path: string, params: URLSearchParams): Promise<unknown[]> {
+  return (await query(source, path, params)).rows
 }
 
 function toTest(row: TestRow): SkillTest {
@@ -2577,14 +2852,19 @@ export async function loadSkillTest(slug: string, source = defaultSkillSource())
   }))
   const groups = groupRows as GroupRow[]
 
-  const questionRows = groups.length
-    ? await request(source, 'skill_questions', new URLSearchParams({
+  const questionResult = groups.length
+    ? await query(source, 'skill_questions', new URLSearchParams({
       select: QUESTION_COLUMNS,
       group_id: `in.(${groups.map(group => group.id).join(',')})`,
       order: 'order_index.asc',
     }))
-    : []
-  const questions = questionRows as QuestionRow[]
+    : { rows: [], ok: true }
+  // Đề tải thiếu câu thì số thứ tự hiển thị lệch với số thứ tự server chấm
+  // → mọi đáp án bị gán nhầm câu. Thà không có đề còn hơn nộp bài sai.
+  if (!questionResult.ok) return null
+  const questions = questionResult.rows as QuestionRow[]
+  const expectedCount = testRow.question_count ?? 0
+  if (expectedCount > 0 && questions.length < expectedCount) return null
 
   const mappedSections: SkillSection[] = sections.map(section => ({
     id: section.id,
@@ -2596,14 +2876,29 @@ export async function loadSkillTest(slug: string, source = defaultSkillSource())
     hasTranscript: Boolean((section.transcript ?? '').trim()),
     groups: groups
       .filter(group => group.section_id === section.id)
-      .map<SkillQuestionGroup>(group => ({
-        id: group.id,
-        order: group.order_index,
-        instructionHtml: group.instruction_html ?? '',
-        displayType: (group.display_type ?? 'fill-blank') as SkillDisplayType,
-        questions: questions
-          .filter(question => question.group_id === group.id)
-          .map<SkillQuestion>(question => ({
+      .map<SkillQuestionGroup>(group => {
+        const mapped: SkillQuestionGroup = {
+          id: group.id,
+          order: group.order_index,
+          instructionHtml: group.instruction_html ?? '',
+          displayType: (group.display_type ?? 'fill-blank') as SkillDisplayType,
+          config: (group.config ?? {}) as Record<string, unknown>,
+          questions: [],
+        }
+        // Danh sách lựa chọn của nhóm là nguồn chuẩn: options riêng của câu
+        // trong dữ liệu gốc có thể nằm sai không gian nhãn (tiêu đề thay vì số
+        // La Mã, hoặc thiếu chữ cái cuối) nên chỉ dùng khi nhóm không có.
+        const sharedOptions = matchingOptionsFor(mapped)
+        const groupQuestions = questions.filter(question => question.group_id === group.id)
+        const ownOptions = new Map(groupQuestions.map(question => [question.id, parseOptions(question.options)]))
+        // Dự phòng: câu đầu tiên trong nhóm có danh sách riêng. Nhóm
+        // `multiple-choice-2` chỉ gắn options cho câu đầu, câu sau phải mượn.
+        const fallbackOptions = groupQuestions
+          .map(question => ownOptions.get(question.id) ?? [])
+          .find(options => options.length) ?? []
+        mapped.questions = groupQuestions.map<SkillQuestion>(question => {
+          const options = ownOptions.get(question.id) ?? []
+          return {
             id: question.id,
             order: question.order_index,
             sourceNumber: question.source_number ?? question.order_index,
@@ -2611,10 +2906,12 @@ export async function loadSkillTest(slug: string, source = defaultSkillSource())
             displayType: (question.display_type ?? 'fill-blank') as SkillDisplayType,
             prompt: question.prompt ?? '',
             questionHtml: question.question_html ?? '',
-            options: parseOptions(question.options),
+            options: sharedOptions.length ? sharedOptions : (options.length ? options : fallbackOptions),
             explanation: '',
-          })),
-      })),
+          }
+        })
+        return mapped
+      }),
   }))
 
   return { ...toTest(testRow), sections: mappedSections }
@@ -2787,7 +3084,13 @@ export function PassagePanel({ section }: { section: SkillSection }) {
 ```tsx
 import { Flag } from 'lucide-react'
 import { useCopy } from '../../i18n'
-import type { SkillOption, SkillQuestion } from '../../lib/skillLogic.ts'
+import {
+  isMatchingDisplayType,
+  isPlaceholderPrompt,
+  multiAnswerCount,
+  type SkillOption,
+  type SkillQuestion,
+} from '../../lib/skillLogic.ts'
 
 const TFNG_OPTIONS = ['TRUE', 'FALSE', 'NOT GIVEN'] as const
 const YNNG_OPTIONS = ['YES', 'NO', 'NOT GIVEN'] as const
@@ -2803,12 +3106,18 @@ function optionLabel(option: SkillOption): string {
 /**
  * Một câu hỏi dạng thẻ: số câu, đề bài, cờ đánh dấu và ô trả lời theo `question.type`.
  * Dùng cho mọi dạng không có chỗ trống nằm sẵn trong HTML của nhóm.
+ *
+ * `instructionHtml` là hướng dẫn của nhóm: một số nhóm chỉ nói số đáp án cần
+ * chọn ở hướng dẫn ("Choose TWO correct answers") chứ không nói ở từng câu.
+ * `groupAnswerCount` là số đáp án của nhóm, dùng cho câu bị mất đề bài.
  */
 export function QuestionCard({
   question,
   number,
   value,
   flagged,
+  instructionHtml,
+  groupAnswerCount,
   onAnswer,
   onToggleFlag,
 }: {
@@ -2816,17 +3125,45 @@ export function QuestionCard({
   number: number
   value: string
   flagged: boolean
+  instructionHtml: string
+  groupAnswerCount: number
   onAnswer: (value: string) => void
   onToggleFlag: () => void
 }) {
   const { c } = useCopy()
   const selected = value ?? ''
   const chips = question.type === 'ynng' ? YNNG_OPTIONS : TFNG_OPTIONS
+
+  /**
+   * Số đáp án của câu: đề bài trước, hướng dẫn nhóm sau; câu mất đề bài
+   * ("Question 12") thì mượn số đáp án của nhóm.
+   */
+  const answerCount = multiAnswerCount(question.prompt, instructionHtml)
+    || (isPlaceholderPrompt(question.prompt) ? groupAnswerCount : 0)
+  const isMultiAnswer = question.type === 'mcq' && answerCount > 1
+  const selectedKeys = isMultiAnswer
+    ? selected.split(',').map(key => key.trim()).filter(Boolean)
+    : []
+
+  /** Bật/tắt một đáp án của câu nhiều đáp án; lưu dạng "A,C" (đã sắp xếp). */
+  const toggleKey = (key: string) => {
+    const next = selectedKeys.includes(key)
+      ? selectedKeys.filter(item => item !== key)
+      : [...selectedKeys, key]
+    onAnswer(next.sort().join(','))
+  }
+
+  // Nhóm matching: câu phải chọn trong danh sách đã có, kể cả câu bị ghi
+  // nhầm kiểu `fill` (41 câu matching-heading trong dữ liệu gốc).
+  const showSelect = isMatchingDisplayType(question.displayType) && question.options.length > 0
+  const showText = !showSelect && (question.type === 'fill' || question.type === 'matching')
+
   return <article className="skill-question" id={`question-${number}`}>
     <header className="skill-question-head">
       <span className={`skill-question-number ${selected ? 'is-answered' : ''}`}>{number}</span>
       <div className="skill-question-text">
         {question.prompt && <p className="skill-question-prompt">{question.prompt}</p>}
+        {isMultiAnswer && <p className="skill-question-hint">{c(`Chọn ${answerCount} đáp án`, `Select ${answerCount} answers`)}</p>}
       </div>
       <button
         type="button"
@@ -2849,13 +3186,25 @@ export function QuestionCard({
     </div>}
 
     {question.type === 'mcq' && <div className="skill-options">
-      {question.options.map(option => <label key={option.key} className={`skill-option ${selected === option.key ? 'is-selected' : ''}`}>
-        <input type="radio" name={`question-${number}`} value={option.key} checked={selected === option.key} onChange={() => onAnswer(option.key)} />
-        <span><strong>{option.key}.</strong>{option.text === option.key ? '' : ` ${option.text}`}</span>
-      </label>)}
+      {question.options.map(option => isMultiAnswer
+        ? <label key={option.key} className={`skill-option ${selectedKeys.includes(option.key) ? 'is-selected' : ''}`}>
+          <input
+            type="checkbox"
+            name={`question-${number}`}
+            value={option.key}
+            checked={selectedKeys.includes(option.key)}
+            disabled={!selectedKeys.includes(option.key) && selectedKeys.length >= answerCount}
+            onChange={() => toggleKey(option.key)}
+          />
+          <span><strong>{option.key}.</strong>{option.text === option.key ? '' : ` ${option.text}`}</span>
+        </label>
+        : <label key={option.key} className={`skill-option ${selected === option.key ? 'is-selected' : ''}`}>
+          <input type="radio" name={`question-${number}`} value={option.key} checked={selected === option.key} onChange={() => onAnswer(option.key)} />
+          <span><strong>{option.key}.</strong>{option.text === option.key ? '' : ` ${option.text}`}</span>
+        </label>)}
     </div>}
 
-    {question.type === 'matching' && <div className="skill-options">
+    {showSelect && <div className="skill-options">
       <label className={`skill-option ${selected ? 'is-selected' : ''}`}>
         <select value={selected} onChange={event => onAnswer(event.target.value)} aria-label={c('Chọn đáp án', 'Choose an answer')}>
           <option value="">{c('— Chọn đáp án —', '— Choose an answer —')}</option>
@@ -2864,7 +3213,7 @@ export function QuestionCard({
       </label>
     </div>}
 
-    {question.type === 'fill' && <div className="skill-fill">
+    {showText && <div className="skill-fill">
       <input
         type="text"
         value={selected}
@@ -2889,8 +3238,9 @@ Hai điều đã kiểm chứng trên dữ liệu thật:
 
 ```tsx
 import { useMemo } from 'react'
+import { Flag } from 'lucide-react'
 import { useCopy } from '../../i18n'
-import { sanitizeHtml, splitHtmlByBlanks, type SkillQuestionGroup } from '../../lib/skillLogic.ts'
+import { groupAnswerCount, sanitizeHtml, splitHtmlByBlanks, type SkillQuestionGroup } from '../../lib/skillLogic.ts'
 import { QuestionCard } from './QuestionCard.tsx'
 
 /**
@@ -2935,6 +3285,8 @@ export function QuestionGroup({
 }) {
   const { c } = useCopy()
   const instruction = useMemo(() => sanitizeHtml(group.instructionHtml), [group.instructionHtml])
+  // Số đáp án của nhóm ("Choose TWO correct answers") để câu mất đề bài mượn dùng.
+  const answerCount = useMemo(() => groupAnswerCount(group), [group])
   const html = useMemo(() => {
     const first = group.questions.find(question => question.questionHtml.trim())
     return sanitizeHtml(first?.questionHtml ?? '')
@@ -2974,15 +3326,28 @@ export function QuestionGroup({
         // Chỗ trống không thuộc nhóm này (số câu trùng với nhóm khác của passage)
         // thì để nguyên dạng chữ, nhóm sở hữu câu đó sẽ vẽ ô nhập.
         if (!id) return <span key={index} className="skill-inline-input">{segment.sourceNumber}</span>
-        return <input
-          key={index}
-          className="skill-inline-input"
-          type="text"
-          value={answers[id] ?? ''}
-          onChange={event => onAnswer(id, event.target.value)}
-          aria-label={c(`Đáp án câu ${segment.sourceNumber}`, `Answer for question ${segment.sourceNumber}`)}
-          placeholder="________"
-        />
+        const isFlagged = flagged.has(id)
+        // Ô nhập và nút cờ nằm cạnh nhau trong một span: nút cờ KHÔNG nằm trong
+        // <label>/<form> nên bấm cờ không kích hoạt nhầm ô nhập.
+        return <span key={index} className="skill-inline-answer">
+          <input
+            className="skill-inline-input"
+            type="text"
+            value={answers[id] ?? ''}
+            onChange={event => onAnswer(id, event.target.value)}
+            aria-label={c(`Đáp án câu ${segment.sourceNumber}`, `Answer for question ${segment.sourceNumber}`)}
+            placeholder="________"
+          />
+          <button
+            type="button"
+            className={`skill-flag skill-flag-inline ${isFlagged ? 'is-active' : ''}`}
+            onClick={() => onToggleFlag(id)}
+            aria-pressed={isFlagged}
+            aria-label={isFlagged ? c('Bỏ đánh dấu câu này', 'Remove the flag from this question') : c('Đánh dấu câu này để xem lại', 'Flag this question for review')}
+          >
+            <Flag size={13} />
+          </button>
+        </span>
       })}
     </div>}
 
@@ -2992,6 +3357,8 @@ export function QuestionGroup({
       number={numbers[question.id] ?? 0}
       value={answers[question.id] ?? ''}
       flagged={flagged.has(question.id)}
+      instructionHtml={group.instructionHtml}
+      groupAnswerCount={answerCount}
       onAnswer={value => onAnswer(question.id, value)}
       onToggleFlag={() => onToggleFlag(question.id)}
     />)}
@@ -3130,13 +3497,15 @@ export function SkillResult({ grade }: { grade: SkillGrade }) {
 .skill-question-number.is-answered { background: var(--success-soft); color: var(--success); }
 .skill-question-text { flex: 1; min-width: 0; display: grid; gap: .35rem; }
 .skill-question-prompt { margin: 0; font-weight: 600; line-height: 1.55; }
+.skill-question-hint { margin: 0; font-size: .8rem; color: var(--text-muted); }
 .skill-flag { border: 1px solid transparent; background: transparent; color: var(--text-subtle); border-radius: 8px; padding: .3rem; cursor: pointer; }
 .skill-flag.is-active { color: var(--accent); background: var(--accent-soft); border-color: var(--accent); }
 .skill-options { display: grid; gap: .4rem; padding-left: 2.75rem; }
 /* .skill-option là <label>: cần đặt lại flex-direction và margin của rule `label` chung. */
 .skill-option { display: flex; flex-direction: row; gap: .6rem; align-items: flex-start; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: .5rem .7rem; cursor: pointer; margin-bottom: 0; color: var(--text); }
-/* Rule `input` chung đặt width:100% và min-height:46px — radio phải trở lại kích thước mặc định. */
-.skill-option input[type='radio'] { width: auto; min-height: 0; padding: 0; margin: .2rem 0 0; flex: 0 0 auto; accent-color: var(--brand); }
+/* Rule `input` chung đặt width:100% và min-height:46px — radio/checkbox phải trở lại kích thước mặc định. */
+.skill-option input[type='radio'], .skill-option input[type='checkbox'] { width: auto; min-height: 0; padding: 0; margin: .2rem 0 0; flex: 0 0 auto; accent-color: var(--brand); }
+.skill-option:has(input:disabled) { opacity: .55; cursor: not-allowed; }
 .skill-option select { width: 100%; border: 1px solid var(--control-border); border-radius: var(--radius-sm); padding: .45rem .6rem; background: var(--surface); color: var(--text); }
 .skill-tfng { display: flex; flex-wrap: wrap; gap: .4rem; padding-left: 2.75rem; }
 .skill-chip { border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); border-radius: 999px; padding: .35rem .85rem; font-size: .75rem; font-weight: 700; cursor: pointer; }
@@ -3190,6 +3559,53 @@ export function SkillResult({ grade }: { grade: SkillGrade }) {
 .skill-result-list li.is-wrong .skill-result-icon { background: var(--danger-soft); color: var(--danger); }
 .skill-result-prompt { margin: 0; font-weight: 600; }
 .skill-explanation { margin: .3rem 0 0; font-size: .82rem; color: var(--text-muted); white-space: pre-line; }
+
+/* Ô nhập nội tuyến + nút gắn cờ nằm cạnh nhau, không phá dòng chữ. */
+.skill-inline-answer { display: inline-flex; align-items: center; gap: .15rem; vertical-align: middle; }
+.skill-flag-inline { display: inline-flex; align-items: center; justify-content: center; padding: .15rem; border-radius: 6px; line-height: 1; }
+.skill-flag-inline.is-active { color: var(--accent); background: var(--accent-soft); border-color: var(--accent); }
+
+.skill-workspace { display: grid; gap: 1rem; }
+.skill-workspace-bar {
+  display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+  padding: .85rem 1rem; border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--surface); box-shadow: var(--shadow-sm); position: sticky; top: 0; z-index: 20;
+}
+.skill-workspace-title { flex: 1; min-width: 12rem; }
+.skill-workspace-title h1 { margin: 0; font-size: 1.05rem; }
+.skill-workspace-progress { display: grid; gap: .3rem; font-size: .78rem; color: var(--text-muted); min-width: 10rem; }
+.skill-workspace-progress .skill-timer-bar { width: 10rem; }
+.skill-workspace-body { display: grid; grid-template-columns: 16rem minmax(0, 1fr) minmax(0, 1.1fr); gap: 1rem; align-items: start; }
+.skill-workspace-side { display: grid; gap: 1rem; position: sticky; top: 5.5rem; }
+.skill-workspace-passage, .skill-workspace-questions {
+  border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow-sm);
+  padding: 1rem; display: grid; gap: .8rem; max-height: calc(100vh - 9rem); overflow-y: auto;
+}
+.skill-section-tabs { display: grid; gap: .3rem; }
+.skill-section-tab { text-align: left; border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); border-radius: var(--radius-sm); padding: .5rem .7rem; font-size: .78rem; font-weight: 600; cursor: pointer; }
+.skill-section-tab.is-active { border-color: var(--brand); background: var(--brand-soft); color: var(--brand-ink); }
+.card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr)); gap: 1rem; }
+.skill-card { display: flex; gap: .8rem; padding: 1rem; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow-sm); color: inherit; text-decoration: none; }
+.skill-card h3 { margin: .15rem 0 .3rem; font-size: 1rem; }
+.skill-card-icon { flex: 0 0 auto; width: 2.4rem; height: 2.4rem; border-radius: 12px; display: grid; place-items: center; background: var(--brand-soft); color: var(--brand); }
+.skill-card-meta { display: flex; align-items: center; gap: .35rem; font-size: .75rem; color: var(--text-subtle); }
+.filter-row { display: flex; flex-wrap: wrap; gap: .4rem; margin-bottom: 1rem; }
+.filter-chip { border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); border-radius: 999px; padding: .3rem .8rem; font-size: .78rem; font-weight: 600; cursor: pointer; }
+.filter-chip.is-active { background: var(--brand); border-color: var(--brand); color: var(--on-brand); }
+@media (max-width: 1080px) {
+  .skill-workspace-body { grid-template-columns: minmax(0, 1fr); }
+  .skill-workspace-side { position: static; }
+  .skill-workspace-passage, .skill-workspace-questions { max-height: none; }
+}
+
+/* ---------- Trang quản trị: kho đề Reading ---------- */
+.admin-skill-list { display: grid; gap: 1rem; margin-top: 1rem; }
+.admin-skill { border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; display: grid; gap: .7rem; background: var(--surface); }
+.admin-skill header { display: flex; gap: 1rem; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; }
+.admin-skill h3 { margin: .1rem 0; font-size: 1rem; }
+.admin-skill-actions { display: flex; gap: .4rem; flex-wrap: wrap; }
+.admin-skill ul { list-style: none; margin: 0; padding: 0; display: grid; gap: .5rem; }
+.admin-skill li { display: flex; gap: .8rem; align-items: center; flex-wrap: wrap; border-top: 1px solid var(--border); padding-top: .5rem; font-size: .85rem; }
 
 /* ---------- Trang tài liệu công khai (dùng chung bản tĩnh + bản React) ---------- */
 .doc-shell { min-height: 100vh; display: flex; flex-direction: column; }
@@ -3297,7 +3713,7 @@ import { TestTimer } from '../components/skill/TestTimer.tsx'
 import { useCopy } from '../i18n'
 import { gradeSkill } from '../lib/skillApi.ts'
 import { loadSkillTest } from '../lib/skillRepository.ts'
-import { answeredCount, progressPercent, type SkillQuestion, type SkillTest } from '../lib/skillLogic.ts'
+import { answeredCount, hasCompleteQuestionSet, progressPercent, type SkillQuestion, type SkillTest } from '../lib/skillLogic.ts'
 
 export default function ReadingTest() {
   const { c } = useCopy()
@@ -3361,6 +3777,34 @@ export default function ReadingTest() {
   const answered = answeredCount(answers, allQuestions)
   const section = test?.sections[activeSection] ?? null
 
+  /**
+   * Đề phải tải được đủ số câu mới nộp được.
+   *
+   * Server chấm theo số thứ tự câu (1..N) nên nếu thiếu câu, mọi đáp án sẽ bị
+   * gán nhầm câu mà vẫn được chấm điểm — tệ hơn là không cho nộp.
+   */
+  const incomplete = test ? !hasCompleteQuestionSet(test.questionCount, allQuestions.length) : false
+
+  /**
+   * Bản đáp án gửi lên server, khoá là SỐ CÂU toàn đề (1..N) chứ không phải id câu.
+   *
+   * `parseGradeSkill` chỉ nhận khoá dạng số ("answer keys must be question numbers")
+   * và `gradeQuestions` tra `answers[String(order)]` — order chính là số câu toàn đề
+   * mà `grade-skill` tự đánh số theo section → group → order_index.
+   */
+  const payloadAnswers = useMemo(() => {
+    const payload: Record<string, string> = {}
+    for (const question of allQuestions) {
+      const value = answers[question.id]
+      if (value === undefined) continue
+      const number = numbers[question.id]
+      // Server chỉ nhận khoá dạng số — bỏ qua câu chưa có số để không làm hỏng cả lần nộp.
+      if (!Number.isInteger(number) || number < 1) continue
+      payload[String(number)] = value
+    }
+    return payload
+  }, [answers, allQuestions, numbers])
+
   const setAnswer = (questionId: string, value: string) => setAnswers(previous => ({ ...previous, [questionId]: value }))
   const toggleFlag = (questionId: string) => setFlagged(previous => {
     const next = new Set(previous)
@@ -3378,11 +3822,15 @@ export default function ReadingTest() {
 
   const submit = async () => {
     if (!test || submitting) return
+    if (incomplete) {
+      setError(c('Đề chưa tải đủ câu hỏi, không thể nộp bài.', 'The test did not load every question, so it cannot be submitted.'))
+      return
+    }
     setSubmitting(true)
     setError('')
     const result = await gradeSkill({
       testId: test.id,
-      answers,
+      answers: payloadAnswers,
       timeSpentSeconds: Math.round((Date.now() - startedAt.current) / 1000),
     })
     if (!result.ok) {
@@ -3411,10 +3859,15 @@ export default function ReadingTest() {
         <span className="skill-timer-bar"><span style={{ width: `${progressPercent(answered, allQuestions.length)}%` }} /></span>
       </div>
       <TestTimer seconds={remaining} durationMinutes={test.durationMinutes} />
-      <button type="button" className="button primary" onClick={() => void submit()} disabled={submitting}>
+      <button type="button" className="button primary" onClick={() => void submit()} disabled={submitting || incomplete}>
         <Send size={16} />{submitting ? c('Đang nộp…', 'Submitting…') : c('Nộp bài', 'Submit')}
       </button>
     </header>
+
+    {incomplete && <Notice error><div>
+      <strong>{c('Đề tải thiếu câu hỏi nên không thể nộp bài.', 'This test is missing questions, so it cannot be submitted.')}</strong>
+      <p>{c('Tải lại trang để thử lại.', 'Reload the page to try again.')}</p>
+    </div></Notice>}
 
     {error && <Notice error><div><strong>{c('Không nộp được bài.', 'The attempt could not be submitted.')}</strong><p>{c('Thử lại sau ít phút.', 'Please try again in a moment.')}</p></div></Notice>}
 
