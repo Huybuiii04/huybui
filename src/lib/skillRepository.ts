@@ -77,16 +77,24 @@ export function defaultSkillSource(): SkillSource | null {
   return url && key ? { url, key } : null
 }
 
-async function request(source: SkillSource, path: string, params: URLSearchParams): Promise<unknown[]> {
+/** Kết quả một truy vấn: `ok` là false khi fetch lỗi hoặc HTTP không thành công. */
+type QueryResult = { rows: unknown[]; ok: boolean }
+
+async function query(source: SkillSource, path: string, params: URLSearchParams): Promise<QueryResult> {
   try {
     const response = await fetch(`${source.url}/rest/v1/${path}?${params.toString()}`, {
       headers: { apikey: source.key, Authorization: `Bearer ${source.key}` },
     })
-    if (!response.ok) return []
-    return (await response.json()) as unknown[]
+    if (!response.ok) return { rows: [], ok: false }
+    return { rows: (await response.json()) as unknown[], ok: true }
   } catch {
-    return []
+    return { rows: [], ok: false }
   }
+}
+
+/** Đọc một bảng; lỗi thì trả về mảng rỗng (danh sách đề không được ném lỗi ra UI). */
+async function request(source: SkillSource, path: string, params: URLSearchParams): Promise<unknown[]> {
+  return (await query(source, path, params)).rows
 }
 
 function toTest(row: TestRow): SkillTest {
@@ -132,14 +140,19 @@ export async function loadSkillTest(slug: string, source = defaultSkillSource())
   }))
   const groups = groupRows as GroupRow[]
 
-  const questionRows = groups.length
-    ? await request(source, 'skill_questions', new URLSearchParams({
+  const questionResult = groups.length
+    ? await query(source, 'skill_questions', new URLSearchParams({
       select: QUESTION_COLUMNS,
       group_id: `in.(${groups.map(group => group.id).join(',')})`,
       order: 'order_index.asc',
     }))
-    : []
-  const questions = questionRows as QuestionRow[]
+    : { rows: [], ok: true }
+  // Đề tải thiếu câu thì số thứ tự hiển thị lệch với số thứ tự server chấm
+  // → mọi đáp án bị gán nhầm câu. Thà không có đề còn hơn nộp bài sai.
+  if (!questionResult.ok) return null
+  const questions = questionResult.rows as QuestionRow[]
+  const expectedCount = testRow.question_count ?? 0
+  if (expectedCount > 0 && questions.length < expectedCount) return null
 
   const mappedSections: SkillSection[] = sections.map(section => ({
     id: section.id,
@@ -164,22 +177,27 @@ export async function loadSkillTest(slug: string, source = defaultSkillSource())
         // trong dữ liệu gốc có thể nằm sai không gian nhãn (tiêu đề thay vì số
         // La Mã, hoặc thiếu chữ cái cuối) nên chỉ dùng khi nhóm không có.
         const sharedOptions = matchingOptionsFor(mapped)
-        mapped.questions = questions
-          .filter(question => question.group_id === group.id)
-          .map<SkillQuestion>(question => {
-            const options = parseOptions(question.options)
-            return {
-              id: question.id,
-              order: question.order_index,
-              sourceNumber: question.source_number ?? question.order_index,
-              type: (question.question_type ?? 'fill') as SkillQuestionType,
-              displayType: (question.display_type ?? 'fill-blank') as SkillDisplayType,
-              prompt: question.prompt ?? '',
-              questionHtml: question.question_html ?? '',
-              options: sharedOptions.length ? sharedOptions : options,
-              explanation: '',
-            }
-          })
+        const groupQuestions = questions.filter(question => question.group_id === group.id)
+        const ownOptions = new Map(groupQuestions.map(question => [question.id, parseOptions(question.options)]))
+        // Dự phòng: câu đầu tiên trong nhóm có danh sách riêng. Nhóm
+        // `multiple-choice-2` chỉ gắn options cho câu đầu, câu sau phải mượn.
+        const fallbackOptions = groupQuestions
+          .map(question => ownOptions.get(question.id) ?? [])
+          .find(options => options.length) ?? []
+        mapped.questions = groupQuestions.map<SkillQuestion>(question => {
+          const options = ownOptions.get(question.id) ?? []
+          return {
+            id: question.id,
+            order: question.order_index,
+            sourceNumber: question.source_number ?? question.order_index,
+            type: (question.question_type ?? 'fill') as SkillQuestionType,
+            displayType: (question.display_type ?? 'fill-blank') as SkillDisplayType,
+            prompt: question.prompt ?? '',
+            questionHtml: question.question_html ?? '',
+            options: sharedOptions.length ? sharedOptions : (options.length ? options : fallbackOptions),
+            explanation: '',
+          }
+        })
         return mapped
       }),
   }))

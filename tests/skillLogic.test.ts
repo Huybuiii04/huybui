@@ -1,9 +1,15 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import * as skillLogic from '../src/lib/skillLogic.ts'
+import type { SkillAttempt } from '../src/lib/skillApi.ts'
 import {
   answeredCount,
   formatClock,
+  groupAnswerCount,
+  hasCompleteQuestionSet,
+  isMatchingDisplayType,
+  isPlaceholderPrompt,
+  multiAnswerCount,
   normalizeQuestionType,
   parseOptions,
   progressPercent,
@@ -192,6 +198,36 @@ test('sanitizeHtml drops style values with css escapes or absolute positioning',
   assert.match(staticPosition, /<td style="position:static">x<\/td>/)
 })
 
+test('sanitizeHtml strips css comments before checking the position', () => {
+  // Trình duyệt bỏ comment CSS nên comment chen giữa 'position:' và 'absolute'
+  // vẫn bị tính là position tuyệt đối.
+  const commented = sanitizeHtml('<td style="position:/**/absolute">x</td>')
+  assert.doesNotMatch(commented, /style=/i)
+  assert.match(commented, /<td>x<\/td>/)
+
+  const spaced = sanitizeHtml('<td style="position : absolute">x</td>')
+  assert.doesNotMatch(spaced, /style=/i)
+  assert.match(spaced, /<td>x<\/td>/)
+
+  const commentedFixed = sanitizeHtml('<td style="position:/**/fixed">x</td>')
+  assert.doesNotMatch(commentedFixed, /style=/i)
+
+  // Comment trong style lành mạnh vẫn được giữ.
+  const safe = sanitizeHtml('<td style="border:1px solid #555 /* viền */">x</td>')
+  assert.match(safe, /<td style="border:1px solid #555/)
+  assert.match(safe, /x<\/td>/)
+})
+
+test('sanitizeHtml drops style values that mention expression or url without a parenthesis', () => {
+  const expression = sanitizeHtml('<td style="width:expression alert(1)">x</td>')
+  assert.doesNotMatch(expression, /style=/i)
+  assert.match(expression, /<td>x<\/td>/)
+
+  const url = sanitizeHtml('<td style="background:url evil.png">x</td>')
+  assert.doesNotMatch(url, /style=/i)
+  assert.match(url, /<td>x<\/td>/)
+})
+
 test('sanitizeHtml removes html comments including their content', () => {
   assert.equal(sanitizeHtml('<!-- secret --><p>x</p>'), '<p>x</p>')
   const hidden = sanitizeHtml('<p>a</p><!-- <script>alert(1)</script> --><p>b</p>')
@@ -229,10 +265,32 @@ test('sanitizeHtml keeps plain urls untouched', () => {
   assert.equal(sanitizeHtml('<img src="/img/a.png">'), '<img src="/img/a.png">')
 })
 
-test('sanitizeHtml escapes markup it cannot parse', () => {
+test('sanitizeHtml drops markup it cannot parse', () => {
+  // Thẻ hỏng (dấu nháy không đóng) phải bị BỎ HẲN — không escape '<' rồi để lọt
+  // phần text còn lại của thẻ ra giao diện.
   const clean = sanitizeHtml('<a href="x onmouseover=alert(1)>')
-  assert.doesNotMatch(clean, /<a/)
-  assert.match(clean, /&lt;/)
+  assert.doesNotMatch(clean, /onmouseover/i)
+  assert.doesNotMatch(clean, /href="x/i)
+  assert.doesNotMatch(clean, /<a/i)
+})
+
+test('sanitizeHtml drops a malformed tag instead of leaking its text', () => {
+  const image = sanitizeHtml('<img src="x onerror=alert(1)>')
+  assert.doesNotMatch(image, /onerror/i)
+  assert.doesNotMatch(image, /src="x/i)
+  assert.equal(image, '')
+
+  const link = sanitizeHtml('<a href="x onmouseover=alert(1)>')
+  assert.doesNotMatch(link, /onmouseover/i)
+  assert.doesNotMatch(link, /href="x/i)
+  assert.equal(link, '')
+
+  // Thẻ đúng vẫn phải được duyệt qua danh sách cho phép.
+  assert.equal(sanitizeHtml('<a href="https://example.com">link</a>'), '<a href="https://example.com">link</a>')
+})
+
+test('sanitizeHtml keeps a stray less-than sign as text', () => {
+  assert.equal(sanitizeHtml('plain < text and 3 < 5'), 'plain &lt; text and 3 &lt; 5')
 })
 
 test('sanitizeHtml removes an unclosed script block to the end of the content', () => {
@@ -247,11 +305,16 @@ test('splitHtmlByBlanks finds numbered blanks', () => {
   assert.match(segments[0].html, /cost was/)
 })
 
-test('module exports exactly the 10 public helpers', () => {
+test('module exports exactly the 15 public helpers', () => {
   assert.deepEqual(Object.keys(skillLogic).sort(), [
     'answeredCount',
     'formatClock',
+    'groupAnswerCount',
+    'hasCompleteQuestionSet',
+    'isMatchingDisplayType',
+    'isPlaceholderPrompt',
     'matchingOptionsFor',
+    'multiAnswerCount',
     'normalizeDisplayType',
     'normalizeQuestionType',
     'parseOptions',
@@ -260,6 +323,101 @@ test('module exports exactly the 10 public helpers', () => {
     'splitHtmlByBlanks',
     'splitParagraphs',
   ])
+})
+
+test('skillLogic no longer declares SkillAttempt — the type lives in skillApi', () => {
+  // Bảo vệ chống khai báo trùng: SkillAttempt chỉ được khai báo ở skillApi.ts.
+  // @ts-expect-error skillLogic.ts không còn export SkillAttempt
+  type SkillAttemptIsGone = skillLogic.SkillAttempt
+  const missing: SkillAttemptIsGone | null = null
+  assert.equal(missing, null)
+  // Bản khai báo còn dùng trong app vẫn phải tồn tại ở skillApi.ts.
+  const attempt: SkillAttempt = {
+    id: 'a1',
+    skill: 'reading',
+    testId: 't1',
+    correctCount: 10,
+    totalCount: 40,
+    band: 5.5,
+    createdAt: '2026-01-01T00:00:00.000Z',
+  }
+  assert.equal(attempt.skill, 'reading')
+})
+
+test('multiAnswerCount reads the number of answers from the prompt then the instruction', () => {
+  assert.equal(multiAnswerCount('Which TWO are mentioned by the writer?', ''), 2)
+  assert.equal(multiAnswerCount('Which THREE of the following points are mentioned?', ''), 3)
+  assert.equal(multiAnswerCount('Which FIVE claims about tidal power are made?', ''), 5)
+  assert.equal(multiAnswerCount('Choose two answers from the list below.', ''), 2)
+  assert.equal(multiAnswerCount('Choose TWO correct answers, A–E.', ''), 2)
+  assert.equal(multiAnswerCount('', '<p>Questions 24–26 Choose THREE correct answers.</p>'), 3)
+  // Đề bài được ưu tiên hướng dẫn nhóm.
+  assert.equal(multiAnswerCount('Which TWO?', '<p>Choose THREE correct answers.</p>'), 2)
+  // Câu chỉ chọn một đáp án.
+  assert.equal(multiAnswerCount('What is the main idea?', ''), 0)
+  assert.equal(multiAnswerCount('Choose ONE correct answer, A–E.', ''), 0)
+  // Giới hạn số từ KHÔNG phải số đáp án.
+  assert.equal(multiAnswerCount('', 'Choose NO MORE THAN THREE WORDS from the passage.'), 0)
+  assert.equal(multiAnswerCount('', 'Write ONE WORD ONLY from the passage for each answer.'), 0)
+  assert.equal(multiAnswerCount('', ''), 0)
+})
+
+test('groupAnswerCount falls back to the prompt of the mcq questions of the group', () => {
+  const group = {
+    id: 'g1',
+    order: 1,
+    instructionHtml: '<p>Questions 21–22 Choose TWO correct answers.</p>',
+    displayType: 'multiple-choice-2' as const,
+    config: {},
+    questions: [
+      { id: 'q1', order: 1, sourceNumber: 21, type: 'mcq' as const, displayType: 'multiple-choice-2' as const, prompt: 'Which TWO of these comments are made?', questionHtml: '', options: [], explanation: '' },
+      { id: 'q2', order: 2, sourceNumber: 22, type: 'mcq' as const, displayType: 'multiple-choice-2' as const, prompt: '', questionHtml: '', options: [], explanation: '' },
+    ],
+  }
+  assert.equal(groupAnswerCount(group), 2)
+
+  const noInstruction = {
+    ...group,
+    instructionHtml: '',
+    questions: [
+      { ...group.questions[0], prompt: 'Which FIVE claims are made?' },
+      { ...group.questions[1], prompt: 'Question 22' },
+    ],
+  }
+  assert.equal(groupAnswerCount(noInstruction), 5)
+
+  // Câu fill không được lấy số đáp án ("Which TWO processes…" là câu điền từ).
+  const fillOnly = {
+    ...group,
+    instructionHtml: '',
+    questions: [{ ...group.questions[0], type: 'fill' as const, prompt: 'Which TWO processes are mentioned?' }],
+  }
+  assert.equal(groupAnswerCount(fillOnly), 0)
+})
+
+test('isPlaceholderPrompt detects a question whose stem is missing', () => {
+  assert.equal(isPlaceholderPrompt('Question 12'), true)
+  assert.equal(isPlaceholderPrompt('  question 19 '), true)
+  assert.equal(isPlaceholderPrompt(''), true)
+  assert.equal(isPlaceholderPrompt('Which TWO are mentioned by the writer?'), false)
+})
+
+test('isMatchingDisplayType covers every matching group', () => {
+  assert.equal(isMatchingDisplayType('matching-heading'), true)
+  assert.equal(isMatchingDisplayType('matching-info'), true)
+  assert.equal(isMatchingDisplayType('matching-feature'), true)
+  assert.equal(isMatchingDisplayType('matching'), true)
+  assert.equal(isMatchingDisplayType('multiple-choice'), false)
+  assert.equal(isMatchingDisplayType('multiple-choice-2'), false)
+  assert.equal(isMatchingDisplayType('fill-blank'), false)
+})
+
+test('hasCompleteQuestionSet refuses a test that loaded fewer questions', () => {
+  assert.equal(hasCompleteQuestionSet(40, 40), true)
+  assert.equal(hasCompleteQuestionSet(40, 30), false)
+  assert.equal(hasCompleteQuestionSet(40, 41), false)
+  // Đề không khai báo số câu thì không có gì để so.
+  assert.equal(hasCompleteQuestionSet(0, 12), true)
 })
 
 test('normalizeDisplayType keeps known types and falls back to fill-blank', () => {

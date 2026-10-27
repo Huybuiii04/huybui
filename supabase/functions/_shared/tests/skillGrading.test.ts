@@ -53,6 +53,46 @@ test('matchesAnswerKey accepts alternatives separated by a slash', () => {
   assert.equal(matchesAnswerKey('after 11:00', "after 11(:00)/eleven (o'clock)"), true)
 })
 
+test('matchesAnswerKey requires every letter of a comma separated multi-answer key', () => {
+  assert.equal(matchesAnswerKey('A,C', 'A,C'), true)
+  assert.equal(matchesAnswerKey('C,A', 'A,C'), true)
+  assert.equal(matchesAnswerKey('a,c', 'A,C'), true)
+  assert.equal(matchesAnswerKey('A', 'A,C'), false)
+  assert.equal(matchesAnswerKey('A,B', 'A,C'), false)
+  assert.equal(matchesAnswerKey('A,C,D', 'A,C'), false)
+  assert.equal(matchesAnswerKey('A, C', 'A,C'), true)
+})
+
+test('matchesAnswerKey accepts a pipe separated multi-answer key', () => {
+  assert.equal(matchesAnswerKey('B,C', 'B|C'), true)
+  assert.equal(matchesAnswerKey('C,B', 'B|C'), true)
+  assert.equal(matchesAnswerKey('B', 'B|C'), false)
+  assert.equal(matchesAnswerKey('B,D', 'B|C'), false)
+})
+
+test('matchesAnswerKey requires every letter of a five letter multi-answer key', () => {
+  assert.equal(matchesAnswerKey('A,D,E,F,J', 'A,D,E,F,J'), true)
+  assert.equal(matchesAnswerKey('A,D,E,F', 'A,D,E,F,J'), false)
+  assert.equal(matchesAnswerKey('A,D,E', 'A,D,E,F,J'), false)
+  assert.equal(matchesAnswerKey('A,D,E,F,J,K', 'A,D,E,F,J'), false)
+})
+
+test('matchesAnswerKey keeps matching a comma separated word answer', () => {
+  // "breathing, reproduction" là hai TỪ, không phải hai chữ cái — không được
+  // áp luật chấm nhiều chữ cái vào đáp án điền từ.
+  assert.equal(matchesAnswerKey('breathing, reproduction', 'breathing, reproduction'), true)
+  assert.equal(matchesAnswerKey('breathing', 'breathing, reproduction'), false)
+})
+
+test('matchesAnswerKey accepts the option label of a key that carries the option text', () => {
+  // Câu matching-feature: đáp án ghi kèm nội dung lựa chọn, thí sinh chọn nhãn.
+  const key = 'D. to give money or goods to a person or organisation that needs help'
+  assert.equal(matchesAnswerKey('D', key), true)
+  assert.equal(matchesAnswerKey('d', key), true)
+  assert.equal(matchesAnswerKey('C', key), false)
+  assert.equal(matchesAnswerKey(key, key), true)
+})
+
 test('matchesAnswerKey accepts the [or] notation', () => {
   assert.equal(matchesAnswerKey('October 22', '22(nd) October [or] October 22(nd)'), true)
 })

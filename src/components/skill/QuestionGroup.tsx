@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { Flag } from 'lucide-react'
 import { useCopy } from '../../i18n'
-import { sanitizeHtml, splitHtmlByBlanks, type SkillQuestionGroup } from '../../lib/skillLogic.ts'
+import { groupAnswerCount, sanitizeHtml, splitHtmlByBlanks, type SkillQuestionGroup } from '../../lib/skillLogic.ts'
 import { QuestionCard } from './QuestionCard.tsx'
 
 /**
@@ -46,6 +46,8 @@ export function QuestionGroup({
 }) {
   const { c } = useCopy()
   const instruction = useMemo(() => sanitizeHtml(group.instructionHtml), [group.instructionHtml])
+  // Số đáp án của nhóm ("Choose TWO correct answers") để câu mất đề bài mượn dùng.
+  const answerCount = useMemo(() => groupAnswerCount(group), [group])
   const html = useMemo(() => {
     const first = group.questions.find(question => question.questionHtml.trim())
     return sanitizeHtml(first?.questionHtml ?? '')
@@ -116,6 +118,8 @@ export function QuestionGroup({
       number={numbers[question.id] ?? 0}
       value={answers[question.id] ?? ''}
       flagged={flagged.has(question.id)}
+      instructionHtml={group.instructionHtml}
+      groupAnswerCount={answerCount}
       onAnswer={value => onAnswer(question.id, value)}
       onToggleFlag={() => onToggleFlag(question.id)}
     />)}

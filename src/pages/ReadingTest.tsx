@@ -9,7 +9,7 @@ import { TestTimer } from '../components/skill/TestTimer.tsx'
 import { useCopy } from '../i18n'
 import { gradeSkill } from '../lib/skillApi.ts'
 import { loadSkillTest } from '../lib/skillRepository.ts'
-import { answeredCount, progressPercent, type SkillQuestion, type SkillTest } from '../lib/skillLogic.ts'
+import { answeredCount, hasCompleteQuestionSet, progressPercent, type SkillQuestion, type SkillTest } from '../lib/skillLogic.ts'
 
 export default function ReadingTest() {
   const { c } = useCopy()
@@ -74,6 +74,14 @@ export default function ReadingTest() {
   const section = test?.sections[activeSection] ?? null
 
   /**
+   * Đề phải tải được đủ số câu mới nộp được.
+   *
+   * Server chấm theo số thứ tự câu (1..N) nên nếu thiếu câu, mọi đáp án sẽ bị
+   * gán nhầm câu mà vẫn được chấm điểm — tệ hơn là không cho nộp.
+   */
+  const incomplete = test ? !hasCompleteQuestionSet(test.questionCount, allQuestions.length) : false
+
+  /**
    * Bản đáp án gửi lên server, khoá là SỐ CÂU toàn đề (1..N) chứ không phải id câu.
    *
    * `parseGradeSkill` chỉ nhận khoá dạng số ("answer keys must be question numbers")
@@ -110,6 +118,10 @@ export default function ReadingTest() {
 
   const submit = async () => {
     if (!test || submitting) return
+    if (incomplete) {
+      setError(c('Đề chưa tải đủ câu hỏi, không thể nộp bài.', 'The test did not load every question, so it cannot be submitted.'))
+      return
+    }
     setSubmitting(true)
     setError('')
     const result = await gradeSkill({
@@ -143,10 +155,15 @@ export default function ReadingTest() {
         <span className="skill-timer-bar"><span style={{ width: `${progressPercent(answered, allQuestions.length)}%` }} /></span>
       </div>
       <TestTimer seconds={remaining} durationMinutes={test.durationMinutes} />
-      <button type="button" className="button primary" onClick={() => void submit()} disabled={submitting}>
+      <button type="button" className="button primary" onClick={() => void submit()} disabled={submitting || incomplete}>
         <Send size={16} />{submitting ? c('Đang nộp…', 'Submitting…') : c('Nộp bài', 'Submit')}
       </button>
     </header>
+
+    {incomplete && <Notice error><div>
+      <strong>{c('Đề tải thiếu câu hỏi nên không thể nộp bài.', 'This test is missing questions, so it cannot be submitted.')}</strong>
+      <p>{c('Tải lại trang để thử lại.', 'Reload the page to try again.')}</p>
+    </div></Notice>}
 
     {error && <Notice error><div><strong>{c('Không nộp được bài.', 'The attempt could not be submitted.')}</strong><p>{c('Thử lại sau ít phút.', 'Please try again in a moment.')}</p></div></Notice>}
 

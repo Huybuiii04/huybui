@@ -6,8 +6,6 @@
 // Đáp án chỉ được đọc bằng service role trong Edge Function `grade-skill`;
 // frontend không bao giờ nhận answer_key trước khi nộp bài.
 
-export type SkillKind = "reading" | "listening";
-
 export type GradingQuestion = {
   order: number;
   answerKey: string;
@@ -157,13 +155,26 @@ export function matchesAnswerKey(
     return user === key || user.startsWith(`${key} `) || user.startsWith(`${key}.`);
   }
 
-  const keyParts = answerKey.split(",").map((part) => normalize(part)).filter(Boolean);
-  if (keyParts.length > 1 && keyParts.every((part) => /^[a-z]$/.test(part))) {
-    const userParts = user.split(",").map((part) => part.trim()).filter(Boolean);
-    if (userParts.length > 1) {
-      return [...userParts].sort().join(",") === [...keyParts].sort().join(",");
-    }
-    return keyParts.includes(user);
+  // Đáp án nhiều chữ cái: "A,C" hoặc "B|C".
+  //
+  // Học viên phải chọn ĐÚNG số chữ cái như đáp án: thiếu một chữ cái là sai
+  // (không chấp nhận bộ con), thứ tự không quan trọng.
+  //
+  // Chỉ coi "," và "|" là dấu phân cách khi mọi phần đều là MỘT chữ cái, nhờ vậy
+  // "after 11(:00)/eleven (o'clock)" hay "breathing, reproduction" không bị đụng tới.
+  const letterParts = answerKey.split(/[,|]/).map((part) => normalize(part)).filter(Boolean);
+  if (letterParts.length > 1 && letterParts.every((part) => /^[a-z]$/.test(part))) {
+    const userParts = user.split(/[,|]/).map((part) => part.trim()).filter(Boolean);
+    if (userParts.length !== letterParts.length) return false;
+    return [...userParts].sort().join(",") === [...letterParts].sort().join(",");
+  }
+
+  // Đáp án ghi kèm nhãn của lựa chọn ("D. to give money …" cho câu matching):
+  // thí sinh chỉ chọn nhãn nên nhãn đơn cũng phải được chấp.
+  const labelledKey = /^([a-z])\.\s/.exec(key);
+  if (labelledKey) {
+    if (user === labelledKey[1]) return true;
+    return expandAnswerKey(answerKey).includes(user);
   }
 
   return expandAnswerKey(answerKey).includes(user);

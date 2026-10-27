@@ -21,7 +21,7 @@ export type SourceQuestionType =
 export type SkillDisplayType =
   | 'tfng' | 'ynng'
   | 'multiple-choice' | 'multiple-choice-2'
-  | 'matching-heading' | 'matching-info' | 'matching-feature'
+  | 'matching' | 'matching-heading' | 'matching-info' | 'matching-feature'
   | 'fill-blank'
   | 'note-completion' | 'table-completion' | 'summary-completion' | 'sentence-completion' | 'sentence-ending'
 
@@ -74,16 +74,6 @@ export type SkillTest = {
   testType: 'academic' | 'general'
   questionCount: number
   sections: SkillSection[]
-}
-
-export type SkillAttempt = {
-  id: string
-  skill: SkillKind
-  testId: string
-  correctCount: number
-  totalCount: number
-  band: number | null
-  createdAt: string
 }
 
 /** Định dạng số giây thành mm:ss (phủ số 0 ở đầu phần giây). */
@@ -259,6 +249,94 @@ export function matchingOptionsFor(group: SkillQuestionGroup): SkillOption[] {
   return letterRangeOptions(group.instructionHtml)
 }
 
+/**
+ * Có phải nhóm matching không — câu hỏi của nhóm này chọn trong danh sách
+ * (La Mã cho matching-heading, chữ cái cho matching-feature/matching-info).
+ *
+ * Dùng `displayType` chứ không dùng `type` của câu: nhiều câu trong nhóm
+ * matching bị ghi nhầm kiểu `fill` nên sẽ rơi về ô nhập chữ thay vì danh sách.
+ */
+export function isMatchingDisplayType(displayType: SkillDisplayType): boolean {
+  return displayType === 'matching-heading'
+    || displayType === 'matching-info'
+    || displayType === 'matching-feature'
+    || displayType === 'matching'
+}
+
+/** Số từ tiếng Anh nói số đáp án cần chọn. */
+const ANSWER_COUNT_WORDS: Record<string, number> = {
+  two: 2,
+  three: 3,
+  four: 4,
+  five: 5,
+  six: 6,
+  seven: 7,
+}
+
+/**
+ * Số đáp án cần chọn, đọc từ đề bài: "Choose TWO correct answers",
+ * "Which TWO are mentioned by the writer?", "Choose THREE …".
+ *
+ * Chỉ nhận số từ đứng ngay sau `choose`/`which` — "Choose NO MORE THAN THREE
+ * WORDS" là giới hạn số từ, không phải số đáp án nên không được nhận nhầm.
+ */
+const ANSWER_COUNT_PATTERN = /\b(?:choose|which)\s+(two|three|four|five|six|seven)\b/i
+
+/** Bóc số đáp án khỏi một đoạn text (bỏ thẻ HTML trước). */
+function detectAnswerCount(text: string): number {
+  const match = ANSWER_COUNT_PATTERN.exec((text ?? '').replace(/<[^>]+>/g, ' '))
+  if (!match) return 0
+  return ANSWER_COUNT_WORDS[match[1].toLowerCase()] ?? 0
+}
+
+/**
+ * Số đáp án của một câu hỏi nhiều đáp án (0 = câu chỉ chọn một đáp án).
+ *
+ * Nhóm Cambridge nói số đáp án ở hướng dẫn nhóm ("Choose TWO correct answers,
+ * A–E") hoặc ở đề bài của câu ("Which TWO are mentioned by the writer?"),
+ * nên đề bài được ưu tiên, hướng dẫn nhóm là phương án dự phòng.
+ */
+export function multiAnswerCount(prompt: string, instructionHtml: string): number {
+  return detectAnswerCount(prompt) || detectAnswerCount(instructionHtml)
+}
+
+/**
+ * Số đáp án của cả nhóm: hướng dẫn nhóm trước, sau đó tới đề bài các câu MCQ.
+ *
+ * Nhóm `multiple-choice-2` luôn có hướng dẫn kiểu "Choose TWO correct answers",
+ * nhưng vài nhóm chỉ nói số đáp án ở đề bài của một câu ("Which TWO are
+ * mentioned by the writer?") — câu anh em trong nhóm phải mượn số đó.
+ */
+export function groupAnswerCount(group: SkillQuestionGroup): number {
+  const fromInstruction = detectAnswerCount(group.instructionHtml)
+  if (fromInstruction) return fromInstruction
+  return group.questions.reduce((most, question) => {
+    if (question.type !== 'mcq') return most
+    return Math.max(most, detectAnswerCount(question.prompt))
+  }, 0)
+}
+
+/**
+ * Đề bài của câu bị mất (chỉ còn "Question 12" hoặc rỗng) — câu đó phải mượn
+ * số đáp án của nhóm, không thể tự suy ra từ đề bài rỗng.
+ */
+export function isPlaceholderPrompt(prompt: string): boolean {
+  const text = (prompt ?? '').trim()
+  if (!text) return true
+  return /^question\s*\d+$/i.test(text)
+}
+
+/**
+ * Đề chỉ tải được đủ câu thì mới nộp được.
+ *
+ * Server chấm theo số thứ tự câu (1..N) nên nếu thiếu câu, mọi đáp án sẽ bị
+ * gán nhầm câu mà vẫn được chấm điểm.
+ */
+export function hasCompleteQuestionSet(questionCount: number, loadedCount: number): boolean {
+  if (questionCount <= 0) return true
+  return loadedCount === questionCount
+}
+
 /** Chuẩn hoá 11 kiểu câu hỏi của repo nguồn về 5 kiểu của app. */
 export function normalizeQuestionType(raw?: string | null): SkillQuestionType {
   const type = (raw ?? '').toLowerCase()
@@ -278,6 +356,7 @@ const DISPLAY_TYPES: Record<SkillDisplayType, true> = {
   ynng: true,
   'multiple-choice': true,
   'multiple-choice-2': true,
+  matching: true,
   'matching-heading': true,
   'matching-info': true,
   'matching-feature': true,
@@ -360,21 +439,30 @@ function isSafeUrl(value: string): boolean {
  * Kiểm tra giá trị `style` trước khi giữ lại.
  * Đề dùng `style` cho định dạng bảng nên chỉ loại bỏ giá trị nguy hiểm, phần còn lại giữ nguyên:
  * - không có dấu `\` (CSS escape như `\75 rl(...)` đều là kẻ lách),
- * - không có `expression(`, `javascript:` hay `url(`,
+ * - không có `expression`, `javascript:` hay `url`,
  * - không khai báo `position` là `absolute`, `fixed` hoặc `sticky` (tránh tràn khung).
+ *
+ * Comment CSS phải bị bỏ TRƯỚC khi kiểm tra: trình duyệt bỏ comment nên một
+ * comment chen giữa `position:` và `absolute` vẫn được tính là `position:absolute`.
  */
 function isSafeStyle(value: string): boolean {
-  const normalized = normalizeForSchemeCheck(value)
-  if (normalized.includes('\\')) return false
-  if (normalized.includes('expression(')) return false
-  if (normalized.includes('javascript:')) return false
-  if (normalized.includes('url(')) return false
+  // Bỏ comment CSS: trình duyệt bỏ comment nên một comment chen giữa
+  // `position:` và `absolute` vẫn bị tính là position tuyệt đối.
+  const withoutComments = value.replace(/\/\*[\s\S]*?\*\//g, '')
+  // Bỏ khoảng trắng quanh dấu ':' để "position : absolute" không lọt.
+  const normalized = withoutComments.replace(/\s*:\s*/g, ':')
+  const compact = normalizeForSchemeCheck(normalized)
+  if (compact.includes('\\')) return false
+  if (compact.includes('expression')) return false
+  if (compact.includes('javascript:')) return false
+  if (compact.includes('url')) return false
+  // "background-position" KHÔNG phải khai báo position — cần ranh giới trước tên.
   const position = /(^|[^-\w])position:([-\w]+)/g
-  let match = position.exec(normalized)
+  let match = position.exec(compact)
   while (match) {
     const declaration = match[2]
     if (declaration !== 'relative' && declaration !== 'static') return false
-    match = position.exec(normalized)
+    match = position.exec(compact)
   }
   return true
 }
@@ -410,9 +498,11 @@ export function sanitizeHtml(html: string): string {
   clean = clean.replace(/<!--[\s\S]*$/g, '')
   // Bỏ cả khối script/style/iframe/object/embed; thẻ chưa đóng thì bỏ tới cuối chuỗi.
   clean = clean.replace(/<\s*(script|style|iframe|object|embed)\b[\s\S]*?(?:<\s*\/\s*\1\s*>|$)/gi, '')
-  // Chỉ giữ thẻ an toàn, kèm thuộc tính an toàn và URL an toàn; dấu '<' lạ thì escape.
-  clean = clean.replace(/<\/?([a-zA-Z0-9]+)((?:"[^"]*"|'[^']*'|[^'">])*)>|</g, (match, tag: string | undefined, rawAttributes: string | undefined) => {
-    if (tag === undefined) return '&lt;'
+  // Chỉ giữ thẻ an toàn, kèm thuộc tính an toàn và URL an toàn.
+  // Nhánh thứ hai bắt thẻ HỎNG (dấu nháy không đóng) và BỎ HẲN — nếu chỉ escape
+  // '<' thì phần còn lại của thẻ lọt ra thành chữ hiển thị ("onerror=alert(1)").
+  clean = clean.replace(/<\/?([a-zA-Z0-9]+)((?:"[^"]*"|'[^']*'|[^'">])*)>|<\/?[a-zA-Z][^<>]*>?|</g, (match, tag: string | undefined, rawAttributes: string | undefined) => {
+    if (tag === undefined) return match === '<' ? '&lt;' : ''
     const name = tag.toLowerCase()
     if (!ALLOWED_TAGS.has(name)) return ''
     if (match.startsWith('</')) return `</${name}>`
