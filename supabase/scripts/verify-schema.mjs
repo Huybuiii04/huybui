@@ -17,7 +17,8 @@ const expectedTables = [
   'ai_jobs', 'grading_results', 'essay_features', 'ai_tool_results', 'ai_usage',
   'study_cards', 'review_events', 'error_logs', 'guide_progress',
   'donation_settings', 'admin_audit_logs', 'rate_limit_buckets',
-  'ai_pricing', 'user_prompts'
+  'ai_pricing', 'user_prompts',
+  'skill_tests', 'skill_sections', 'skill_question_groups', 'skill_questions', 'skill_attempts'
 ]
 
 const expectedFunctions = [
@@ -26,7 +27,7 @@ const expectedFunctions = [
   'submit_essay_job', 'estimate_ai_cost'
 ]
 
-const expectedBuckets = ['essay-images', 'content-media', 'donation-media', 'prompt-media', 'user-prompt-media']
+const expectedBuckets = ['essay-images', 'content-media', 'donation-media', 'prompt-media', 'user-prompt-media', 'skill-audio']
 
 /** Chạy SQL và trả về chuỗi kết quả (phân tách bằng |). */
 function query(sql) {
@@ -83,6 +84,11 @@ check('anon write on prompts (must be falsefalsefalse)', promptWrite, 'falsefals
 
 const promptRead = query(`select has_table_privilege('anon', 'public.prompts', 'SELECT')::text || has_table_privilege('anon', 'public.prompt_topics', 'SELECT')::text`)
 check('anon read on prompts/topics (must be truetrue)', promptRead, 'truetrue')
+
+// Đáp án của skill_questions phải KHÔNG đọc được bởi client (chấm ở Edge Function).
+// has_table_privilege KHÔNG tính quyền cấp ở mức cột, nên cả ba giá trị đều kiểm riêng.
+const skillQuestionPrivileges = query(`select has_table_privilege('anon', 'public.skill_questions', 'SELECT')::text || has_column_privilege('anon', 'public.skill_questions', 'answer_key', 'SELECT')::text || has_column_privilege('anon', 'public.skill_questions', 'prompt', 'SELECT')::text`)
+check('anon read on skill_questions (must be falsefalsetrue)', skillQuestionPrivileges, 'falsefalsetrue')
 
 const dropped = query(`select count(*) from information_schema.tables where table_schema='public' and table_name='writing_prompts'`)
 check('writing_prompts removed (must be 0)', dropped, '0')
