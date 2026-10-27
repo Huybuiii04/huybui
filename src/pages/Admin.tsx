@@ -12,6 +12,7 @@ import { AuditTab } from './admin/AuditTab'
 import { DonateTab } from './admin/DonateTab'
 import { ContentTab } from './admin/ContentTab'
 import { UsageTab } from './admin/UsageTab'
+import SkillsTab from './admin/SkillsTab'
 
 export function Admin() {
   const { c } = useCopy()
@@ -30,6 +31,7 @@ export function Admin() {
     ['donate', c('Ủng hộ', 'Donate')],
     ['content', c('Nội dung', 'Content')],
     ['usage', c('Token & chi phí', 'Tokens & costs')],
+    ['skills', c('Kho đề Reading', 'Reading tests')],
   ]
 
   return <AdminGate>
@@ -44,6 +46,7 @@ export function Admin() {
     {tab === 'donate' && <DonateTab onError={setError} onBusy={setBusy} busy={busy} />}
     {tab === 'content' && <ContentTab onError={setError} onBusy={setBusy} busy={busy} />}
     {tab === 'usage' && <UsageTab onError={setError} onBusy={setBusy} busy={busy} />}
+    {tab === 'skills' && <SkillsTab onError={setError} onBusy={setBusy} />}
     {error && <p className="helper-text danger-text">{error}</p>}
   </AdminGate>
 }

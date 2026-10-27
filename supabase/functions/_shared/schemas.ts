@@ -418,3 +418,18 @@ export function parseGradeSkill(input: unknown): GradeSkillInput {
   }
   return { testId, answers, timeSpentSeconds: Math.floor(timeSpentSeconds) };
 }
+
+export function parseAdminSkills(input: unknown): {
+  action: "set-status";
+  testId: string;
+  status: "draft" | "published" | "hidden";
+} {
+  const record = asRecord(input);
+  const action = requiredString(record, "action", { max: 40 });
+  if (action !== "set-status") fail("action", "Unknown action");
+  const status = requiredString(record, "status");
+  if (status !== "draft" && status !== "published" && status !== "hidden") {
+    fail("status", "Unknown status");
+  }
+  return { action: "set-status", testId: requiredUuid(record, "testId"), status };
+}
