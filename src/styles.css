@@ -1178,9 +1178,6 @@ progress::-webkit-progress-value { background: var(--text-muted); border-radius:
 .skill-group { display: grid; gap: .8rem; }
 .skill-group-instruction { font-size: .9rem; line-height: 1.6; color: var(--text-muted); }
 .skill-group-instruction p { margin: .2rem 0; }
-.skill-group-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .35rem; }
-.skill-group-list li { display: flex; gap: .6rem; align-items: center; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: .5rem .7rem; background: var(--surface); }
-.skill-group-prompt { flex: 1; font-size: .85rem; }
 .skill-completion { line-height: 2; font-size: .95rem; }
 .skill-completion p { margin: .4rem 0; }
 /* Selector có độ ưu tiên cao hơn rule `input` chung để ô nhập nội tuyến giữ dạng inline. */

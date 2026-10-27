@@ -160,7 +160,9 @@ export async function loadSkillTest(slug: string, source = defaultSkillSource())
           config: (group.config ?? {}) as Record<string, unknown>,
           questions: [],
         }
-        // Câu matching không có options riêng thì lấy danh sách lựa chọn của nhóm.
+        // Danh sách lựa chọn của nhóm là nguồn chuẩn: options riêng của câu
+        // trong dữ liệu gốc có thể nằm sai không gian nhãn (tiêu đề thay vì số
+        // La Mã, hoặc thiếu chữ cái cuối) nên chỉ dùng khi nhóm không có.
         const sharedOptions = matchingOptionsFor(mapped)
         mapped.questions = questions
           .filter(question => question.group_id === group.id)
@@ -174,7 +176,7 @@ export async function loadSkillTest(slug: string, source = defaultSkillSource())
               displayType: (question.display_type ?? 'fill-blank') as SkillDisplayType,
               prompt: question.prompt ?? '',
               questionHtml: question.question_html ?? '',
-              options: options.length ? options : sharedOptions,
+              options: sharedOptions.length ? sharedOptions : options,
               explanation: '',
             }
           })

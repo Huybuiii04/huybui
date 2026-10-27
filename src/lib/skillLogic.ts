@@ -185,24 +185,18 @@ function optionsFromConfig(value: unknown, style: MatchingLabelStyle): SkillOpti
   const options: SkillOption[] = []
   for (const entry of value) {
     if (typeof entry === 'string') {
-      const text = entry.trim()
-      if (!text) continue
+      const raw = entry.trim()
+      if (!raw) continue
       const index = options.length
       if (style === 'own') {
-        options.push({ key: /^[A-Za-z]$/.test(text) ? text : letterLabel(index), text })
+        // Danh sách đã là chữ cái sẵn có ("A", "B"…); lỡ không phải thì lấy theo thứ tự.
+        options.push({ key: /^[A-Za-z]$/.test(raw) ? raw : letterLabel(index), text: raw })
         continue
       }
-      if (style === 'letter') {
-        const label = /^[A-Za-z0-9]{1,3}\.\s+/.exec(text)
-        if (label) {
-          const dot = text.indexOf('.')
-          options.push({ key: text.slice(0, dot).trim(), text: text.slice(label[0].length).trim() })
-          continue
-        }
-        options.push({ key: letterLabel(index), text })
-        continue
-      }
-      options.push({ key: romanLabel(index), text })
+      const label = style === 'roman' ? romanLabel(index) : letterLabel(index)
+      // Bỏ tiền tố "A. " khi nó trùng nhãn, khỏi hiện "A. A. nội dung".
+      const text = raw.startsWith(`${label}. `) ? raw.slice(label.length + 2).trim() : raw
+      options.push({ key: label, text })
       continue
     }
     if (entry && typeof entry === 'object') {
@@ -217,6 +211,32 @@ function optionsFromConfig(value: unknown, style: MatchingLabelStyle): SkillOpti
 }
 
 /**
+ * Dải chữ cái nêu trong hướng dẫn của nhóm: "Choose the correct letter, A-I".
+ * Chấp nhận cả gạch ngang, gạch en và gạch em.
+ */
+const LETTER_RANGE_PATTERN = /letter,?\s*([A-Za-z])\s*[–—-]\s*([A-Za-z])/i
+
+/**
+ * Sinh lựa chọn chữ cái từ dải nêu trong hướng dẫn của nhóm.
+ * Một số nhóm matching không có danh sách lựa chọn trong config,
+ * nhưng hướng dẫn vẫn nói rõ "choose the correct letter, A-I".
+ */
+function letterRangeOptions(instructionHtml: string): SkillOption[] {
+  const text = (instructionHtml ?? '').replace(/<[^>]+>/g, ' ')
+  const match = LETTER_RANGE_PATTERN.exec(text)
+  if (!match) return []
+  const start = match[1].toUpperCase().charCodeAt(0) - 65
+  const end = match[2].toUpperCase().charCodeAt(0) - 65
+  if (start < 0 || end < start || end - start > 25) return []
+  const options: SkillOption[] = []
+  for (let index = start; index <= end; index += 1) {
+    const letter = String.fromCharCode(65 + index)
+    options.push({ key: letter, text: letter })
+  }
+  return options
+}
+
+/**
  * Danh sách lựa chọn cho câu matching, lấy từ config của nhóm.
  * Nhiều câu matching trong dữ liệu gốc không mang options riêng —
  * danh sách nằm ở config của nhóm theo đúng kiểu câu hỏi.
@@ -224,6 +244,9 @@ function optionsFromConfig(value: unknown, style: MatchingLabelStyle): SkillOpti
  * `key` là nhãn thí sinh ghi ra (La Mã cho matching-heading, chữ cái cho
  * matching-feature, chữ cái sẵn có cho matching-info) nên đáp án gửi lên
  * khớp với `answer_key` mà server dùng để chấm.
+ *
+ * Khi config không có danh sách nào dùng được, dải chữ cái trong hướng dẫn
+ * của nhóm là nguồn cuối cùng.
  */
 export function matchingOptionsFor(group: SkillQuestionGroup): SkillOption[] {
   const sources = MATCHING_OPTION_SOURCES[group.displayType]
@@ -233,7 +256,7 @@ export function matchingOptionsFor(group: SkillQuestionGroup): SkillOption[] {
     const options = optionsFromConfig(config[source], MATCHING_LABEL_STYLE[source] ?? 'own')
     if (options.length) return options
   }
-  return []
+  return letterRangeOptions(group.instructionHtml)
 }
 
 /** Chuẩn hoá 11 kiểu câu hỏi của repo nguồn về 5 kiểu của app. */

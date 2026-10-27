@@ -1,5 +1,4 @@
 import { useMemo } from 'react'
-import { Flag } from 'lucide-react'
 import { useCopy } from '../../i18n'
 import { sanitizeHtml, splitHtmlByBlanks, type SkillQuestionGroup } from '../../lib/skillLogic.ts'
 import { QuestionCard } from './QuestionCard.tsx'
@@ -21,6 +20,10 @@ const INLINE_TYPES = new Set([
  * (`31_______`); số trong chỗ trống là **số câu của đề gốc** (`sourceNumber`),
  * nên bản đồ `bySourceNumber` phải được dựng RIÊNG cho passage đang hiển thị.
  * Câu nào không tìm thấy chỗ trống sẽ rơi về `QuestionCard` (ô nhập riêng).
+ *
+ * Nhóm nhúng ô nhập không vẽ thêm danh sách câu: HTML đã hiện đầy đủ câu hỏi,
+ * lặp lại sẽ hiện câu hai lần. Vì vậy câu hỏi chỉ hiện dạng thẻ ở nhóm rơi về
+ * đường dẫn dự phòng.
  */
 export function QuestionGroup({
   group,
@@ -102,21 +105,5 @@ export function QuestionGroup({
       onAnswer={value => onAnswer(question.id, value)}
       onToggleFlag={() => onToggleFlag(question.id)}
     />)}
-
-    {useInline && cardQuestions.length === 0 && <ul className="skill-group-list">
-      {group.questions.map(question => <li key={question.id}>
-        <span className="skill-question-number">{numbers[question.id] ?? 0}</span>
-        <span className="skill-group-prompt">{question.prompt}</span>
-        <button
-          type="button"
-          className={`skill-flag ${flagged.has(question.id) ? 'is-active' : ''}`}
-          onClick={() => onToggleFlag(question.id)}
-          aria-pressed={flagged.has(question.id)}
-          aria-label={c('Đánh dấu câu này để xem lại', 'Flag this question for review')}
-        >
-          <Flag size={15} />
-        </button>
-      </li>)}
-    </ul>}
   </section>
 }
