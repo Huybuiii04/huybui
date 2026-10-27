@@ -2767,6 +2767,7 @@ git commit -m "feat(skills): read test content and submit attempts"
 import { useMemo } from 'react'
 import { sanitizeHtml, type SkillSection } from '../../lib/skillLogic.ts'
 
+/** Cột đọc đoạn văn của phòng làm bài: tiêu đề passage + nội dung đã lọc an toàn. */
 export function PassagePanel({ section }: { section: SkillSection }) {
   const html = useMemo(() => sanitizeHtml(section.contentHtml), [section.contentHtml])
   return <div className="skill-passage">
@@ -2786,11 +2787,23 @@ export function PassagePanel({ section }: { section: SkillSection }) {
 ```tsx
 import { Flag } from 'lucide-react'
 import { useCopy } from '../../i18n'
-import type { SkillQuestion } from '../../lib/skillLogic.ts'
+import type { SkillOption, SkillQuestion } from '../../lib/skillLogic.ts'
 
 const TFNG_OPTIONS = ['TRUE', 'FALSE', 'NOT GIVEN'] as const
 const YNNG_OPTIONS = ['YES', 'NO', 'NOT GIVEN'] as const
 
+/**
+ * Nhãn hiển thị của một lựa chọn: "A. nội dung", hoặc chỉ "A" khi nội dung
+ * chính là nhãn (option dạng chữ cái trần của câu matching).
+ */
+function optionLabel(option: SkillOption): string {
+  return option.text === option.key ? option.key : `${option.key}. ${option.text}`
+}
+
+/**
+ * Một câu hỏi dạng thẻ: số câu, đề bài, cờ đánh dấu và ô trả lời theo `question.type`.
+ * Dùng cho mọi dạng không có chỗ trống nằm sẵn trong HTML của nhóm.
+ */
 export function QuestionCard({
   question,
   number,
@@ -2838,7 +2851,7 @@ export function QuestionCard({
     {question.type === 'mcq' && <div className="skill-options">
       {question.options.map(option => <label key={option.key} className={`skill-option ${selected === option.key ? 'is-selected' : ''}`}>
         <input type="radio" name={`question-${number}`} value={option.key} checked={selected === option.key} onChange={() => onAnswer(option.key)} />
-        <span><strong>{option.key}.</strong> {option.text}</span>
+        <span><strong>{option.key}.</strong>{option.text === option.key ? '' : ` ${option.text}`}</span>
       </label>)}
     </div>}
 
@@ -2846,7 +2859,7 @@ export function QuestionCard({
       <label className={`skill-option ${selected ? 'is-selected' : ''}`}>
         <select value={selected} onChange={event => onAnswer(event.target.value)} aria-label={c('Chọn đáp án', 'Choose an answer')}>
           <option value="">{c('— Chọn đáp án —', '— Choose an answer —')}</option>
-          {question.options.map(option => <option key={option.key} value={option.key}>{option.key}. {option.text}</option>)}
+          {question.options.map(option => <option key={option.key} value={option.key}>{optionLabel(option)}</option>)}
         </select>
       </label>
     </div>}
@@ -2876,16 +2889,32 @@ Hai điều đã kiểm chứng trên dữ liệu thật:
 
 ```tsx
 import { useMemo } from 'react'
-import { Flag } from 'lucide-react'
 import { useCopy } from '../../i18n'
 import { sanitizeHtml, splitHtmlByBlanks, type SkillQuestionGroup } from '../../lib/skillLogic.ts'
 import { QuestionCard } from './QuestionCard.tsx'
 
-/** Các dạng completion có ô trống nằm trong HTML của nhóm. */
+/**
+ * Các dạng có ô trống nằm trong HTML của nhóm.
+ * `fill-blank` cũng nằm ở đây: câu của nhóm này chỉ có prompt cụt, câu đầy đủ
+ * nằm trong `questionHtml` của nhóm nên phải nhúng ô nhập vào HTML.
+ */
 const INLINE_TYPES = new Set([
   'note-completion', 'table-completion', 'summary-completion', 'sentence-completion', 'sentence-ending',
+  'fill-blank',
 ])
 
+/**
+ * Một nhóm câu hỏi dùng chung một hướng dẫn.
+ *
+ * Với nhóm `completion-*` / `sentence-ending`, chỗ trống nằm sẵn trong HTML
+ * (`31_______`); số trong chỗ trống là **số câu của đề gốc** (`sourceNumber`),
+ * nên bản đồ `bySourceNumber` phải được dựng RIÊNG cho passage đang hiển thị.
+ * Câu nào không tìm thấy chỗ trống sẽ rơi về `QuestionCard` (ô nhập riêng).
+ *
+ * Nhóm nhúng ô nhập không vẽ thêm danh sách câu: HTML đã hiện đầy đủ câu hỏi,
+ * lặp lại sẽ hiện câu hai lần. Vì vậy câu hỏi chỉ hiện dạng thẻ ở nhóm rơi về
+ * đường dẫn dự phòng.
+ */
 export function QuestionGroup({
   group,
   numbers,
@@ -2913,19 +2942,27 @@ export function QuestionGroup({
   const segments = useMemo(() => splitHtmlByBlanks(html), [html])
 
   // Số trong chỗ trống là số câu của đề gốc.
-  const blankIds = useMemo(() => {
-    const ids = new Set<string>()
+  // Chỉ dùng được khi số đó trỏ tới câu CỦA NHÓM NÀY: cùng một số câu có thể
+  // xuất hiện ở nhóm khác của cùng passage, nếu không sẽ hiển thị trùng.
+  const blankIdByNumber = useMemo(() => {
+    const map: Record<number, string> = {}
+    const own = new Set(group.questions.map(question => question.id))
     for (const segment of segments) {
       if (segment.kind !== 'blank') continue
-      const id = bySourceNumber[segment.questionId]
-      if (id) ids.add(id)
+      const id = bySourceNumber[segment.sourceNumber]
+      if (id && own.has(id)) map[segment.sourceNumber] = id
     }
-    return ids
-  }, [segments, bySourceNumber])
+    return map
+  }, [segments, bySourceNumber, group.questions])
 
+  const blankIds = useMemo(() => new Set(Object.values(blankIdByNumber)), [blankIdByNumber])
   const inlineQuestions = group.questions.filter(question => blankIds.has(question.id))
-  const fallbackQuestions = group.questions.filter(question => !blankIds.has(question.id))
   const useInline = INLINE_TYPES.has(group.displayType) && inlineQuestions.length > 0
+  // Nhóm không nhúng ô nhập thì MỌI câu đều phải hiện dạng thẻ — kể cả câu có
+  // số trùng với một chỗ trống trong HTML, nếu không câu đó sẽ biến mất khỏi giao diện.
+  const cardQuestions = useInline
+    ? group.questions.filter(question => !blankIds.has(question.id))
+    : group.questions
 
   return <section className="skill-group">
     {instruction && <div className="skill-group-instruction" dangerouslySetInnerHTML={{ __html: instruction }} />}
@@ -2933,20 +2970,23 @@ export function QuestionGroup({
     {useInline && <div className="skill-completion">
       {segments.map((segment, index) => {
         if (segment.kind === 'html') return <span key={index} dangerouslySetInnerHTML={{ __html: segment.html }} />
-        const id = bySourceNumber[segment.questionId] ?? ''
+        const id = blankIdByNumber[segment.sourceNumber] ?? ''
+        // Chỗ trống không thuộc nhóm này (số câu trùng với nhóm khác của passage)
+        // thì để nguyên dạng chữ, nhóm sở hữu câu đó sẽ vẽ ô nhập.
+        if (!id) return <span key={index} className="skill-inline-input">{segment.sourceNumber}</span>
         return <input
           key={index}
           className="skill-inline-input"
           type="text"
-          value={id ? answers[id] ?? '' : ''}
+          value={answers[id] ?? ''}
           onChange={event => onAnswer(id, event.target.value)}
-          aria-label={c(`Đáp án câu ${segment.questionId}`, `Answer for question ${segment.questionId}`)}
+          aria-label={c(`Đáp án câu ${segment.sourceNumber}`, `Answer for question ${segment.sourceNumber}`)}
           placeholder="________"
         />
       })}
     </div>}
 
-    {fallbackQuestions.map(question => <QuestionCard
+    {cardQuestions.map(question => <QuestionCard
       key={question.id}
       question={question}
       number={numbers[question.id] ?? 0}
@@ -2955,22 +2995,6 @@ export function QuestionGroup({
       onAnswer={value => onAnswer(question.id, value)}
       onToggleFlag={() => onToggleFlag(question.id)}
     />)}
-
-    {useInline && fallbackQuestions.length === 0 && <ul className="skill-group-list">
-      {group.questions.map(question => <li key={question.id}>
-        <span className="skill-question-number">{numbers[question.id] ?? 0}</span>
-        <span className="skill-group-prompt">{question.prompt}</span>
-        <button
-          type="button"
-          className={`skill-flag ${flagged.has(question.id) ? 'is-active' : ''}`}
-          onClick={() => onToggleFlag(question.id)}
-          aria-pressed={flagged.has(question.id)}
-          aria-label={c('Đánh dấu câu này để xem lại', 'Flag this question for review')}
-        >
-          <Flag size={15} />
-        </button>
-      </li>)}
-    </ul>}
   </section>
 }
 ```
@@ -2983,6 +3007,7 @@ export function QuestionGroup({
 import { useCopy } from '../../i18n'
 import { formatClock } from '../../lib/skillLogic.ts'
 
+/** Đồng hồ đếm ngược của phòng làm bài, kèm thanh tiến trình. */
 export function TestTimer({ seconds, durationMinutes }: { seconds: number; durationMinutes: number }) {
   const { c } = useCopy()
   const low = seconds <= 300
@@ -3002,6 +3027,7 @@ export function TestTimer({ seconds, durationMinutes }: { seconds: number; durat
 ```tsx
 import { useCopy } from '../../i18n'
 
+/** Lưới rà soát câu trả lời: bấm vào ô là nhảy tới câu tương ứng. */
 export function ReviewSheet({
   questions,
   numbers,
@@ -3051,6 +3077,7 @@ import { Check, X } from 'lucide-react'
 import { useCopy } from '../../i18n'
 import type { SkillGrade } from '../../lib/skillApi.ts'
 
+/** Bảng kết quả chấm điểm do Edge Function trả về. */
 export function SkillResult({ grade }: { grade: SkillGrade }) {
   const { c } = useCopy()
   const percent = grade.totalCount ? Math.round((grade.correctCount / grade.totalCount) * 100) : 0
@@ -3106,9 +3133,10 @@ export function SkillResult({ grade }: { grade: SkillGrade }) {
 .skill-flag { border: 1px solid transparent; background: transparent; color: var(--text-subtle); border-radius: 8px; padding: .3rem; cursor: pointer; }
 .skill-flag.is-active { color: var(--accent); background: var(--accent-soft); border-color: var(--accent); }
 .skill-options { display: grid; gap: .4rem; padding-left: 2.75rem; }
-.skill-option { display: flex; gap: .6rem; align-items: flex-start; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: .5rem .7rem; cursor: pointer; }
-.skill-option.is-selected { border-color: var(--brand); background: var(--brand-soft); }
-.skill-option input { accent-color: var(--brand); margin-top: .2rem; }
+/* .skill-option là <label>: cần đặt lại flex-direction và margin của rule `label` chung. */
+.skill-option { display: flex; flex-direction: row; gap: .6rem; align-items: flex-start; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: .5rem .7rem; cursor: pointer; margin-bottom: 0; color: var(--text); }
+/* Rule `input` chung đặt width:100% và min-height:46px — radio phải trở lại kích thước mặc định. */
+.skill-option input[type='radio'] { width: auto; min-height: 0; padding: 0; margin: .2rem 0 0; flex: 0 0 auto; accent-color: var(--brand); }
 .skill-option select { width: 100%; border: 1px solid var(--control-border); border-radius: var(--radius-sm); padding: .45rem .6rem; background: var(--surface); color: var(--text); }
 .skill-tfng { display: flex; flex-wrap: wrap; gap: .4rem; padding-left: 2.75rem; }
 .skill-chip { border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); border-radius: 999px; padding: .35rem .85rem; font-size: .75rem; font-weight: 700; cursor: pointer; }
@@ -3118,13 +3146,11 @@ export function SkillResult({ grade }: { grade: SkillGrade }) {
 .skill-group { display: grid; gap: .8rem; }
 .skill-group-instruction { font-size: .9rem; line-height: 1.6; color: var(--text-muted); }
 .skill-group-instruction p { margin: .2rem 0; }
-.skill-group-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .35rem; }
-.skill-group-list li { display: flex; gap: .6rem; align-items: center; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: .5rem .7rem; background: var(--surface); }
-.skill-group-prompt { flex: 1; font-size: .85rem; }
 .skill-completion { line-height: 2; font-size: .95rem; }
 .skill-completion p { margin: .4rem 0; }
-.skill-inline-input {
-  display: inline-block; width: 8rem; margin: 0 .2rem; padding: .1rem .35rem;
+/* Selector có độ ưu tiên cao hơn rule `input` chung để ô nhập nội tuyến giữ dạng inline. */
+.skill-completion .skill-inline-input {
+  display: inline-block; width: 8rem; min-height: 0; margin: 0 .2rem; padding: .1rem .35rem;
   border: 0; border-bottom: 2px solid var(--control-border); background: var(--surface-soft);
   border-radius: 4px 4px 0 0; font-weight: 600; color: var(--brand-ink);
 }
@@ -3145,18 +3171,13 @@ export function SkillResult({ grade }: { grade: SkillGrade }) {
 .skill-review-cell { width: 2rem; height: 2rem; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); font-size: .75rem; font-weight: 700; cursor: pointer; }
 .skill-review-cell.is-answered { background: var(--success-soft); border-color: var(--success); color: var(--success); }
 .skill-review-cell.is-flagged { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-ink); }
+.skill-review-cell.is-empty { background: var(--surface); border-color: var(--border); color: var(--text-subtle); }
 .skill-review-legend { display: flex; flex-wrap: wrap; gap: .8rem; list-style: none; margin: 0; padding: 0; font-size: .72rem; color: var(--text-subtle); }
 .skill-review-legend li { display: flex; align-items: center; gap: .35rem; }
 .skill-review-legend span { width: .8rem; height: .8rem; border-radius: 4px; border: 1px solid var(--border); display: inline-block; }
 .skill-review-legend .is-answered { background: var(--success-soft); border-color: var(--success); }
 .skill-review-legend .is-flagged { background: var(--accent-soft); border-color: var(--accent); }
-.skill-audio { border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); padding: .9rem; }
-.skill-audio-empty { display: flex; gap: .5rem; align-items: center; color: var(--warning); background: var(--warning-soft); border-color: var(--warning); font-size: .8rem; }
-.skill-audio-row { display: flex; gap: .8rem; align-items: center; }
-.skill-audio-track { flex: 1; min-width: 0; display: grid; gap: .3rem; }
-.skill-audio-label { margin: 0; font-size: .78rem; font-weight: 600; }
-.skill-audio-track input { width: 100%; accent-color: var(--brand); }
-.skill-audio-time { margin: 0; font-size: .7rem; color: var(--text-subtle); font-variant-numeric: tabular-nums; }
+.skill-review-legend .is-empty { background: var(--surface); border-color: var(--border); }
 .skill-result { display: grid; gap: 1rem; }
 .skill-result-summary { text-align: center; display: grid; gap: .35rem; justify-items: center; }
 .skill-result-band { margin: 0; font-size: 3rem; font-weight: 800; color: var(--brand); line-height: 1; }
@@ -3169,6 +3190,31 @@ export function SkillResult({ grade }: { grade: SkillGrade }) {
 .skill-result-list li.is-wrong .skill-result-icon { background: var(--danger-soft); color: var(--danger); }
 .skill-result-prompt { margin: 0; font-weight: 600; }
 .skill-explanation { margin: .3rem 0 0; font-size: .82rem; color: var(--text-muted); white-space: pre-line; }
+
+/* ---------- Trang tài liệu công khai (dùng chung bản tĩnh + bản React) ---------- */
+.doc-shell { min-height: 100vh; display: flex; flex-direction: column; }
+.doc-nav { max-width: 1180px; width: 100%; margin: auto; display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 24px 24px 4px; }
+.doc-nav > nav { display: flex; align-items: center; gap: 18px; }
+.doc-main { flex: 1; width: 100%; max-width: 880px; margin: 0 auto; padding: 28px 24px 64px; }
+.doc-page { display: grid; gap: 26px; }
+.doc-header { display: grid; gap: 12px; }
+.doc-eyebrow { font-size: 10.5px; letter-spacing: .16em; text-transform: uppercase; color: var(--brand-ink); font-weight: 700; }
+.doc-header h1 { font-size: clamp(28px, 4vw, 40px); line-height: 1.2; letter-spacing: -.035em; }
+.doc-summary { font-size: 16px; line-height: 1.7; color: var(--text-muted); max-width: 720px; }
+.doc-section { display: grid; gap: 13px; }
+.doc-section h2 { font-size: 21px; letter-spacing: -.02em; }
+.doc-section p { font-size: 14.5px; line-height: 1.75; color: var(--text-muted); }
+.doc-section ul { display: grid; gap: 8px; padding-left: 20px; margin: 0; }
+.doc-section li { font-size: 14px; line-height: 1.7; color: var(--text-muted); }
+.doc-footer { border-top: 1px solid var(--border); padding: 22px 24px; display: flex; flex-wrap: wrap; gap: 14px; justify-content: space-between; align-items: center; color: var(--text-subtle); font-size: 12.5px; }
+.doc-footer > a { color: var(--brand-ink); font-weight: 600; }
+@media (max-width: 767px) {
+  .doc-nav { padding: 18px 18px 2px; }
+  .doc-main { padding: 22px 18px 52px; }
+  .doc-header h1 { font-size: 28px; }
+  .doc-summary { font-size: 15px; }
+  .doc-section h2 { font-size: 19px; }
+}
 ```
 
 - [ ] **Step 8: Kiểm tra kiểu**
