@@ -58,7 +58,18 @@ Thứ tự chạy = thứ tự tên file. Tất cả idempotent, chạy lại an
 | `007_prompt_topics.sql` | bảng `prompt_topics` (danh sách chủ đề) |
 | `008_prompt_chart_types.sql` | bảng `prompt_chart_types` (7 dạng biểu đồ Task 1 Academic) + trigger kiểm tra `subtype` |
 | `009_prompt_backend.sql` | cột `updated_by`, index `(task, set_name)`, RPC `get_prompt(slug)`, quyền ghi cho admin, bỏ `writing_prompts` |
-| `021_reading_listening.sql` | bảng đề Reading (`skill_tests` → `skill_sections` → `skill_question_groups` → `skill_questions`), lịch sử `skill_attempts`, RLS + thu hồi quyền đọc cột đáp án |
+| `010_prompt_topic_descriptions.sql` | cột `description_vi`/`description_en` cho `prompt_topics` (mô tả chủ đề song ngữ) |
+| `011_prompt_media.sql` | bucket Storage `prompt-media` công khai cho ảnh đề Task 1 + policy đọc |
+| `012_ai_pipeline_hardening.sql` | `claim_ai_job()` lấy lại job hết lease, RPC `submit_essay_job()` (revision + job trong 1 transaction), bảng `ai_pricing` + RPC `estimate_ai_cost()`, trigger giới hạn 2 job AI đồng thời, view `ai_usage_totals` |
+| `013_user_prompts_realtime.sql` | bảng `user_prompts` (đề tự nhập, RLS theo chủ sở hữu), bucket `user-prompt-media`, bật Realtime cho `essays`/`study_cards`/`guide_progress`/`user_prompts` |
+| `014_worker_secrets.sql` | bảng `private.worker_secrets` lưu secret nội bộ của worker (chỉ service_role đọc) |
+| `015_admin_read_policies.sql` | policy đọc cho admin trên `profiles`, `user_access`, `ai_jobs`, `essay_revisions`, `grading_results`, `user_prompts` |
+| `016_feedback_coaching.sql` | 3 cột jsonb `unnatural`/`vocabulary_plan`/`band_plan` trên `essay_features` (phản hồi sâu hơn band score) |
+| `017_grading_timeout.sql` | `claim_ai_job()` nới lease từ 120s lên 300s (prompt chấm mới dài hơn) |
+| `018_vocabulary_library.sql` | bảng `vocabulary_topics` + `vocabulary_entries` (thư viện 25 chủ đề, đọc công khai), index GIN trigram |
+| `019_admin_ops.sql` | policy đọc cho admin trên `essays`, `study_cards`, `error_logs`, `essay_features`, `admin_audit_logs` |
+| `020_donation_qr.sql` | policy Storage cho bucket `donation-media` (đọc công khai + admin ghi/xoá) |
+| `021_reading_listening.sql` | bảng đề Reading (`skill_tests` → `skill_sections` → `skill_question_groups` → `skill_questions`), lịch sử `skill_attempts`, RLS + thu hồi quyền đọc cột đáp án, bucket `skill-audio` |
 
 ## Bảng
 

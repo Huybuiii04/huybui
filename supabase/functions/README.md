@@ -1,6 +1,6 @@
 # Supabase Edge Functions — Writing Studio
 
-Thư mục này chứa 10 Edge Function cho AI pipeline. Runtime là **Deno + Supabase Edge Functions**; import map dùng **npm**:
+Thư mục này chứa 14 Edge Function cho AI pipeline và module Reading. Runtime là **Deno + Supabase Edge Functions**; import map dùng **npm**:
 
 ```json
 "@supabase/supabase-js": "npm:@supabase/supabase-js@2.118.0"
@@ -21,11 +21,18 @@ Mỗi function có `deno.json` riêng để Supabase CLI bundle đúng dependenc
 | `admin-content` | `POST` | `{action, entry, translations?}` | `{ok, entry}` |
 | `admin-users` | `POST` | `{action, userId}` | `{ok, userId, role, status}` |
 | `admin-usage` | `GET` | `?from=<ISO>&to=<ISO>` | `{rows, totals}` |
+| `admin-session` | `POST` | `{password}` | `{token, expiresAt}` |
+| `admin-data` | `POST` | `{action, ...}` | theo `action` (dashboard · xoá bài · đổi trạng thái đề · từ vựng · retry job · donate) |
+| `admin-skills` | `POST` | `{action: "set-status", testId, status}` | `{ok, test}` |
+| `grade-skill` | `POST` | `{testId, answers, timeSpentSeconds}` | `{attemptId, correctCount, totalCount, band, results}` |
+| `grade-skill` | `GET` | header `x-attempt-id` | `{attemptId, correctCount, totalCount, band, results}` |
 | `process-ai-jobs` | `POST` | header `x-worker-secret` | `{processed, failed}` |
 
-`run-writing-tool` chỉ nhận `magic-rewrite`, `argument-stress-test`, `critical-thinking`, `read-image`. `admin-content` nhận `upsert`, `publish`, `hide`, `delete`; `admin-users` nhận `suspend`, `restore`, `make_admin`, `remove_admin`.
+`run-writing-tool` chỉ nhận `magic-rewrite`, `argument-stress-test`, `critical-thinking`, `read-image`. `admin-content` nhận `upsert`, `publish`, `hide`, `delete`; `admin-users` nhận `suspend`, `restore`, `make_admin`, `remove_admin`; `admin-skills` nhận `set-status` với `status` là `published`, `draft` hoặc `hidden`.
 
 Mọi endpoint trừ worker dùng `Authorization: Bearer <user JWT>`. Function xác minh JWT qua `auth.getUser(token)`, rồi kiểm tra `private.is_active_user()`; nếu schema `private` không được PostgREST expose, backend fallback sang truy vấn `user_access` tương đương bằng service role. Admin kiểm tra `private.is_admin()` theo cùng cơ chế. `user_id` luôn lấy từ JWT, không lấy từ body.
+
+`admin-data` là cổng quản trị lớp 2: ngoài JWT + role admin còn cần header `x-admin-token` do `admin-session` cấp (HMAC theo `ADMIN_PASSWORD`, hạn 12 giờ). Mọi thao tác ghi đều ghi `admin_audit_logs`. `grade-skill` chấm bằng service role nên cột đáp án không bao giờ tới trình duyệt; lần làm bài được ghi vào `skill_attempts`.
 
 ## Biến môi trường
 
@@ -72,10 +79,14 @@ supabase functions deploy delete-account
 supabase functions deploy admin-content
 supabase functions deploy admin-users
 supabase functions deploy admin-usage
+supabase functions deploy admin-session
+supabase functions deploy admin-data
+supabase functions deploy admin-skills
+supabase functions deploy grade-skill
 supabase functions deploy process-ai-jobs
 ```
 
-Hoặc dùng script (deploy cả 10 function rồi set secrets trong một lệnh):
+Hoặc dùng script (deploy cả 14 function rồi set secrets trong một lệnh):
 
 ```bash
 npm run db:deploy
@@ -83,7 +94,7 @@ npm run db:deploy
 
 Script cần `SUPABASE_ACCESS_TOKEN` trong `.env.local` và sẽ bỏ qua bước set secrets
 nếu không có `ANTHROPIC_API_KEY` / `WORKER_SECRET`. Không deploy `process-ai-jobs` nếu
-`WORKER_SECRET` chưa được set. `supabase/config.toml` khai báo `verify_jwt = true` cho 9 endpoint user và `false` cho worker.
+`WORKER_SECRET` chưa được set. `supabase/config.toml` khai báo `verify_jwt = true` cho 9 endpoint user và `false` cho worker; các function mới (`admin-session`, `admin-data`, `admin-skills`, `grade-skill`) dùng mặc định `verify_jwt = true` và tự kiểm tra JWT trong handler.
 
 ## Luồng upload ảnh
 
@@ -104,6 +115,14 @@ nếu không có `ANTHROPIC_API_KEY` / `WORKER_SECRET`. Không deploy `process-a
 - Cache là riêng theo owner và dùng `ai_jobs.cache_key`; key gồm owner, operation, task/subtype, bài nguyên bản, đề/reference, hash ảnh, locale, target band, model và version prompt/rubric/schema.
 - `ai_usage` ghi input/output/cache token, latency, model, provider request ID và pricing version. `estimated_cost_usd` để `null` cho tới khi cấu hình bảng giá theo `pricing_version`.
 - Bài, đề, reference và ảnh luôn được gói là dữ liệu không tin cậy; request Anthropic không cấp tool.
+
+## Module Reading (chấm điểm)
+
+- `grade-skill` **không** gọi AI: đối chiếu trực tiếp `skill_questions.answer_key` bằng service role rồi quy đổi band theo bảng Cambridge trong `_shared/skillGrading.ts` — nguồn sự thật duy nhất.
+- `POST` chấm một lần làm bài mới và ghi `skill_attempts` (điểm đúng, tổng số câu, band, thời gian làm bài). `GET` với header `x-attempt-id` trả lại kết quả của một lần làm bài đã lưu (chỉ chủ sở hữu xem được).
+- Kết quả kèm `explanation` của từng câu; cột này không được cấp quyền đọc cho client nên chỉ trả về qua function.
+- Chỉ service role được ghi `skill_attempts`; client không có quyền `INSERT`, nên người dùng không tự khai được điểm.
+- `admin-skills` đổi trạng thái đề (`published` / `draft` / `hidden`) bằng service role sau khi kiểm tra role admin; client không có quyền ghi `skill_tests`.
 
 ## Cron worker 10 giây
 

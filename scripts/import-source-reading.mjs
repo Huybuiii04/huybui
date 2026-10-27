@@ -95,8 +95,54 @@ function resolvePrompt(question) {
 // ── 1. Đọc catalogue: test nào gồm passage nào ───────────────────────────────
 const testCatalogue = new Map()
 
+/**
+ * ── Dịch nhãn sang tiếng Anh ──────────────────────────────────────────────
+ *
+ * Catalogue của repo nguồn đặt tên bộ đề bằng tiếng Việt: "TID Vol Siêu Chuẩn",
+ * "Đề Vol Siêu Chuẩn · Test 1", "Chủ đề B1". Trang kho đề hiển thị `series` và
+ * `title` nguyên văn, mà site là song ngữ (VI/EN) — giữ tiếng Việt thì bản tiếng
+ * Anh lộ tiếng Việt. Vì vậy mọi nhãn lấy từ catalogue phải đi qua bảng dịch
+ * bên dưới, đổi tên gốc sang tên tiếng Anh tương đương.
+ *
+ * Nội dung passage và giải thích câu hỏi là tài liệu gốc nên giữ nguyên —
+ * chỉ nhãn hiển thị mới được dịch.
+ */
+
+/** Tên bộ đề: tiếng Việt trong catalogue → tiếng Anh hiển thị trên UI. */
+const ENGLISH_SERIES = new Map([
+  ['TID Vol Siêu Chuẩn', 'TID Premium Volume'],
+  ['Chủ đề B1', 'B1 Topics'],
+  ['Khác', 'Other'],
+])
+
+/**
+ * Tiêu đề đề: catalogue viết "Đề Vol Siêu Chuẩn · Test N".
+ * Thay tiền tố tiếng Việt bằng tên bộ đề tiếng Anh, giữ nguyên phần đuôi "· Test N".
+ */
+const ENGLISH_TITLE_PREFIX = new Map([
+  ['Đề Vol Siêu Chuẩn', 'TID Premium Volume'],
+])
+
+function toEnglishSeries(name) {
+  return ENGLISH_SERIES.get(name) ?? name
+}
+
+function toEnglishTitle(title) {
+  for (const [vietnamese, english] of ENGLISH_TITLE_PREFIX) {
+    if (title.startsWith(vietnamese)) return english + title.slice(vietnamese.length)
+  }
+  return title
+}
+
 function addTest({ id, title, level, series, seriesNo, passageIds }) {
-  testCatalogue.set(id, { id, title, level, series, seriesNo, passageIds })
+  testCatalogue.set(id, {
+    id,
+    title: toEnglishTitle(title),
+    level,
+    series: toEnglishSeries(series),
+    seriesNo,
+    passageIds,
+  })
 }
 
 for (const test of catalogue.cambridgeTests ?? []) {
@@ -264,9 +310,9 @@ const SERIES_FROM_PREFIX = [
 
 function inferSeries(sourceId) {
   for (const [pattern, series] of SERIES_FROM_PREFIX) {
-    if (pattern.test(sourceId)) return series
+    if (pattern.test(sourceId)) return toEnglishSeries(series)
   }
-  return 'Khác'
+  return toEnglishSeries('Khác')
 }
 
 /** "cam-10-1-1" -> "cam-10-1";  "tid-wb-5-3b" -> "tid-wb-5" */
@@ -313,7 +359,9 @@ for (const test of orderedTests) {
   test.skill = 'reading'
   test.durationMinutes = 60
   test.testType = 'academic'
-  test.description = `${test.passages.length} passage · ${test.questionCount} câu hỏi`
+  // Mô tả là nhãn hiển thị nên phải là tiếng Anh (bản gốc ghi "câu hỏi").
+  const passageWord = test.passages.length === 1 ? 'passage' : 'passages'
+  test.description = `${test.passages.length} ${passageWord} · ${test.questionCount} questions`
 }
 
 const dataset = {
@@ -327,6 +375,25 @@ const dataset = {
     questions: orderedTests.reduce((sum, test) => sum + test.questionCount, 0),
   },
   tests: orderedTests,
+}
+
+/**
+ * Chặn nhãn tiếng Việt lọt vào UI tiếng Anh.
+ * Chỉ kiểm tra nhãn hiển thị (series/title/description); nội dung passage và
+ * giải thích là tài liệu gốc nên vẫn được giữ nguyên.
+ */
+const VIETNAMESE_CHARS = /[\u00C0-\u00FF\u0102\u0103\u0110\u0111\u1EA0-\u1EF9\u1F00-\u1FFF]/
+const vietnameseLabels = []
+for (const test of orderedTests) {
+  for (const field of ['series', 'title', 'description']) {
+    const value = String(test[field] ?? '')
+    if (VIETNAMESE_CHARS.test(value)) vietnameseLabels.push(`${test.id}.${field} = ${value}`)
+  }
+}
+if (vietnameseLabels.length) {
+  console.error('Nhãn hiển thị còn tiếng Việt:')
+  for (const line of vietnameseLabels) console.error(`  ${line}`)
+  process.exit(1)
 }
 
 const target = join(dirname(fileURLToPath(import.meta.url)), '..', 'supabase', 'seed', 'skill-reading-data.json')
