@@ -960,6 +960,29 @@ create table if not exists public.skill_attempts (
   created_at timestamptz not null default now()
 );
 
+-- skill luôn lấy từ skill_tests: không thể lệch với test_id.
+create or replace function private.skill_attempts_sync_skill()
+returns trigger
+language plpgsql
+security definer
+set search_path = private, public
+as $$
+begin
+  new.skill := (select skill from public.skill_tests where id = new.test_id);
+  return new;
+end;
+$$;
+
+revoke execute on function private.skill_attempts_sync_skill() from public, anon;
+grant execute on function private.skill_attempts_sync_skill() to service_role;
+
+drop trigger if exists skill_attempts_sync_skill on public.skill_attempts;
+create trigger skill_attempts_sync_skill
+before insert or update on public.skill_attempts
+for each row execute function private.skill_attempts_sync_skill();
+
+-- Cố ý không tạo GIN index cho accepted_answers (text[]) và answers (jsonb):
+-- đường chấm điểm đọc theo group_id/test_id, không tìm theo containment.
 create index if not exists skill_tests_skill_status_idx on public.skill_tests (skill, status, sort_order);
 create index if not exists skill_tests_series_idx on public.skill_tests (series, series_no);
 create index if not exists skill_sections_test_idx on public.skill_sections (test_id, section_no);
@@ -1011,27 +1034,35 @@ using (exists (
   where question_group.id = group_id and (test.status = 'published' or private.is_admin())
 ));
 
--- Lịch sử làm bài: chủ sở hữu đọc và ghi, không ai thấy của người khác.
+-- Lịch sử làm bài: chủ sở hữu đọc, không ai thấy của người khác.
+-- Ghi lần làm bài là việc của Edge Function `grade-skill` (service role) — xem grant bên dưới.
 drop policy if exists skill_attempts_owner_read on public.skill_attempts;
 create policy skill_attempts_owner_read on public.skill_attempts
 for select to authenticated
 using (user_id = auth.uid());
 
+-- Dọn policy INSERT cũ nếu có: client không được tự ghi lần làm bài.
 drop policy if exists skill_attempts_owner_insert on public.skill_attempts;
-create policy skill_attempts_owner_insert on public.skill_attempts
-for insert to authenticated
-with check (user_id = auth.uid());
 
+-- Quyền mặc định của Supabase cấp ALL cho `authenticated` trên bảng mới trong schema public.
+-- RLS chặn INSERT/UPDATE/DELETE nhưng KHÔNG chặn TRUNCATE, nên phải thu hồi tường minh.
 revoke all on public.skill_tests from anon;
 revoke all on public.skill_sections from anon;
 revoke all on public.skill_question_groups from anon;
 revoke all on public.skill_questions from anon;
 revoke all on public.skill_attempts from anon;
+revoke all on public.skill_tests from authenticated;
+revoke all on public.skill_sections from authenticated;
+revoke all on public.skill_question_groups from authenticated;
+revoke all on public.skill_questions from authenticated;
+revoke all on public.skill_attempts from authenticated;
+
 grant select on public.skill_tests to anon, authenticated;
 grant select on public.skill_sections to anon, authenticated;
 grant select on public.skill_question_groups to anon, authenticated;
+-- skill_attempts chỉ được ghi bởi service role (Edge Function `grade-skill`).
+-- Client KHÔNG có quyền insert: nếu không, người dùng tự khai điểm và band.
 grant select on public.skill_attempts to authenticated;
-grant insert on public.skill_attempts to authenticated;
 
 -- Chỉ cấp quyền đọc các cột KHÔNG chứa đáp án cho skill_questions.
 -- Client bắt buộc phải ghi tên cột rõ ràng, không dùng select=* cho bảng này.
@@ -1039,9 +1070,10 @@ revoke select on public.skill_questions from anon, authenticated;
 grant select (id, group_id, order_index, source_number, question_type, display_type, prompt, question_html, options)
   on public.skill_questions to anon, authenticated;
 
--- Bucket audio cho Listening: public để trình phát tải trực tiếp, admin mới ghi được.
+-- Bucket audio cho Listening: private, audio được phục vụ qua signed URL
+-- (đề còn draft/hidden không bị tải trực tiếp bằng URL), admin mới ghi được.
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-values ('skill-audio', 'skill-audio', true, 52428800, array['audio/mpeg', 'audio/mp4', 'audio/wav', 'audio/ogg'])
+values ('skill-audio', 'skill-audio', false, 52428800, array['audio/mpeg', 'audio/mp4', 'audio/wav', 'audio/ogg'])
 on conflict (id) do update
 set public = excluded.public,
     file_size_limit = excluded.file_size_limit,
@@ -1050,6 +1082,12 @@ set public = excluded.public,
 drop policy if exists skill_audio_insert on storage.objects;
 create policy skill_audio_insert on storage.objects
 for insert to authenticated
+with check (bucket_id = 'skill-audio' and private.is_admin());
+
+drop policy if exists skill_audio_update on storage.objects;
+create policy skill_audio_update on storage.objects
+for update to authenticated
+using (bucket_id = 'skill-audio' and private.is_admin())
 with check (bucket_id = 'skill-audio' and private.is_admin());
 
 drop policy if exists skill_audio_delete on storage.objects;
@@ -1062,7 +1100,7 @@ commit;
 
 - [ ] **Step 2: Cập nhật `verify-schema.mjs`**
 
-Sửa hai danh sách:
+Sửa hai danh sách và thêm hai kiểm tra:
 
 ```js
 const expectedTables = [
@@ -1086,9 +1124,17 @@ Thêm ngay sau khối `promptRead`:
 
 ```js
 // Đáp án của skill_questions phải KHÔNG đọc được bởi client (chấm ở Edge Function).
-// has_table_privilege KHÔNG tính quyền cấp ở mức cột, nên cả ba giá trị đều kiểm riêng.
-const skillQuestionPrivileges = query(`select has_table_privilege('anon', 'public.skill_questions', 'SELECT')::text || has_column_privilege('anon', 'public.skill_questions', 'answer_key', 'SELECT')::text || has_column_privilege('anon', 'public.skill_questions', 'prompt', 'SELECT')::text`)
-check('anon read on skill_questions (must be falsefalsetrue)', skillQuestionPrivileges, 'falsefalsetrue')
+// has_table_privilege KHÔNG tính quyền cấp ở mức cột, nên từng quyền được kiểm riêng.
+// Thứ tự: anon table | anon answer_key | anon prompt | authenticated answer_key | authenticated prompt
+const skillQuestionPrivileges = query(\`select has_table_privilege('anon', 'public.skill_questions', 'SELECT')::text || has_column_privilege('anon', 'public.skill_questions', 'answer_key', 'SELECT')::text || has_column_privilege('anon', 'public.skill_questions', 'prompt', 'SELECT')::text || has_column_privilege('authenticated', 'public.skill_questions', 'answer_key', 'SELECT')::text || has_column_privilege('authenticated', 'public.skill_questions', 'prompt', 'SELECT')::text\`)
+check('read on skill_questions (must be falsefalsetruefalsetrue)', skillQuestionPrivileges, 'falsefalsetruefalsetrue')
+```
+
+Thêm ngay sau đó:
+
+```js
+const attemptsInsert = query(\`select has_table_privilege('authenticated', 'public.skill_attempts', 'INSERT')::text\`)
+check('authenticated INSERT on skill_attempts (must be false)', attemptsInsert, 'false')
 ```
 
 - [ ] **Step 3: Áp dụng migration lên database**
@@ -1100,6 +1146,8 @@ Expected: In ra số file đã áp dụng, không có lỗi `already exists` (mi
 
 Run: `npm run db:verify`
 Expected: `Tất cả kiểm tra schema đạt.` và `Tất cả kiểm tra RLS đạt.`
+
+> **Ghi chú (cập nhật sau khi ship):** code review phát hiện `skill_attempts` cho phép client tự INSERT với `correct_count`/`band` tuỳ ý — tức là tự khai điểm. Đã sửa: bỏ policy INSERT của `authenticated`, thêm `revoke all … from authenticated` cho cả 5 bảng (Supabase mặc định grant ALL cho bảng mới trong `public`, và RLS không chặn TRUNCATE), trigger `skill_attempts_sync_skill` lấy `skill` từ `test_id`, bucket `skill-audio` chuyển sang private + thêm policy UPDATE. Chỉ service role (Edge Function `grade-skill`) ghi được lần làm bài.
 
 - [ ] **Step 5: Commit**
 
