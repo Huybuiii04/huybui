@@ -161,6 +161,7 @@ Catalogue **không** có Cambridge 7–8 (file rỗng 448 byte), Cambridge 20 Te
 ```ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import * as skillLogic from '../src/lib/skillLogic.ts'
 import {
   answeredCount,
   formatClock,
@@ -361,11 +362,93 @@ test('sanitizeHtml removes html comments including their content', () => {
   assert.match(hidden, /<p>b<\/p>/)
 })
 
+test('sanitizeHtml drops numeric character references without a trailing semicolon', () => {
+  const clean = sanitizeHtml('<a href="&#106avascript:alert(1)" title="safe">x</a>')
+  assert.doesNotMatch(clean, /javascript:/i)
+  assert.match(clean, /<a title="safe">x<\/a>/)
+})
+
+test('sanitizeHtml rejects every obfuscated url scheme', () => {
+  const payloads = [
+    '&#106avascript:alert(1)',
+    '&#106;avascript:alert(1)',
+    'jav&#x09;ascript:alert(1)',
+    'javascript&colon;alert(1)',
+  ]
+  for (const payload of payloads) {
+    const clean = sanitizeHtml(`<a href="${payload}" title="safe">x</a>`)
+    assert.doesNotMatch(clean, /javascript:/i, payload)
+    assert.match(clean, /<a title="safe">x<\/a>/, payload)
+  }
+})
+
+test('sanitizeHtml keeps plain urls untouched', () => {
+  assert.equal(
+    sanitizeHtml('<a href="https://example.com/x?a=1&b=2">x</a>'),
+    '<a href="https://example.com/x?a=1&b=2">x</a>',
+  )
+  assert.equal(sanitizeHtml('<img src="/img/a.png">'), '<img src="/img/a.png">')
+})
+
+test('sanitizeHtml escapes markup it cannot parse', () => {
+  const clean = sanitizeHtml('<a href="x onmouseover=alert(1)>')
+  assert.doesNotMatch(clean, /<a/)
+  assert.match(clean, /&lt;/)
+})
+
+test('sanitizeHtml removes an unclosed script block to the end of the content', () => {
+  assert.equal(sanitizeHtml('<script>alert(1)'), '')
+  assert.equal(sanitizeHtml('<p>a</p><style>body{}'), '<p>a</p>')
+})
+
 test('splitHtmlByBlanks finds numbered blanks', () => {
   const segments = splitHtmlByBlanks('<p>cost was <strong>1_______</strong> each</p>')
   assert.equal(segments.length, 3)
-  assert.deepEqual(segments[1], { kind: 'blank', questionId: 1 })
+  assert.deepEqual(segments[1], { kind: 'blank', sourceNumber: 1 })
   assert.match(segments[0].html, /cost was/)
+})
+
+test('module exports exactly the 9 public helpers', () => {
+  assert.deepEqual(Object.keys(skillLogic).sort(), [
+    'answeredCount',
+    'formatClock',
+    'normalizeDisplayType',
+    'normalizeQuestionType',
+    'parseOptions',
+    'progressPercent',
+    'sanitizeHtml',
+    'splitHtmlByBlanks',
+    'splitParagraphs',
+  ])
+})
+
+test('normalizeDisplayType keeps known types and falls back to fill-blank', () => {
+  assert.equal(skillLogic.normalizeDisplayType('note-completion'), 'note-completion')
+  assert.equal(skillLogic.normalizeDisplayType('NOTE-COMPLETION'), 'note-completion')
+  assert.equal(skillLogic.normalizeDisplayType('bogus'), 'fill-blank')
+  assert.equal(skillLogic.normalizeDisplayType(null), 'fill-blank')
+})
+
+test('parseOptions handles empty, invalid and unusual input', () => {
+  assert.deepEqual(parseOptions([]), [])
+  assert.deepEqual(parseOptions('A. x'), [])
+  assert.deepEqual(parseOptions(null), [])
+  assert.deepEqual(parseOptions(['.']), [{ key: 'A', text: '.' }])
+  assert.deepEqual(parseOptions(['3.5 million']), [{ key: 'A', text: '3.5 million' }])
+  assert.deepEqual(parseOptions([{ key: 'X' }]), [{ key: 'X', text: '' }])
+  assert.deepEqual(parseOptions(['A', 'B', 'C']), [
+    { key: 'A', text: 'A' },
+    { key: 'B', text: 'B' },
+    { key: 'C', text: 'C' },
+  ])
+})
+
+test('progressPercent never exceeds 100', () => {
+  assert.equal(progressPercent(5, 4), 100)
+})
+
+test('formatClock falls back to zero for invalid input', () => {
+  assert.equal(formatClock(NaN), '0:00')
 })
 
 test('splitHtmlByBlanks returns plain html when there is no blank', () => {
@@ -379,8 +462,40 @@ test('splitHtmlByBlanks matches the documented placeholder examples', () => {
   for (const [html, number] of examples) {
     const segments = splitHtmlByBlanks(html)
     assert.equal(segments.length, 3)
-    assert.deepEqual(segments[1], { kind: 'blank', questionId: number })
+    assert.deepEqual(segments[1], { kind: 'blank', sourceNumber: number })
   }
+})
+
+test('splitHtmlByBlanks finds a placeholder next to letters and to another placeholder', () => {
+  const leading = splitHtmlByBlanks('1____abc')
+  assert.equal(leading.length, 2)
+  assert.deepEqual(leading[0], { kind: 'blank', sourceNumber: 1 })
+  assert.deepEqual(leading[1], { kind: 'html', html: 'abc' })
+
+  const trailing = splitHtmlByBlanks('abc 1____')
+  assert.equal(trailing.length, 2)
+  assert.deepEqual(trailing[0], { kind: 'html', html: 'abc ' })
+  assert.deepEqual(trailing[1], { kind: 'blank', sourceNumber: 1 })
+
+  const adjacent = splitHtmlByBlanks('1____2____')
+  assert.equal(adjacent.length, 2)
+  assert.deepEqual(adjacent[0], { kind: 'blank', sourceNumber: 1 })
+  assert.deepEqual(adjacent[1], { kind: 'blank', sourceNumber: 2 })
+
+  const spaced = splitHtmlByBlanks('1____ 2____')
+  assert.equal(spaced.length, 3)
+  assert.deepEqual(spaced[0], { kind: 'blank', sourceNumber: 1 })
+  assert.deepEqual(spaced[1], { kind: 'html', html: ' ' })
+  assert.deepEqual(spaced[2], { kind: 'blank', sourceNumber: 2 })
+
+  const afterLetters = splitHtmlByBlanks('the answer is1____')
+  assert.equal(afterLetters.length, 2)
+  assert.deepEqual(afterLetters[0], { kind: 'html', html: 'the answer is' })
+  assert.deepEqual(afterLetters[1], { kind: 'blank', sourceNumber: 1 })
+
+  const longNumber = splitHtmlByBlanks('12345____')
+  assert.equal(longNumber.length, 1)
+  assert.equal(longNumber[0].kind, 'html')
 })
 ```
 
@@ -482,7 +597,7 @@ export type SkillAttempt = {
 
 /** Định dạng số giây thành mm:ss (phủ số 0 ở đầu phần giây). */
 export function formatClock(totalSeconds: number): string {
-  const safe = Math.max(0, Math.floor(totalSeconds))
+  const safe = Number.isFinite(totalSeconds) ? Math.max(0, Math.floor(totalSeconds)) : 0
   const minutes = Math.floor(safe / 60)
   const seconds = safe % 60
   return `${minutes}:${String(seconds).padStart(2, '0')}`
@@ -493,10 +608,10 @@ export function answeredCount(answers: Record<string, string>, questions: { id: 
   return questions.filter(question => Boolean(answers[question.id]?.trim())).length
 }
 
-/** Tỉ lệ phần trăm đã trả lời; đề rỗng thì trả 0 thay vì NaN. */
+/** Tỉ lệ phần trăm đã trả lời; đề rỗng thì trả 0 thay vì NaN, không vượt quá 100. */
 export function progressPercent(answered: number, total: number): number {
   if (total <= 0) return 0
-  return Math.round((answered / total) * 100)
+  return Math.min(100, Math.round((answered / total) * 100))
 }
 
 /** Tách nội dung đoạn văn theo dòng trống. */
@@ -507,14 +622,20 @@ export function splitParagraphs(content: string): string[] {
     .filter(Boolean)
 }
 
-/** Đưa option dạng "A. text" về { key, text }. */
+/**
+ * Đưa option dạng "A. text" về { key, text }.
+ * Chỉ coi phần đầu là nhãn khi khớp `/^[A-Za-z0-9]{1,3}\.\s+/`, còn lại dùng chữ cái fallback.
+ */
 export function parseOptions(raw: unknown): SkillOption[] {
   if (!Array.isArray(raw)) return []
   return raw.map((option, index) => {
-    const fallbackKey = String.fromCharCode(65 + index)
+    const fallbackKey = String.fromCharCode(65 + (index % 26))
     if (typeof option === 'string') {
-      const dot = option.indexOf('.')
-      if (dot !== -1) return { key: option.slice(0, dot).trim(), text: option.slice(dot + 1).trim() }
+      const label = /^[A-Za-z0-9]{1,3}\.\s+/.exec(option)
+      if (label) {
+        const dot = option.indexOf('.')
+        return { key: option.slice(0, dot).trim(), text: option.slice(label[0].length).trim() }
+      }
       return { key: fallbackKey, text: option.trim() }
     }
     if (option && typeof option === 'object') {
@@ -526,7 +647,7 @@ export function parseOptions(raw: unknown): SkillOption[] {
 }
 
 /** Chuẩn hoá 11 kiểu câu hỏi của repo nguồn về 5 kiểu của app. */
-export function normalizeQuestionType(raw: string): SkillQuestionType {
+export function normalizeQuestionType(raw?: string | null): SkillQuestionType {
   const type = (raw ?? '').toLowerCase()
   if (type === 'tfng' || type === 't_f_ng') return 'tfng'
   if (type === 'ynng' || type === 'yes-no' || type === 'yes_no') return 'ynng'
@@ -535,15 +656,31 @@ export function normalizeQuestionType(raw: string): SkillQuestionType {
   return 'fill'
 }
 
+/**
+ * Mọi kiểu hiển thị hợp lệ — khai báo dạng `Record` để TypeScript bắt buộc bổ sung
+ * khi `SkillDisplayType` có thêm giá trị mới.
+ */
+const DISPLAY_TYPES: Record<SkillDisplayType, true> = {
+  tfng: true,
+  ynng: true,
+  'multiple-choice': true,
+  'multiple-choice-2': true,
+  'matching-heading': true,
+  'matching-info': true,
+  'matching-feature': true,
+  'fill-blank': true,
+  'note-completion': true,
+  'table-completion': true,
+  'summary-completion': true,
+  'sentence-completion': true,
+  'sentence-ending': true,
+}
+
 /** Chuẩn hoá `displayType`; giá trị lạ thì coi như fill-blank. */
-export function normalizeDisplayType(raw: string): SkillDisplayType {
+export function normalizeDisplayType(raw?: string | null): SkillDisplayType {
   const type = (raw ?? '').toLowerCase()
-  const known: SkillDisplayType[] = [
-    'tfng', 'ynng', 'multiple-choice', 'multiple-choice-2',
-    'matching-heading', 'matching-info', 'matching-feature', 'fill-blank',
-    'note-completion', 'table-completion', 'summary-completion', 'sentence-completion', 'sentence-ending',
-  ]
-  return known.find(item => item === type) ?? 'fill-blank'
+  if (Object.hasOwn(DISPLAY_TYPES, type)) return type as SkillDisplayType
+  return 'fill-blank'
 }
 
 const ALLOWED_TAGS = new Set([
@@ -564,34 +701,42 @@ const SAFE_ATTRIBUTES = new Set([
 ])
 
 /** Entity HTML có tên cần giải mã khi kiểm tra scheme URL. */
-const NAMED_ENTITIES: Record<string, string> = {
+const NAMED_ENTITIES: Record<string, string | undefined> = {
   '&colon;': ':',
   '&tab;': '\t',
   '&newline;': '\n',
 }
 
 /**
- * Giải mã entity HTML để không bị lách scheme độc
- * (ví dụ `&#106;avascript:` hay `jav&#x09;ascript:`).
+ * Giải mã entity dùng để lách scheme độc.
+ * Chỉ giải mã entity số và ba entity có tên ở trên — không phải bộ giải mã HTML đầy đủ.
+ * Dấu `;` ở entity số là tuỳ chọn vì trình duyệt cũng vậy (`&#106avascript:` vẫn ra `javascript:`),
+ * còn entity có tên thì bắt buộc có `;`.
  */
-function decodeEntities(value: string): string {
+function decodeObfuscatingEntities(value: string): string {
   const fromCodePoint = (code: number): string => {
     if (!Number.isFinite(code) || code < 0 || code > 0x10ffff) return ''
     return String.fromCodePoint(code)
   }
   return value
-    .replace(/&#x([0-9a-f]+);/gi, (_, code: string) => fromCodePoint(parseInt(code, 16)))
-    .replace(/&#(\d+);/g, (_, code: string) => fromCodePoint(parseInt(code, 10)))
-    .replace(/&(colon|tab|newline);/gi, (_, name: string) => NAMED_ENTITIES[`&${name.toLowerCase()};`])
+    .replace(/&#x([0-9a-f]+);?/gi, (_, code: string) => fromCodePoint(parseInt(code, 16)))
+    .replace(/&#(\d+);?/g, (_, code: string) => fromCodePoint(parseInt(code, 10)))
+    .replace(/&(colon|tab|newline);/gi, (_, name: string) => NAMED_ENTITIES[`&${name.toLowerCase()};`] ?? '')
+}
+
+/**
+ * Chuẩn hoá giá trị trước khi kiểm tra scheme: giải mã entity, bỏ ký tự điều khiển
+ * và khoảng trắng, viết thường — để chặn `java\nscript:`, `&#106;avascript:` và ` JaVaScRiPt: `.
+ */
+function normalizeForSchemeCheck(value: string): string {
+  return decodeObfuscatingEntities(value).replace(/[\u0000-\u0020]/g, '').toLowerCase()
 }
 
 /**
  * Kiểm tra URL có an toàn để đặt trong `href`/`src` hay không.
- * Giải mã entity rồi bỏ ký tự điều khiển và khoảng trắng trước khi so khớp
- * để chặn cả `java\nscript:`, `&#106;avascript:` và ` JaVaScRiPt: `.
  */
 function isSafeUrl(value: string): boolean {
-  const normalized = decodeEntities(value).replace(/[\u0000-\u0020]/g, '').toLowerCase()
+  const normalized = normalizeForSchemeCheck(value)
   if (normalized.startsWith('javascript:')) return false
   if (normalized.startsWith('vbscript:')) return false
   if (normalized.startsWith('data:')) return false
@@ -606,7 +751,7 @@ function isSafeUrl(value: string): boolean {
  * - không khai báo `position` là `absolute`, `fixed` hoặc `sticky` (tránh tràn khung).
  */
 function isSafeStyle(value: string): boolean {
-  const normalized = decodeEntities(value).replace(/[\u0000-\u0020]/g, '').toLowerCase()
+  const normalized = normalizeForSchemeCheck(value)
   if (normalized.includes('\\')) return false
   if (normalized.includes('expression(')) return false
   if (normalized.includes('javascript:')) return false
@@ -647,19 +792,19 @@ function parseAttributes(raw: string): HtmlAttribute[] {
 export function sanitizeHtml(html: string): string {
   if (!html) return ''
   let clean = html
-  // Bỏ cả khối script/style/iframe/object/embed, kể cả nội dung bên trong.
-  clean = clean.replace(/<\s*(script|style|iframe|object|embed)\b[\s\S]*?<\s*\/\s*\1\s*>/gi, '')
-  clean = clean.replace(/<\s*(script|style|iframe|object|embed)\b[^>]*\/?>/gi, '')
   // Bỏ comment HTML kèm nội dung, kể cả comment chưa đóng.
   clean = clean.replace(/<!--[\s\S]*?-->/g, '')
   clean = clean.replace(/<!--[\s\S]*$/g, '')
-  // Chỉ giữ thẻ an toàn, kèm thuộc tính an toàn và URL an toàn.
-  clean = clean.replace(/<\/?([a-zA-Z0-9]+)((?:"[^"]*"|'[^']*'|[^'">])*)>/g, (match, tag: string, rawAttributes: string) => {
+  // Bỏ cả khối script/style/iframe/object/embed; thẻ chưa đóng thì bỏ tới cuối chuỗi.
+  clean = clean.replace(/<\s*(script|style|iframe|object|embed)\b[\s\S]*?(?:<\s*\/\s*\1\s*>|$)/gi, '')
+  // Chỉ giữ thẻ an toàn, kèm thuộc tính an toàn và URL an toàn; dấu '<' lạ thì escape.
+  clean = clean.replace(/<\/?([a-zA-Z0-9]+)((?:"[^"]*"|'[^']*'|[^'">])*)>|</g, (match, tag: string | undefined, rawAttributes: string | undefined) => {
+    if (tag === undefined) return '&lt;'
     const name = tag.toLowerCase()
     if (!ALLOWED_TAGS.has(name)) return ''
     if (match.startsWith('</')) return `</${name}>`
     const kept: string[] = []
-    for (const attribute of parseAttributes(rawAttributes)) {
+    for (const attribute of parseAttributes(rawAttributes ?? '')) {
       if (attribute.name.startsWith('on')) continue
       if (!SAFE_ATTRIBUTES.has(attribute.name)) continue
       if ((attribute.name === 'href' || attribute.name === 'src') && !isSafeUrl(attribute.value)) continue
@@ -673,7 +818,7 @@ export function sanitizeHtml(html: string): string {
 
 export type HtmlSegment =
   | { kind: 'html'; html: string }
-  | { kind: 'blank'; questionId: number }
+  | { kind: 'blank'; sourceNumber: number }
 
 /**
  * Tách HTML thành các đoạn, chỗ trống có số (số + từ 4 ký tự gạch/dấu chấm trở lên,
@@ -682,12 +827,12 @@ export type HtmlSegment =
  */
 export function splitHtmlByBlanks(html: string): HtmlSegment[] {
   const segments: HtmlSegment[] = []
-  const pattern = /\b(\d{1,3})\s*[._…]{4,}/g
+  const pattern = /(?<!\d)(\d{1,3})\s*[._…]{4,}/g
   let lastIndex = 0
   let match = pattern.exec(html)
   while (match) {
     if (match.index > lastIndex) segments.push({ kind: 'html', html: html.slice(lastIndex, match.index) })
-    segments.push({ kind: 'blank', questionId: Number(match[1]) })
+    segments.push({ kind: 'blank', sourceNumber: Number(match[1]) })
     lastIndex = match.index + match[0].length
     match = pattern.exec(html)
   }
@@ -699,7 +844,7 @@ export function splitHtmlByBlanks(html: string): HtmlSegment[] {
 - [ ] **Step 4: Chạy test xanh**
 
 Run: `node --test tests/skillLogic.test.ts`
-Expected: PASS — 25/25 test.
+Expected: PASS — 36/36 test.
 
 - [ ] **Step 5: Thêm file test vào `npm test`**
 
@@ -712,256 +857,9 @@ Expected: PASS — 25/25 test.
 - [ ] **Step 6: Chạy toàn bộ test**
 
 Run: `npm test`
-Expected: PASS — không test nào đỏ (số test tăng thêm 25).
+Expected: PASS — không test nào đỏ (số test tăng thêm 36).
 
-> **Ghi chú (cập nhật sau khi ship):** `sanitizeHtml` đã được siết lại sau khi spec review phát hiện regex lấy thuộc tính không bao giờ khớp (mọi attribute bị xoá hết, làm hỏng `<img src>`/ `<a href>`/ `<td colspan>` — quan trọng với dạng `table-completion`). Code block ở trên đã được đồng bộ với implementation thực tế (25 test): attribute chỉ giữ `href, src, alt, title, style, colspan, rowspan, width, height, lang, dir`; `class`/`id`/`data-*` bị bỏ; `style` bị lọc `url(`/`expression(`/`javascript:`/backslash/`position:absolute|fixed|sticky`; entity được decode trước khi kiểm tra scheme; comment HTML bị xoá.
-
-- [ ] **Step 7: Commit**
-
-```bash
-git add src/lib/skillLogic.ts tests/skillLogic.test.ts package.json
-git commit -m "feat(skills): add shared types and pure helpers for reading and listening"
-```
-
----
-
-number | null
-  createdAt: string
-}
-
-/** Định dạng số giây thành mm:ss (phủ số 0 ở đầu phần giây). */
-export function formatClock(totalSeconds: number): string {
-  const safe = Math.max(0, Math.floor(totalSeconds))
-  const minutes = Math.floor(safe / 60)
-  const seconds = safe % 60
-  return `${minutes}:${String(seconds).padStart(2, '0')}`
-}
-
-/** Số câu đã trả lời (bỏ qua câu trả lời rỗng hoặc chỉ khoảng trắng). */
-export function answeredCount(answers: Record<string, string>, questions: { id: string }[]): number {
-  return questions.filter(question => Boolean(answers[question.id]?.trim())).length
-}
-
-/** Tỉ lệ phần trăm đã trả lời; đề rỗng thì trả 0 thay vì NaN. */
-export function progressPercent(answered: number, total: number): number {
-  if (total <= 0) return 0
-  return Math.round((answered / total) * 100)
-}
-
-/** Tách nội dung đoạn văn theo dòng trống. */
-export function splitParagraphs(content: string): string[] {
-  return content
-    .split(/\n\s*\n/)
-    .map(part => part.trim())
-    .filter(Boolean)
-}
-
-/** Đưa option dạng "A. text" về { key, text }. */
-export function parseOptions(raw: unknown): SkillOption[] {
-  if (!Array.isArray(raw)) return []
-  return raw.map((option, index) => {
-    const fallbackKey = String.fromCharCode(65 + index)
-    if (typeof option === 'string') {
-      const dot = option.indexOf('.')
-      if (dot !== -1) return { key: option.slice(0, dot).trim(), text: option.slice(dot + 1).trim() }
-      return { key: fallbackKey, text: option.trim() }
-    }
-    if (option && typeof option === 'object') {
-      const item = option as { key?: string; text?: string }
-      return { key: item.key ?? fallbackKey, text: item.text ?? '' }
-    }
-    return { key: fallbackKey, text: String(option) }
-  })
-}
-
-/** Chuẩn hoá 11 kiểu câu hỏi của repo nguồn về 5 kiểu của app. */
-export function normalizeQuestionType(raw: string): SkillQuestionType {
-  const type = (raw ?? '').toLowerCase()
-  if (type === 'tfng' || type === 't_f_ng') return 'tfng'
-  if (type === 'ynng' || type === 'yes-no' || type === 'yes_no') return 'ynng'
-  if (type === 'multiple-choice' || type === 'multiple_choice') return 'mcq'
-  if (type.startsWith('matching')) return 'matching'
-  return 'fill'
-}
-
-/** Chuẩn hoá `displayType`; giá trị lạ thì coi như fill-blank. */
-export function normalizeDisplayType(raw: string): SkillDisplayType {
-  const type = (raw ?? '').toLowerCase()
-  const known: SkillDisplayType[] = [
-    'tfng', 'ynng', 'multiple-choice', 'multiple-choice-2',
-    'matching-heading', 'matching-info', 'matching-feature', 'fill-blank',
-    'note-completion', 'table-completion', 'summary-completion', 'sentence-completion', 'sentence-ending',
-  ]
-  return known.find(item => item === type) ?? 'fill-blank'
-}
-
-const ALLOWED_TAGS = new Set([
-  'p', 'br', 'strong', 'b', 'em', 'i', 'u', 'sup', 'sub',
-  'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4',
-  'table', 'thead', 'tbody', 'tr', 'td', 'th', 'caption',
-  'span', 'div', 'a', 'img', 'figure', 'figcaption',
-])
-
-/**
- * Thuộc tính được giữ lại khi lọc HTML — mọi thuộc tính khác bị bỏ.
- * `class` cố ý không có trong danh sách: class của repo nguồn trùng tên với
- * utility class của Tailwind trong app này, giữ lại sẽ cho nội dung tự định vị.
- */
-const SAFE_ATTRIBUTES = new Set([
-  'href', 'src', 'alt', 'title', 'style',
-  'colspan', 'rowspan', 'width', 'height', 'lang', 'dir',
-])
-
-/** Entity HTML có tên cần giải mã khi kiểm tra scheme URL. */
-const NAMED_ENTITIES: Record<string, string> = {
-  '&colon;': ':',
-  '&tab;': '\t',
-  '&newline;': '\n',
-}
-
-/**
- * Giải mã entity HTML để không bị lách scheme độc
- * (ví dụ `&#106;avascript:` hay `jav&#x09;ascript:`).
- */
-function decodeEntities(value: string): string {
-  const fromCodePoint = (code: number): string => {
-    if (!Number.isFinite(code) || code < 0 || code > 0x10ffff) return ''
-    return String.fromCodePoint(code)
-  }
-  return value
-    .replace(/&#x([0-9a-f]+);/gi, (_, code: string) => fromCodePoint(parseInt(code, 16)))
-    .replace(/&#(\d+);/g, (_, code: string) => fromCodePoint(parseInt(code, 10)))
-    .replace(/&(colon|tab|newline);/gi, (_, name: string) => NAMED_ENTITIES[`&${name.toLowerCase()};`])
-}
-
-/**
- * Kiểm tra URL có an toàn để đặt trong `href`/`src` hay không.
- * Giải mã entity rồi bỏ ký tự điều khiển và khoảng trắng trước khi so khớp
- * để chặn cả `java\nscript:`, `&#106;avascript:` và ` JaVaScRiPt: `.
- */
-function isSafeUrl(value: string): boolean {
-  const normalized = decodeEntities(value).replace(/[\u0000-\u0020]/g, '').toLowerCase()
-  if (normalized.startsWith('javascript:')) return false
-  if (normalized.startsWith('vbscript:')) return false
-  if (normalized.startsWith('data:')) return false
-  return true
-}
-
-/**
- * Kiểm tra giá trị `style` trước khi giữ lại.
- * Đề dùng `style` cho định dạng bảng nên chỉ loại bỏ giá trị nguy hiểm, phần còn lại giữ nguyên:
- * - không có dấu `\` (CSS escape như `\75 rl(...)` đều là kẻ lách),
- * - không có `expression(`, `javascript:` hay `url(`,
- * - không khai báo `position` là `absolute`, `fixed` hoặc `sticky` (tránh tràn khung).
- */
-function isSafeStyle(value: string): boolean {
-  const normalized = decodeEntities(value).replace(/[\u0000-\u0020]/g, '').toLowerCase()
-  if (normalized.includes('\\')) return false
-  if (normalized.includes('expression(')) return false
-  if (normalized.includes('javascript:')) return false
-  if (normalized.includes('url(')) return false
-  const position = /(^|[^-\w])position:([-\w]+)/g
-  let match = position.exec(normalized)
-  while (match) {
-    const declaration = match[2]
-    if (declaration !== 'relative' && declaration !== 'static') return false
-    match = position.exec(normalized)
-  }
-  return true
-}
-
-type HtmlAttribute = { name: string; value: string }
-
-/** Tách chuỗi thuộc tính thô thành các cặp { name, value }. */
-function parseAttributes(raw: string): HtmlAttribute[] {
-  const attributes: HtmlAttribute[] = []
-  const pattern = /([a-zA-Z_:][-a-zA-Z0-9_:.]*)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'`=<>]+)))?/g
-  let match = pattern.exec(raw)
-  while (match) {
-    attributes.push({
-      name: match[1].toLowerCase(),
-      value: match[2] ?? match[3] ?? match[4] ?? '',
-    })
-    match = pattern.exec(raw)
-  }
-  return attributes
-}
-
-/**
- * Lọc HTML của đề trước khi render.
- * Nội dung đến từ seed nội bộ nhưng vẫn phải lọc: không cho script, style,
- * iframe, thuộc tính sự kiện (on*), thẻ không nằm trong `ALLOWED_TAGS`,
- * thuộc tính ngoài `SAFE_ATTRIBUTES` và URL có scheme nguy hiểm.
- */
-export function sanitizeHtml(html: string): string {
-  if (!html) return ''
-  let clean = html
-  // Bỏ cả khối script/style/iframe/object/embed, kể cả nội dung bên trong.
-  clean = clean.replace(/<\s*(script|style|iframe|object|embed)\b[\s\S]*?<\s*\/\s*\1\s*>/gi, '')
-  clean = clean.replace(/<\s*(script|style|iframe|object|embed)\b[^>]*\/?>/gi, '')
-  // Bỏ comment HTML kèm nội dung, kể cả comment chưa đóng.
-  clean = clean.replace(/<!--[\s\S]*?-->/g, '')
-  clean = clean.replace(/<!--[\s\S]*$/g, '')
-  // Chỉ giữ thẻ an toàn, kèm thuộc tính an toàn và URL an toàn.
-  clean = clean.replace(/<\/?([a-zA-Z0-9]+)((?:"[^"]*"|'[^']*'|[^'">])*)>/g, (match, tag: string, rawAttributes: string) => {
-    const name = tag.toLowerCase()
-    if (!ALLOWED_TAGS.has(name)) return ''
-    if (match.startsWith('</')) return `</${name}>`
-    const kept: string[] = []
-    for (const attribute of parseAttributes(rawAttributes)) {
-      if (attribute.name.startsWith('on')) continue
-      if (!SAFE_ATTRIBUTES.has(attribute.name)) continue
-      if ((attribute.name === 'href' || attribute.name === 'src') && !isSafeUrl(attribute.value)) continue
-      if (attribute.name === 'style' && !isSafeStyle(attribute.value)) continue
-      kept.push(` ${attribute.name}="${attribute.value.replace(/"/g, '&quot;')}"`)
-    }
-    return `<${name}${kept.join('')}>`
-  })
-  return clean
-}
-
-export type HtmlSegment =
-  | { kind: 'html'; html: string }
-  | { kind: 'blank'; questionId: number }
-
-/**
- * Tách HTML thành các đoạn, chỗ trống có số (số + từ 4 ký tự gạch/dấu chấm trở lên,
- * ví dụ "2____" hoặc "3……..") thành segment riêng
- * để React chèn ô nhập nội tuyến — không dùng dangerouslySetInnerHTML cho phần có ô nhập.
- */
-export function splitHtmlByBlanks(html: string): HtmlSegment[] {
-  const segments: HtmlSegment[] = []
-  const pattern = /\b(\d{1,3})\s*[._…]{4,}/g
-  let lastIndex = 0
-  let match = pattern.exec(html)
-  while (match) {
-    if (match.index > lastIndex) segments.push({ kind: 'html', html: html.slice(lastIndex, match.index) })
-    segments.push({ kind: 'blank', questionId: Number(match[1]) })
-    lastIndex = match.index + match[0].length
-    match = pattern.exec(html)
-  }
-  if (lastIndex < html.length) segments.push({ kind: 'html', html: html.slice(lastIndex) })
-  return segments.length ? segments : [{ kind: 'html', html }]
-}
-```
-
-- [ ] **Step 4: Chạy test xanh**
-
-Run: `node --test tests/skillLogic.test.ts`
-Expected: PASS — 25/25 test.
-
-- [ ] **Step 5: Thêm file test vào `npm test`**
-
-`package.json`, script `test`:
-
-```json
-"test": "node --test tests/learning.test.ts tests/auth.test.ts tests/sync.test.ts tests/ai.test.ts tests/vocabulary.test.ts tests/vocabularyRepository.test.ts tests/skillLogic.test.ts tests/agent.test.ts tests/negotiation.test.ts tests/middleware.test.ts tests/discovery.test.ts tests/admin.test.ts",
-```
-
-- [ ] **Step 6: Chạy toàn bộ test**
-
-Run: `npm test`
-Expected: PASS — không test nào đỏ (số test tăng thêm 25).
+> **Ghi chú (cập nhật sau khi ship):** `sanitizeHtml` đã được siết lại sau khi spec review và code quality review phát hiện: (1) regex lấy thuộc tính không bao giờ khớp nên mọi attribute bị xoá hết — hỏng `<img src>`/ `<a href>`/ `<td colspan>`, quan trọng với dạng `table-completion`; (2) bypass XSS qua numeric entity không có `;` (`&#106avascript:`) đã được chứng minh bằng Chromium — sửa bằng cách cho phép `;` tuỳ chọn trong pattern số; (3) `splitHtmlByBlanks` dùng `(?<!\d)` thay `\b` để không bỏ sót chỗ trống dính liền nhau. Code block ở trên đã đồng bộ với implementation thực tế (36 test).
 
 - [ ] **Step 7: Commit**
 
@@ -971,7 +869,6 @@ git commit -m "feat(skills): add shared types and pure helpers for reading and l
 ```
 
 ---
-
 ## Task 2: Migration — 5 bảng, RLS, bucket audio
 
 **Files:**
