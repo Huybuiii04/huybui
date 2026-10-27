@@ -75,11 +75,58 @@ export function QuestionCard({
   const showText = !showSelect && (question.type === 'fill' || question.type === 'matching')
 
   return <article className="skill-question" id={`question-${number}`}>
-    <header className="skill-question-head">
-      <span className={`skill-question-number ${selected ? 'is-answered' : ''}`}>{number}</span>
-      <div className="skill-question-text">
+    <div className="skill-question-row">
+      <span className={`skill-question-box ${selected ? 'is-answered' : ''}`}>{number}</span>
+      <div className="skill-question-main">
         {question.prompt && <p className="skill-question-prompt">{question.prompt}</p>}
         {isMultiAnswer && <p className="skill-question-hint">{c(`Chọn ${answerCount} đáp án`, `Select ${answerCount} answers`)}</p>}
+
+        {(question.type === 'tfng' || question.type === 'ynng') && <div className="skill-tfng">
+          {chips.map(option => <button
+            key={option}
+            type="button"
+            className={`skill-chip ${selected === option ? 'is-selected' : ''}`}
+            onClick={() => onAnswer(option)}
+          >{option}</button>)}
+        </div>}
+
+        {question.type === 'mcq' && <div className="skill-options">
+          {question.options.map(option => isMultiAnswer
+            ? <label key={option.key} className={`skill-option ${selectedKeys.includes(option.key) ? 'is-selected' : ''}`}>
+              <input
+                type="checkbox"
+                name={`question-${number}`}
+                value={option.key}
+                checked={selectedKeys.includes(option.key)}
+                disabled={!selectedKeys.includes(option.key) && selectedKeys.length >= answerCount}
+                onChange={() => toggleKey(option.key)}
+              />
+              <span><strong>{option.key}.</strong>{option.text === option.key ? '' : ` ${option.text}`}</span>
+            </label>
+            : <label key={option.key} className={`skill-option ${selected === option.key ? 'is-selected' : ''}`}>
+              <input type="radio" name={`question-${number}`} value={option.key} checked={selected === option.key} onChange={() => onAnswer(option.key)} />
+              <span><strong>{option.key}.</strong>{option.text === option.key ? '' : ` ${option.text}`}</span>
+            </label>)}
+        </div>}
+
+        {showSelect && <div className="skill-options">
+          <label className={`skill-option ${selected ? 'is-selected' : ''}`}>
+            <select value={selected} onChange={event => onAnswer(event.target.value)} aria-label={c('Chọn đáp án', 'Choose an answer')}>
+              <option value="">{c('— Chọn đáp án —', '— Choose an answer —')}</option>
+              {question.options.map(option => <option key={option.key} value={option.key}>{optionLabel(option)}</option>)}
+            </select>
+          </label>
+        </div>}
+
+        {showText && <div className="skill-fill">
+          <input
+            type="text"
+            value={selected}
+            onChange={event => onAnswer(event.target.value)}
+            placeholder={c('Nhập đáp án của bạn', 'Type your answer')}
+            aria-label={c('Đáp án câu', 'Your answer')}
+          />
+        </div>}
       </div>
       <button
         type="button"
@@ -90,53 +137,6 @@ export function QuestionCard({
       >
         <Flag size={16} />
       </button>
-    </header>
-
-    {(question.type === 'tfng' || question.type === 'ynng') && <div className="skill-tfng">
-      {chips.map(option => <button
-        key={option}
-        type="button"
-        className={`skill-chip ${selected === option ? 'is-selected' : ''}`}
-        onClick={() => onAnswer(option)}
-      >{option}</button>)}
-    </div>}
-
-    {question.type === 'mcq' && <div className="skill-options">
-      {question.options.map(option => isMultiAnswer
-        ? <label key={option.key} className={`skill-option ${selectedKeys.includes(option.key) ? 'is-selected' : ''}`}>
-          <input
-            type="checkbox"
-            name={`question-${number}`}
-            value={option.key}
-            checked={selectedKeys.includes(option.key)}
-            disabled={!selectedKeys.includes(option.key) && selectedKeys.length >= answerCount}
-            onChange={() => toggleKey(option.key)}
-          />
-          <span><strong>{option.key}.</strong>{option.text === option.key ? '' : ` ${option.text}`}</span>
-        </label>
-        : <label key={option.key} className={`skill-option ${selected === option.key ? 'is-selected' : ''}`}>
-          <input type="radio" name={`question-${number}`} value={option.key} checked={selected === option.key} onChange={() => onAnswer(option.key)} />
-          <span><strong>{option.key}.</strong>{option.text === option.key ? '' : ` ${option.text}`}</span>
-        </label>)}
-    </div>}
-
-    {showSelect && <div className="skill-options">
-      <label className={`skill-option ${selected ? 'is-selected' : ''}`}>
-        <select value={selected} onChange={event => onAnswer(event.target.value)} aria-label={c('Chọn đáp án', 'Choose an answer')}>
-          <option value="">{c('— Chọn đáp án —', '— Choose an answer —')}</option>
-          {question.options.map(option => <option key={option.key} value={option.key}>{optionLabel(option)}</option>)}
-        </select>
-      </label>
-    </div>}
-
-    {showText && <div className="skill-fill">
-      <input
-        type="text"
-        value={selected}
-        onChange={event => onAnswer(event.target.value)}
-        placeholder={c('Nhập đáp án của bạn', 'Type your answer')}
-        aria-label={c('Đáp án câu', 'Your answer')}
-      />
-    </div>}
+    </div>
   </article>
 }

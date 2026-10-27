@@ -542,3 +542,27 @@ export function splitHtmlByBlanks(html: string): HtmlSegment[] {
   if (lastIndex < html.length) segments.push({ kind: 'html', html: html.slice(lastIndex) })
   return segments.length ? segments : [{ kind: 'html', html }]
 }
+
+/**
+ * Tách tiêu đề nhóm câu hỏi ("Questions 27-30") ra khỏi phần hướng dẫn.
+ *
+ * Dữ liệu gốc viết tiêu đề ở đầu hướng dẫn, dạng `<p><strong>Questions 1–6</strong></p>`
+ * hoặc `<h3>Questions 14–17</h3>`. Giao diện hiển thị tiêu đề này thành một dòng
+ * riêng nên phần hướng dẫn còn lại phải tách ra.
+ */
+export function splitGroupHeading(instructionHtml: string): { heading: string; body: string } {
+  if (!instructionHtml) return { heading: '', body: '' }
+  const match = instructionHtml.match(
+    /^\s*<(p|h2|h3|h4)>\s*(?:<strong>)?\s*(Questions?[^<]*?)\s*(?:<\/strong>)?\s*<\/\1>/i,
+  )
+  if (!match || match.index === undefined) return { heading: '', body: instructionHtml }
+  return {
+    heading: match[2].trim(),
+    body: instructionHtml.slice(match.index + match[0].length),
+  }
+}
+
+/** Bỏ thẻ HTML và gộp khoảng trắng, dùng để hiện một dòng tóm tắt. */
+export function htmlToText(html: string): string {
+  return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+}

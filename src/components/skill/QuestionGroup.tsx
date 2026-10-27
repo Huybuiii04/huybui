@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { Flag } from 'lucide-react'
 import { useCopy } from '../../i18n'
-import { groupAnswerCount, sanitizeHtml, splitHtmlByBlanks, type SkillQuestionGroup } from '../../lib/skillLogic.ts'
+import { groupAnswerCount, sanitizeHtml, splitGroupHeading, splitHtmlByBlanks, type SkillQuestionGroup } from '../../lib/skillLogic.ts'
 import { QuestionCard } from './QuestionCard.tsx'
 
 /**
@@ -45,7 +45,9 @@ export function QuestionGroup({
   onToggleFlag: (questionId: string) => void
 }) {
   const { c } = useCopy()
-  const instruction = useMemo(() => sanitizeHtml(group.instructionHtml), [group.instructionHtml])
+  // Tiêu đề "Questions 27-30" tách riêng khỏi phần hướng dẫn còn lại.
+  const split = useMemo(() => splitGroupHeading(group.instructionHtml), [group.instructionHtml])
+  const instruction = useMemo(() => sanitizeHtml(split.body), [split.body])
   // Số đáp án của nhóm ("Choose TWO correct answers") để câu mất đề bài mượn dùng.
   const answerCount = useMemo(() => groupAnswerCount(group), [group])
   const html = useMemo(() => {
@@ -78,6 +80,7 @@ export function QuestionGroup({
     : group.questions
 
   return <section className="skill-group">
+    {split.heading && <h3 className="skill-group-title">{split.heading}</h3>}
     {instruction && <div className="skill-group-instruction" dangerouslySetInnerHTML={{ __html: instruction }} />}
 
     {useInline && <div className="skill-completion">

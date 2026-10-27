@@ -7,6 +7,7 @@ import {
   formatClock,
   groupAnswerCount,
   hasCompleteQuestionSet,
+  htmlToText,
   isMatchingDisplayType,
   isPlaceholderPrompt,
   multiAnswerCount,
@@ -14,6 +15,7 @@ import {
   parseOptions,
   progressPercent,
   sanitizeHtml,
+  splitGroupHeading,
   splitHtmlByBlanks,
   splitParagraphs,
 } from '../src/lib/skillLogic.ts'
@@ -311,6 +313,7 @@ test('module exports exactly the 15 public helpers', () => {
     'formatClock',
     'groupAnswerCount',
     'hasCompleteQuestionSet',
+    'htmlToText',
     'isMatchingDisplayType',
     'isPlaceholderPrompt',
     'matchingOptionsFor',
@@ -320,6 +323,7 @@ test('module exports exactly the 15 public helpers', () => {
     'parseOptions',
     'progressPercent',
     'sanitizeHtml',
+    'splitGroupHeading',
     'splitHtmlByBlanks',
     'splitParagraphs',
   ])
@@ -453,6 +457,32 @@ test('splitHtmlByBlanks returns plain html when there is no blank', () => {
   const segments = splitHtmlByBlanks('<p>no blanks here</p>')
   assert.equal(segments.length, 1)
   assert.equal(segments[0].kind, 'html')
+})
+
+test('splitGroupHeading pulls the Questions heading out of the instruction', () => {
+  const html = '<p><strong>Questions 27-30</strong></p><p>Answer the questions below.</p>'
+  const split = splitGroupHeading(html)
+  assert.equal(split.heading, 'Questions 27-30')
+  assert.equal(split.body, '<p>Answer the questions below.</p>')
+})
+
+test('splitGroupHeading also handles an h3 heading', () => {
+  const html = '<h3>Questions 14–17</h3><p>The Reading Passage has five paragraphs.</p>'
+  const split = splitGroupHeading(html)
+  assert.equal(split.heading, 'Questions 14–17')
+  assert.equal(split.body, '<p>The Reading Passage has five paragraphs.</p>')
+})
+
+test('splitGroupHeading keeps the whole instruction when there is no heading', () => {
+  const html = '<p>Choose the correct answer.</p>'
+  const split = splitGroupHeading(html)
+  assert.equal(split.heading, '')
+  assert.equal(split.body, html)
+})
+
+test('htmlToText strips tags and collapses whitespace', () => {
+  assert.equal(htmlToText('<p>Questions 1–6</p><p>Choose <strong>ONE WORD</strong>.</p>'), 'Questions 1–6 Choose ONE WORD .')
+  assert.equal(htmlToText(''), '')
 })
 
 test('splitHtmlByBlanks matches the documented placeholder examples', () => {

@@ -47,11 +47,24 @@ try {
     const card = page.locator('.skill-card').first()
     if (await card.count()) {
       await card.click()
-      await page.waitForSelector('.skill-workspace', { timeout: 15000 })
-      check('reading test room opens', await page.locator('.skill-workspace').isVisible())
-      check('reading timer is visible', await page.locator('.skill-timer-value').isVisible())
+      await page.waitForSelector('.skill-room', { timeout: 15000 })
+      check('reading test room opens', await page.locator('.skill-room').isVisible())
+      check('reading timer is visible', await page.locator('.skill-room-timer').isVisible())
       check('passage content is rendered', await page.locator('.skill-passage-body').isVisible())
       check('question cards are rendered', (await page.locator('.skill-question').count()) > 0)
+      // Bố cục hai cột: passage │ câu hỏi, có thanh kéo giữa.
+      check('split panes are visible', await page.locator('.skill-room-split').isVisible())
+      check('resize divider is present', (await page.locator('.skill-room-divider').count()) === 1)
+      // Thanh bên ứng dụng thu gọn được và trạng thái được nhớ.
+      const sidebarToggle = page.locator('.sidebar-footer button')
+      if (await sidebarToggle.count()) {
+        await sidebarToggle.click()
+        await page.waitForTimeout(400)
+        check('sidebar collapses', (await page.locator('.app-shell.is-sidebar-collapsed').count()) === 1)
+        await page.locator('.sidebar-reopen').click()
+        await page.waitForTimeout(400)
+        check('sidebar reopens', (await page.locator('.app-shell.is-sidebar-collapsed').count()) === 0)
+      }
     }
   }
 } catch (error) {

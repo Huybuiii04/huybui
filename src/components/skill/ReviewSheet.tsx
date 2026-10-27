@@ -16,7 +16,6 @@ export function ReviewSheet({
 }) {
   const { c } = useCopy()
   return <div className="skill-review">
-    <p className="eyebrow">{c('Rà soát câu trả lời', 'Answer review')}</p>
     <div className="skill-review-grid">
       {questions.map(question => {
         const number = numbers[question.id] ?? 0

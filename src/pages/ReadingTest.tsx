@@ -1,16 +1,24 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
-import { ArrowLeft, Send } from 'lucide-react'
+import { ArrowLeft, Clock, Maximize2, Minimize2, Send } from 'lucide-react'
 import { Notice, PageHeader } from '../components/ui'
 import { PassagePanel } from '../components/skill/PassagePanel.tsx'
 import { QuestionGroup } from '../components/skill/QuestionGroup.tsx'
 import { ReviewSheet } from '../components/skill/ReviewSheet.tsx'
-import { TestTimer } from '../components/skill/TestTimer.tsx'
 import { useCopy } from '../i18n'
 import { gradeSkill } from '../lib/skillApi.ts'
 import { loadSkillTest } from '../lib/skillRepository.ts'
-import { answeredCount, hasCompleteQuestionSet, progressPercent, type SkillQuestion, type SkillTest } from '../lib/skillLogic.ts'
+import { answeredCount, formatClock, hasCompleteQuestionSet, htmlToText, progressPercent, type SkillQuestion, type SkillTest } from '../lib/skillLogic.ts'
 
+/** Khoảng cách tối thiểu giữa hai cột, tính theo phần trăm. */
+const SPLIT_MIN = 24
+const SPLIT_MAX = 76
+
+/**
+ * Phòng làm bài Reading — bố cục hai cột: passage bên trái, câu hỏi bên phải,
+ * có thanh kéo giữa để đổi tỉ lệ. Thanh bên (sidebar) của ứng dụng có thể
+ * thu gọn, và chế độ "Focus" ẩn hẳn khung ứng dụng để đọc thoải mái.
+ */
 export default function ReadingTest() {
   const { c } = useCopy()
   const { slug = '' } = useParams()
@@ -24,6 +32,11 @@ export default function ReadingTest() {
   const [remaining, setRemaining] = useState(0)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [focus, setFocus] = useState(false)
+  const [reviewOpen, setReviewOpen] = useState(false)
+  const [split, setSplit] = useState(50)
+  const splitRef = useRef<HTMLDivElement>(null)
+  const dragging = useRef(false)
   const startedAt = useRef(Date.now())
 
   useEffect(() => {
@@ -43,6 +56,13 @@ export default function ReadingTest() {
     const timer = setInterval(() => setRemaining(value => (value > 0 ? value - 1 : 0)), 1000)
     return () => clearInterval(timer)
   }, [test, loading])
+
+  // Chế độ Focus ẩn khung ứng dụng (sidebar + thanh trên) để passage chiếm hết màn hình.
+  useEffect(() => {
+    if (!focus) return
+    document.documentElement.dataset.readingFocus = 'on'
+    return () => { delete document.documentElement.dataset.readingFocus }
+  }, [focus])
 
   const allQuestions = useMemo<SkillQuestion[]>(() => (test?.sections ?? []).flatMap(section => section.groups.flatMap(group => group.questions)), [test])
   const numbers = useMemo(() => {
@@ -114,6 +134,7 @@ export default function ReadingTest() {
     if (!target) return
     const owner = test?.sections.findIndex(item => item.groups.some(group => group.questions.some(question => question.id === target.id))) ?? -1
     if (owner >= 0) setActiveSection(owner)
+    setReviewOpen(false)
   }
 
   const submit = async () => {
@@ -137,28 +158,97 @@ export default function ReadingTest() {
     navigate(`/app/reading/result/${result.value.attemptId ?? 'latest'}`, { state: { grade: result.value } })
   }
 
+  /** Bắt đầu kéo thanh chia, dùng pointer capture để không mất sự kiện khi ra ngoài. */
+  const startDrag = (event: React.PointerEvent<HTMLDivElement>) => {
+    dragging.current = true
+    event.currentTarget.setPointerCapture(event.pointerId)
+  }
+
+  const onDrag = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!dragging.current || !splitRef.current) return
+    const rect = splitRef.current.getBoundingClientRect()
+    if (rect.width <= 0) return
+    const percent = ((event.clientX - rect.left) / rect.width) * 100
+    setSplit(Math.min(SPLIT_MAX, Math.max(SPLIT_MIN, percent)))
+  }
+
+  const endDrag = (event: React.PointerEvent<HTMLDivElement>) => {
+    dragging.current = false
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
+  }
+
+  /** Kéo bằng bàn phím — thanh kéo không được là cách duy nhất (WCAG 2.2). */
+  const onDividerKey = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    const step = event.shiftKey ? 8 : 2
+    if (event.key === 'ArrowLeft') { event.preventDefault(); setSplit(value => Math.max(SPLIT_MIN, value - step)) }
+    else if (event.key === 'ArrowRight') { event.preventDefault(); setSplit(value => Math.min(SPLIT_MAX, value + step)) }
+    else if (event.key === 'Home') { event.preventDefault(); setSplit(50) }
+  }
+
   if (loading) return <div className="loading-state" role="status">{c('Đang tải đề…', 'Loading the test…')}</div>
   if (failed || !test) return <div className="page">
     <PageHeader eyebrow={c('LUYỆN ĐỌC', 'READING')} title={c('Không tìm thấy đề', 'Test not found')} />
     <Notice error><div><strong>{c('Đề này không tồn tại hoặc đã bị ẩn.', 'This test does not exist or has been hidden.')}</strong></div></Notice>
   </div>
 
-  return <div className="skill-workspace">
-    <header className="skill-workspace-bar">
-      <button type="button" className="icon-button" onClick={() => navigate('/app/reading')} aria-label={c('Quay lại kho đề', 'Back to the library')}><ArrowLeft size={19} /></button>
-      <div className="skill-workspace-title">
-        <p className="eyebrow">{test.series}</p>
-        <h1>{test.title}</h1>
+  return <div className={`skill-room ${focus ? 'is-focus' : ''}`}>
+    <header className="skill-room-header">
+      <div className="skill-room-header-side">
+        <button type="button" className="icon-button" onClick={() => navigate('/app/reading')} aria-label={c('Quay lại kho đề', 'Back to the library')}><ArrowLeft size={19} /></button>
+        <span className="skill-room-series">{test.series}</span>
       </div>
-      <div className="skill-workspace-progress">
-        <span>{c('Đã trả lời', 'Answered')} {answered}/{allQuestions.length} ({progressPercent(answered, allQuestions.length)}%)</span>
-        <span className="skill-timer-bar"><span style={{ width: `${progressPercent(answered, allQuestions.length)}%` }} /></span>
+      <h1 className="skill-room-title">{test.title}</h1>
+      <div className="skill-room-header-side is-end">
+        <button type="button" className="button primary" onClick={() => void submit()} disabled={submitting || incomplete}>
+          <Send size={16} />{submitting ? c('Đang nộp…', 'Submitting…') : c('Nộp bài', 'Submit')}
+        </button>
       </div>
-      <TestTimer seconds={remaining} durationMinutes={test.durationMinutes} />
-      <button type="button" className="button primary" onClick={() => void submit()} disabled={submitting || incomplete}>
-        <Send size={16} />{submitting ? c('Đang nộp…', 'Submitting…') : c('Nộp bài', 'Submit')}
-      </button>
     </header>
+
+    <div className="skill-room-toolbar">
+      <div className="skill-room-toolbar-side">
+        <button
+          type="button"
+          className={`skill-room-focus ${focus ? 'is-active' : ''}`}
+          onClick={() => setFocus(value => !value)}
+          aria-pressed={focus}
+        >
+          {focus ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
+          {c('Tập trung', 'Focus')}
+        </button>
+        <nav className="skill-room-parts" aria-label={c('Các passage của bài', 'Test passages')}>
+          {test.sections.map((item, index) => <button
+            key={item.id}
+            type="button"
+            className={`skill-room-part-tab ${index === activeSection ? 'is-active' : ''}`}
+            onClick={() => setActiveSection(index)}
+            aria-current={index === activeSection ? 'true' : undefined}
+          >{c('Phần', 'Part')} {index + 1}</button>)}
+        </nav>
+      </div>
+      <div className="skill-room-timer">
+        <Clock size={16} />
+        <span className={remaining <= 300 ? 'is-low' : ''}>{formatClock(remaining)}</span>
+      </div>
+      <div className="skill-room-toolbar-side is-end">
+        <span className="skill-room-progress">{answered}/{allQuestions.length} · {progressPercent(answered, allQuestions.length)}%</span>
+        <button
+          type="button"
+          className={`skill-room-review-toggle ${reviewOpen ? 'is-active' : ''}`}
+          onClick={() => setReviewOpen(value => !value)}
+          aria-expanded={reviewOpen}
+          aria-controls="skill-room-review"
+        >
+          {c('Rà soát', 'Review')}
+        </button>
+      </div>
+    </div>
+
+    <div className="skill-room-part">
+      <strong>{c('Phần', 'Part')} {activeSection + 1}</strong>
+      <span className="skill-room-part-title">{section?.title}</span>
+      <p>{section ? htmlToText(section.groups[0]?.instructionHtml ?? '') : ''}</p>
+    </div>
 
     {incomplete && <Notice error><div>
       <strong>{c('Đề tải thiếu câu hỏi nên không thể nộp bài.', 'This test is missing questions, so it cannot be submitted.')}</strong>
@@ -167,17 +257,27 @@ export default function ReadingTest() {
 
     {error && <Notice error><div><strong>{c('Không nộp được bài.', 'The attempt could not be submitted.')}</strong><p>{c('Thử lại sau ít phút.', 'Please try again in a moment.')}</p></div></Notice>}
 
-    <div className="skill-workspace-body">
-      <aside className="skill-workspace-side">
-        <ReviewSheet questions={allQuestions} numbers={numbers} answers={answers} flagged={flagged} onJump={jumpTo} />
-        <nav className="skill-section-tabs" aria-label={c('Các passage của bài', 'Test passages')}>
-          {test.sections.map((item, index) => <button key={item.id} type="button" className={`skill-section-tab ${index === activeSection ? 'is-active' : ''}`} onClick={() => setActiveSection(index)}>{item.title}</button>)}
-        </nav>
-      </aside>
-      <section className="skill-workspace-passage">
+    <div className="skill-room-split" ref={splitRef} style={{ '--split': `${split}%` } as React.CSSProperties}>
+      <section className="skill-room-pane skill-room-pane-passage">
         {section && <PassagePanel section={section} />}
       </section>
-      <section className="skill-workspace-questions">
+      <div
+        className="skill-room-divider"
+        role="separator"
+        aria-orientation="vertical"
+        aria-label={c('Kéo để đổi độ rộng passage và câu hỏi', 'Drag to resize the passage and questions panes')}
+        aria-valuenow={Math.round(split)}
+        aria-valuemin={SPLIT_MIN}
+        aria-valuemax={SPLIT_MAX}
+        tabIndex={0}
+        onPointerDown={startDrag}
+        onPointerMove={onDrag}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
+        onKeyDown={onDividerKey}
+        onDoubleClick={() => setSplit(50)}
+      />
+      <section className="skill-room-pane skill-room-pane-questions">
         {section?.groups.map(group => <QuestionGroup
           key={group.id}
           group={group}
@@ -190,5 +290,15 @@ export default function ReadingTest() {
         />)}
       </section>
     </div>
+
+    {reviewOpen && <aside className="skill-room-review" id="skill-room-review">
+      <div className="skill-room-review-head">
+        <h2>{c('Rà soát câu trả lời', 'Answer review')}</h2>
+        <button type="button" className="icon-button" onClick={() => setReviewOpen(false)} aria-label={c('Đóng bảng rà soát', 'Close the review panel')}>
+          <ArrowLeft size={18} />
+        </button>
+      </div>
+      <ReviewSheet questions={allQuestions} numbers={numbers} answers={answers} flagged={flagged} onJump={jumpTo} />
+    </aside>}
   </div>
 }

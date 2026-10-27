@@ -162,13 +162,21 @@ Catalogue **không** có Cambridge 7–8 (file rỗng 448 byte), Cambridge 20 Te
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import * as skillLogic from '../src/lib/skillLogic.ts'
+import type { SkillAttempt } from '../src/lib/skillApi.ts'
 import {
   answeredCount,
   formatClock,
+  groupAnswerCount,
+  hasCompleteQuestionSet,
+  htmlToText,
+  isMatchingDisplayType,
+  isPlaceholderPrompt,
+  multiAnswerCount,
   normalizeQuestionType,
   parseOptions,
   progressPercent,
   sanitizeHtml,
+  splitGroupHeading,
   splitHtmlByBlanks,
   splitParagraphs,
 } from '../src/lib/skillLogic.ts'
@@ -353,6 +361,36 @@ test('sanitizeHtml drops style values with css escapes or absolute positioning',
   assert.match(staticPosition, /<td style="position:static">x<\/td>/)
 })
 
+test('sanitizeHtml strips css comments before checking the position', () => {
+  // Trình duyệt bỏ comment CSS nên comment chen giữa 'position:' và 'absolute'
+  // vẫn bị tính là position tuyệt đối.
+  const commented = sanitizeHtml('<td style="position:/**/absolute">x</td>')
+  assert.doesNotMatch(commented, /style=/i)
+  assert.match(commented, /<td>x<\/td>/)
+
+  const spaced = sanitizeHtml('<td style="position : absolute">x</td>')
+  assert.doesNotMatch(spaced, /style=/i)
+  assert.match(spaced, /<td>x<\/td>/)
+
+  const commentedFixed = sanitizeHtml('<td style="position:/**/fixed">x</td>')
+  assert.doesNotMatch(commentedFixed, /style=/i)
+
+  // Comment trong style lành mạnh vẫn được giữ.
+  const safe = sanitizeHtml('<td style="border:1px solid #555 /* viền */">x</td>')
+  assert.match(safe, /<td style="border:1px solid #555/)
+  assert.match(safe, /x<\/td>/)
+})
+
+test('sanitizeHtml drops style values that mention expression or url without a parenthesis', () => {
+  const expression = sanitizeHtml('<td style="width:expression alert(1)">x</td>')
+  assert.doesNotMatch(expression, /style=/i)
+  assert.match(expression, /<td>x<\/td>/)
+
+  const url = sanitizeHtml('<td style="background:url evil.png">x</td>')
+  assert.doesNotMatch(url, /style=/i)
+  assert.match(url, /<td>x<\/td>/)
+})
+
 test('sanitizeHtml removes html comments including their content', () => {
   assert.equal(sanitizeHtml('<!-- secret --><p>x</p>'), '<p>x</p>')
   const hidden = sanitizeHtml('<p>a</p><!-- <script>alert(1)</script> --><p>b</p>')
@@ -390,10 +428,32 @@ test('sanitizeHtml keeps plain urls untouched', () => {
   assert.equal(sanitizeHtml('<img src="/img/a.png">'), '<img src="/img/a.png">')
 })
 
-test('sanitizeHtml escapes markup it cannot parse', () => {
+test('sanitizeHtml drops markup it cannot parse', () => {
+  // Thẻ hỏng (dấu nháy không đóng) phải bị BỎ HẲN — không escape '<' rồi để lọt
+  // phần text còn lại của thẻ ra giao diện.
   const clean = sanitizeHtml('<a href="x onmouseover=alert(1)>')
-  assert.doesNotMatch(clean, /<a/)
-  assert.match(clean, /&lt;/)
+  assert.doesNotMatch(clean, /onmouseover/i)
+  assert.doesNotMatch(clean, /href="x/i)
+  assert.doesNotMatch(clean, /<a/i)
+})
+
+test('sanitizeHtml drops a malformed tag instead of leaking its text', () => {
+  const image = sanitizeHtml('<img src="x onerror=alert(1)>')
+  assert.doesNotMatch(image, /onerror/i)
+  assert.doesNotMatch(image, /src="x/i)
+  assert.equal(image, '')
+
+  const link = sanitizeHtml('<a href="x onmouseover=alert(1)>')
+  assert.doesNotMatch(link, /onmouseover/i)
+  assert.doesNotMatch(link, /href="x/i)
+  assert.equal(link, '')
+
+  // Thẻ đúng vẫn phải được duyệt qua danh sách cho phép.
+  assert.equal(sanitizeHtml('<a href="https://example.com">link</a>'), '<a href="https://example.com">link</a>')
+})
+
+test('sanitizeHtml keeps a stray less-than sign as text', () => {
+  assert.equal(sanitizeHtml('plain < text and 3 < 5'), 'plain &lt; text and 3 &lt; 5')
 })
 
 test('sanitizeHtml removes an unclosed script block to the end of the content', () => {
@@ -408,18 +468,121 @@ test('splitHtmlByBlanks finds numbered blanks', () => {
   assert.match(segments[0].html, /cost was/)
 })
 
-test('module exports exactly the 9 public helpers', () => {
+test('module exports exactly the 15 public helpers', () => {
   assert.deepEqual(Object.keys(skillLogic).sort(), [
     'answeredCount',
     'formatClock',
+    'groupAnswerCount',
+    'hasCompleteQuestionSet',
+    'htmlToText',
+    'isMatchingDisplayType',
+    'isPlaceholderPrompt',
+    'matchingOptionsFor',
+    'multiAnswerCount',
     'normalizeDisplayType',
     'normalizeQuestionType',
     'parseOptions',
     'progressPercent',
     'sanitizeHtml',
+    'splitGroupHeading',
     'splitHtmlByBlanks',
     'splitParagraphs',
   ])
+})
+
+test('skillLogic no longer declares SkillAttempt — the type lives in skillApi', () => {
+  // Bảo vệ chống khai báo trùng: SkillAttempt chỉ được khai báo ở skillApi.ts.
+  // @ts-expect-error skillLogic.ts không còn export SkillAttempt
+  type SkillAttemptIsGone = skillLogic.SkillAttempt
+  const missing: SkillAttemptIsGone | null = null
+  assert.equal(missing, null)
+  // Bản khai báo còn dùng trong app vẫn phải tồn tại ở skillApi.ts.
+  const attempt: SkillAttempt = {
+    id: 'a1',
+    skill: 'reading',
+    testId: 't1',
+    correctCount: 10,
+    totalCount: 40,
+    band: 5.5,
+    createdAt: '2026-01-01T00:00:00.000Z',
+  }
+  assert.equal(attempt.skill, 'reading')
+})
+
+test('multiAnswerCount reads the number of answers from the prompt then the instruction', () => {
+  assert.equal(multiAnswerCount('Which TWO are mentioned by the writer?', ''), 2)
+  assert.equal(multiAnswerCount('Which THREE of the following points are mentioned?', ''), 3)
+  assert.equal(multiAnswerCount('Which FIVE claims about tidal power are made?', ''), 5)
+  assert.equal(multiAnswerCount('Choose two answers from the list below.', ''), 2)
+  assert.equal(multiAnswerCount('Choose TWO correct answers, A–E.', ''), 2)
+  assert.equal(multiAnswerCount('', '<p>Questions 24–26 Choose THREE correct answers.</p>'), 3)
+  // Đề bài được ưu tiên hướng dẫn nhóm.
+  assert.equal(multiAnswerCount('Which TWO?', '<p>Choose THREE correct answers.</p>'), 2)
+  // Câu chỉ chọn một đáp án.
+  assert.equal(multiAnswerCount('What is the main idea?', ''), 0)
+  assert.equal(multiAnswerCount('Choose ONE correct answer, A–E.', ''), 0)
+  // Giới hạn số từ KHÔNG phải số đáp án.
+  assert.equal(multiAnswerCount('', 'Choose NO MORE THAN THREE WORDS from the passage.'), 0)
+  assert.equal(multiAnswerCount('', 'Write ONE WORD ONLY from the passage for each answer.'), 0)
+  assert.equal(multiAnswerCount('', ''), 0)
+})
+
+test('groupAnswerCount falls back to the prompt of the mcq questions of the group', () => {
+  const group = {
+    id: 'g1',
+    order: 1,
+    instructionHtml: '<p>Questions 21–22 Choose TWO correct answers.</p>',
+    displayType: 'multiple-choice-2' as const,
+    config: {},
+    questions: [
+      { id: 'q1', order: 1, sourceNumber: 21, type: 'mcq' as const, displayType: 'multiple-choice-2' as const, prompt: 'Which TWO of these comments are made?', questionHtml: '', options: [], explanation: '' },
+      { id: 'q2', order: 2, sourceNumber: 22, type: 'mcq' as const, displayType: 'multiple-choice-2' as const, prompt: '', questionHtml: '', options: [], explanation: '' },
+    ],
+  }
+  assert.equal(groupAnswerCount(group), 2)
+
+  const noInstruction = {
+    ...group,
+    instructionHtml: '',
+    questions: [
+      { ...group.questions[0], prompt: 'Which FIVE claims are made?' },
+      { ...group.questions[1], prompt: 'Question 22' },
+    ],
+  }
+  assert.equal(groupAnswerCount(noInstruction), 5)
+
+  // Câu fill không được lấy số đáp án ("Which TWO processes…" là câu điền từ).
+  const fillOnly = {
+    ...group,
+    instructionHtml: '',
+    questions: [{ ...group.questions[0], type: 'fill' as const, prompt: 'Which TWO processes are mentioned?' }],
+  }
+  assert.equal(groupAnswerCount(fillOnly), 0)
+})
+
+test('isPlaceholderPrompt detects a question whose stem is missing', () => {
+  assert.equal(isPlaceholderPrompt('Question 12'), true)
+  assert.equal(isPlaceholderPrompt('  question 19 '), true)
+  assert.equal(isPlaceholderPrompt(''), true)
+  assert.equal(isPlaceholderPrompt('Which TWO are mentioned by the writer?'), false)
+})
+
+test('isMatchingDisplayType covers every matching group', () => {
+  assert.equal(isMatchingDisplayType('matching-heading'), true)
+  assert.equal(isMatchingDisplayType('matching-info'), true)
+  assert.equal(isMatchingDisplayType('matching-feature'), true)
+  assert.equal(isMatchingDisplayType('matching'), true)
+  assert.equal(isMatchingDisplayType('multiple-choice'), false)
+  assert.equal(isMatchingDisplayType('multiple-choice-2'), false)
+  assert.equal(isMatchingDisplayType('fill-blank'), false)
+})
+
+test('hasCompleteQuestionSet refuses a test that loaded fewer questions', () => {
+  assert.equal(hasCompleteQuestionSet(40, 40), true)
+  assert.equal(hasCompleteQuestionSet(40, 30), false)
+  assert.equal(hasCompleteQuestionSet(40, 41), false)
+  // Đề không khai báo số câu thì không có gì để so.
+  assert.equal(hasCompleteQuestionSet(0, 12), true)
 })
 
 test('normalizeDisplayType keeps known types and falls back to fill-blank', () => {
@@ -455,6 +618,32 @@ test('splitHtmlByBlanks returns plain html when there is no blank', () => {
   const segments = splitHtmlByBlanks('<p>no blanks here</p>')
   assert.equal(segments.length, 1)
   assert.equal(segments[0].kind, 'html')
+})
+
+test('splitGroupHeading pulls the Questions heading out of the instruction', () => {
+  const html = '<p><strong>Questions 27-30</strong></p><p>Answer the questions below.</p>'
+  const split = splitGroupHeading(html)
+  assert.equal(split.heading, 'Questions 27-30')
+  assert.equal(split.body, '<p>Answer the questions below.</p>')
+})
+
+test('splitGroupHeading also handles an h3 heading', () => {
+  const html = '<h3>Questions 14–17</h3><p>The Reading Passage has five paragraphs.</p>'
+  const split = splitGroupHeading(html)
+  assert.equal(split.heading, 'Questions 14–17')
+  assert.equal(split.body, '<p>The Reading Passage has five paragraphs.</p>')
+})
+
+test('splitGroupHeading keeps the whole instruction when there is no heading', () => {
+  const html = '<p>Choose the correct answer.</p>'
+  const split = splitGroupHeading(html)
+  assert.equal(split.heading, '')
+  assert.equal(split.body, html)
+})
+
+test('htmlToText strips tags and collapses whitespace', () => {
+  assert.equal(htmlToText('<p>Questions 1–6</p><p>Choose <strong>ONE WORD</strong>.</p>'), 'Questions 1–6 Choose ONE WORD .')
+  assert.equal(htmlToText(''), '')
 })
 
 test('splitHtmlByBlanks matches the documented placeholder examples', () => {
@@ -1053,6 +1242,30 @@ export function splitHtmlByBlanks(html: string): HtmlSegment[] {
   if (lastIndex < html.length) segments.push({ kind: 'html', html: html.slice(lastIndex) })
   return segments.length ? segments : [{ kind: 'html', html }]
 }
+
+/**
+ * Tách tiêu đề nhóm câu hỏi ("Questions 27-30") ra khỏi phần hướng dẫn.
+ *
+ * Dữ liệu gốc viết tiêu đề ở đầu hướng dẫn, dạng `<p><strong>Questions 1–6</strong></p>`
+ * hoặc `<h3>Questions 14–17</h3>`. Giao diện hiển thị tiêu đề này thành một dòng
+ * riêng nên phần hướng dẫn còn lại phải tách ra.
+ */
+export function splitGroupHeading(instructionHtml: string): { heading: string; body: string } {
+  if (!instructionHtml) return { heading: '', body: '' }
+  const match = instructionHtml.match(
+    /^\s*<(p|h2|h3|h4)>\s*(?:<strong>)?\s*(Questions?[^<]*?)\s*(?:<\/strong>)?\s*<\/\1>/i,
+  )
+  if (!match || match.index === undefined) return { heading: '', body: instructionHtml }
+  return {
+    heading: match[2].trim(),
+    body: instructionHtml.slice(match.index + match[0].length),
+  }
+}
+
+/** Bỏ thẻ HTML và gộp khoảng trắng, dùng để hiện một dòng tóm tắt. */
+export function htmlToText(html: string): string {
+  return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+}
 ```
 
 - [ ] **Step 4: Chạy test xanh**
@@ -1362,6 +1575,8 @@ Run: `npm run db:verify`
 Expected: `Tất cả kiểm tra schema đạt.` và `Tất cả kiểm tra RLS đạt.`
 
 > **Ghi chú (cập nhật sau khi ship):** code review phát hiện `skill_attempts` cho phép client tự INSERT với `correct_count`/`band` tuỳ ý — tức là tự khai điểm. Đã sửa: bỏ policy INSERT của `authenticated`, thêm `revoke all … from authenticated` cho cả 5 bảng (Supabase mặc định grant ALL cho bảng mới trong `public`, và RLS không chặn TRUNCATE), trigger `skill_attempts_sync_skill` lấy `skill` từ `test_id`, bucket `skill-audio` chuyển sang private + thêm policy UPDATE. Chỉ service role (Edge Function `grade-skill`) ghi được lần làm bài.
+
+> **Ghi chú (thiết kế lại theo mẫu engnovate.com):** phòng làm bài đã đổi sang bố cục hai cột `passage │ câu hỏi` có thanh kéo giữa (kéo chuột, kéo bằng phím ←/→/Home, bấm đúp để về 50%), hàng tiêu đề có tên đề căn giữa, hàng công cụ có đồng hồ căn giữa, dải "Part N" mô tả phần đang làm, ngăn rà soát trượt từ bên phải và nút **Tập trung** ẩn hẳn khung ứng dụng. Câu hỏi đổi sang số trong ô viền, đề bài và ô trả lời cùng hàng; tiêu đề "Questions 27-30" tách riêng khỏi hướng dẫn nhóm. Thanh bên trái của ứng dụng cũng thu gọn được (nút ở chân thanh bên, nhớ trạng thái trong localStorage).
 
 - [ ] **Step 5: Commit**
 
@@ -3067,13 +3282,9 @@ import { sanitizeHtml, type SkillSection } from '../../lib/skillLogic.ts'
 /** Cột đọc đoạn văn của phòng làm bài: tiêu đề passage + nội dung đã lọc an toàn. */
 export function PassagePanel({ section }: { section: SkillSection }) {
   const html = useMemo(() => sanitizeHtml(section.contentHtml), [section.contentHtml])
-  return <div className="skill-passage">
-    <header className="skill-passage-head">
-      <p className="eyebrow">{section.title}</p>
-      {section.topic && <p className="muted">{section.topic}</p>}
-    </header>
+  return <article className="skill-passage">
     <div className="skill-passage-body" dangerouslySetInnerHTML={{ __html: html }} />
-  </div>
+  </article>
 }
 ```
 
@@ -3159,11 +3370,58 @@ export function QuestionCard({
   const showText = !showSelect && (question.type === 'fill' || question.type === 'matching')
 
   return <article className="skill-question" id={`question-${number}`}>
-    <header className="skill-question-head">
-      <span className={`skill-question-number ${selected ? 'is-answered' : ''}`}>{number}</span>
-      <div className="skill-question-text">
+    <div className="skill-question-row">
+      <span className={`skill-question-box ${selected ? 'is-answered' : ''}`}>{number}</span>
+      <div className="skill-question-main">
         {question.prompt && <p className="skill-question-prompt">{question.prompt}</p>}
         {isMultiAnswer && <p className="skill-question-hint">{c(`Chọn ${answerCount} đáp án`, `Select ${answerCount} answers`)}</p>}
+
+        {(question.type === 'tfng' || question.type === 'ynng') && <div className="skill-tfng">
+          {chips.map(option => <button
+            key={option}
+            type="button"
+            className={`skill-chip ${selected === option ? 'is-selected' : ''}`}
+            onClick={() => onAnswer(option)}
+          >{option}</button>)}
+        </div>}
+
+        {question.type === 'mcq' && <div className="skill-options">
+          {question.options.map(option => isMultiAnswer
+            ? <label key={option.key} className={`skill-option ${selectedKeys.includes(option.key) ? 'is-selected' : ''}`}>
+              <input
+                type="checkbox"
+                name={`question-${number}`}
+                value={option.key}
+                checked={selectedKeys.includes(option.key)}
+                disabled={!selectedKeys.includes(option.key) && selectedKeys.length >= answerCount}
+                onChange={() => toggleKey(option.key)}
+              />
+              <span><strong>{option.key}.</strong>{option.text === option.key ? '' : ` ${option.text}`}</span>
+            </label>
+            : <label key={option.key} className={`skill-option ${selected === option.key ? 'is-selected' : ''}`}>
+              <input type="radio" name={`question-${number}`} value={option.key} checked={selected === option.key} onChange={() => onAnswer(option.key)} />
+              <span><strong>{option.key}.</strong>{option.text === option.key ? '' : ` ${option.text}`}</span>
+            </label>)}
+        </div>}
+
+        {showSelect && <div className="skill-options">
+          <label className={`skill-option ${selected ? 'is-selected' : ''}`}>
+            <select value={selected} onChange={event => onAnswer(event.target.value)} aria-label={c('Chọn đáp án', 'Choose an answer')}>
+              <option value="">{c('— Chọn đáp án —', '— Choose an answer —')}</option>
+              {question.options.map(option => <option key={option.key} value={option.key}>{optionLabel(option)}</option>)}
+            </select>
+          </label>
+        </div>}
+
+        {showText && <div className="skill-fill">
+          <input
+            type="text"
+            value={selected}
+            onChange={event => onAnswer(event.target.value)}
+            placeholder={c('Nhập đáp án của bạn', 'Type your answer')}
+            aria-label={c('Đáp án câu', 'Your answer')}
+          />
+        </div>}
       </div>
       <button
         type="button"
@@ -3174,54 +3432,7 @@ export function QuestionCard({
       >
         <Flag size={16} />
       </button>
-    </header>
-
-    {(question.type === 'tfng' || question.type === 'ynng') && <div className="skill-tfng">
-      {chips.map(option => <button
-        key={option}
-        type="button"
-        className={`skill-chip ${selected === option ? 'is-selected' : ''}`}
-        onClick={() => onAnswer(option)}
-      >{option}</button>)}
-    </div>}
-
-    {question.type === 'mcq' && <div className="skill-options">
-      {question.options.map(option => isMultiAnswer
-        ? <label key={option.key} className={`skill-option ${selectedKeys.includes(option.key) ? 'is-selected' : ''}`}>
-          <input
-            type="checkbox"
-            name={`question-${number}`}
-            value={option.key}
-            checked={selectedKeys.includes(option.key)}
-            disabled={!selectedKeys.includes(option.key) && selectedKeys.length >= answerCount}
-            onChange={() => toggleKey(option.key)}
-          />
-          <span><strong>{option.key}.</strong>{option.text === option.key ? '' : ` ${option.text}`}</span>
-        </label>
-        : <label key={option.key} className={`skill-option ${selected === option.key ? 'is-selected' : ''}`}>
-          <input type="radio" name={`question-${number}`} value={option.key} checked={selected === option.key} onChange={() => onAnswer(option.key)} />
-          <span><strong>{option.key}.</strong>{option.text === option.key ? '' : ` ${option.text}`}</span>
-        </label>)}
-    </div>}
-
-    {showSelect && <div className="skill-options">
-      <label className={`skill-option ${selected ? 'is-selected' : ''}`}>
-        <select value={selected} onChange={event => onAnswer(event.target.value)} aria-label={c('Chọn đáp án', 'Choose an answer')}>
-          <option value="">{c('— Chọn đáp án —', '— Choose an answer —')}</option>
-          {question.options.map(option => <option key={option.key} value={option.key}>{optionLabel(option)}</option>)}
-        </select>
-      </label>
-    </div>}
-
-    {showText && <div className="skill-fill">
-      <input
-        type="text"
-        value={selected}
-        onChange={event => onAnswer(event.target.value)}
-        placeholder={c('Nhập đáp án của bạn', 'Type your answer')}
-        aria-label={c('Đáp án câu', 'Your answer')}
-      />
-    </div>}
+    </div>
   </article>
 }
 ```
@@ -3240,7 +3451,7 @@ Hai điều đã kiểm chứng trên dữ liệu thật:
 import { useMemo } from 'react'
 import { Flag } from 'lucide-react'
 import { useCopy } from '../../i18n'
-import { groupAnswerCount, sanitizeHtml, splitHtmlByBlanks, type SkillQuestionGroup } from '../../lib/skillLogic.ts'
+import { groupAnswerCount, sanitizeHtml, splitGroupHeading, splitHtmlByBlanks, type SkillQuestionGroup } from '../../lib/skillLogic.ts'
 import { QuestionCard } from './QuestionCard.tsx'
 
 /**
@@ -3284,7 +3495,9 @@ export function QuestionGroup({
   onToggleFlag: (questionId: string) => void
 }) {
   const { c } = useCopy()
-  const instruction = useMemo(() => sanitizeHtml(group.instructionHtml), [group.instructionHtml])
+  // Tiêu đề "Questions 27-30" tách riêng khỏi phần hướng dẫn còn lại.
+  const split = useMemo(() => splitGroupHeading(group.instructionHtml), [group.instructionHtml])
+  const instruction = useMemo(() => sanitizeHtml(split.body), [split.body])
   // Số đáp án của nhóm ("Choose TWO correct answers") để câu mất đề bài mượn dùng.
   const answerCount = useMemo(() => groupAnswerCount(group), [group])
   const html = useMemo(() => {
@@ -3317,6 +3530,7 @@ export function QuestionGroup({
     : group.questions
 
   return <section className="skill-group">
+    {split.heading && <h3 className="skill-group-title">{split.heading}</h3>}
     {instruction && <div className="skill-group-instruction" dangerouslySetInnerHTML={{ __html: instruction }} />}
 
     {useInline && <div className="skill-completion">
@@ -3410,7 +3624,6 @@ export function ReviewSheet({
 }) {
   const { c } = useCopy()
   return <div className="skill-review">
-    <p className="eyebrow">{c('Rà soát câu trả lời', 'Answer review')}</p>
     <div className="skill-review-grid">
       {questions.map(question => {
         const number = numbers[question.id] ?? 0
@@ -3478,159 +3691,7 @@ export function SkillResult({ grade }: { grade: SkillGrade }) {
 `src/styles.css` — thêm vào cuối file:
 
 ```css
-/* ── Reading ─────────────────────────────────────────────────────────── */
-.skill-question {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 1rem 1.1rem;
-  display: grid;
-  gap: .75rem;
-  box-shadow: var(--shadow-sm);
-}
-.skill-question-head { display: flex; gap: .75rem; align-items: flex-start; }
-.skill-question-number {
-  flex: 0 0 auto; width: 2rem; height: 2rem; border-radius: 10px;
-  display: grid; place-items: center; font-weight: 700; font-size: .85rem;
-  background: var(--surface-soft); color: var(--text-muted);
-}
-.skill-question-number.is-answered { background: var(--success-soft); color: var(--success); }
-.skill-question-text { flex: 1; min-width: 0; display: grid; gap: .35rem; }
-.skill-question-prompt { margin: 0; font-weight: 600; line-height: 1.55; }
-.skill-question-hint { margin: 0; font-size: .8rem; color: var(--text-muted); }
-.skill-flag { border: 1px solid transparent; background: transparent; color: var(--text-subtle); border-radius: 8px; padding: .3rem; cursor: pointer; }
-.skill-flag.is-active { color: var(--accent); background: var(--accent-soft); border-color: var(--accent); }
-.skill-options { display: grid; gap: .4rem; padding-left: 2.75rem; }
-/* .skill-option là <label>: cần đặt lại flex-direction và margin của rule `label` chung. */
-.skill-option { display: flex; flex-direction: row; gap: .6rem; align-items: flex-start; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: .5rem .7rem; cursor: pointer; margin-bottom: 0; color: var(--text); }
-/* Rule `input` chung đặt width:100% và min-height:46px — radio/checkbox phải trở lại kích thước mặc định. */
-.skill-option input[type='radio'], .skill-option input[type='checkbox'] { width: auto; min-height: 0; padding: 0; margin: .2rem 0 0; flex: 0 0 auto; accent-color: var(--brand); }
-.skill-option:has(input:disabled) { opacity: .55; cursor: not-allowed; }
-.skill-option select { width: 100%; border: 1px solid var(--control-border); border-radius: var(--radius-sm); padding: .45rem .6rem; background: var(--surface); color: var(--text); }
-.skill-tfng { display: flex; flex-wrap: wrap; gap: .4rem; padding-left: 2.75rem; }
-.skill-chip { border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); border-radius: 999px; padding: .35rem .85rem; font-size: .75rem; font-weight: 700; cursor: pointer; }
-.skill-chip.is-selected { background: var(--brand); border-color: var(--brand); color: var(--on-brand); }
-.skill-fill { padding-left: 2.75rem; }
-.skill-fill input { width: 100%; border: 1px solid var(--control-border); border-radius: var(--radius-sm); padding: .5rem .7rem; background: var(--surface); color: var(--text); }
-.skill-group { display: grid; gap: .8rem; }
-.skill-group-instruction { font-size: .9rem; line-height: 1.6; color: var(--text-muted); }
-.skill-group-instruction p { margin: .2rem 0; }
-.skill-completion { line-height: 2; font-size: .95rem; }
-.skill-completion p { margin: .4rem 0; }
-/* Selector có độ ưu tiên cao hơn rule `input` chung để ô nhập nội tuyến giữ dạng inline. */
-.skill-completion .skill-inline-input {
-  display: inline-block; width: 8rem; min-height: 0; margin: 0 .2rem; padding: .1rem .35rem;
-  border: 0; border-bottom: 2px solid var(--control-border); background: var(--surface-soft);
-  border-radius: 4px 4px 0 0; font-weight: 600; color: var(--brand-ink);
-}
-.skill-passage { display: flex; flex-direction: column; min-height: 0; }
-.skill-passage-head { padding: 1rem 1.2rem; border-bottom: 1px solid var(--border); display: grid; gap: .3rem; }
-.skill-passage-body { padding: 1.1rem 1.2rem; overflow-y: auto; line-height: 1.8; }
-.skill-passage-body p { margin: 0 0 .9rem; }
-.skill-passage-body h2 { font-size: 1.05rem; margin: 1rem 0 .5rem; }
-.skill-timer { display: grid; gap: .2rem; min-width: 7rem; }
-.skill-timer-label { font-size: .65rem; letter-spacing: .08em; text-transform: uppercase; color: var(--text-subtle); }
-.skill-timer-value { font-size: 1.15rem; font-weight: 700; font-variant-numeric: tabular-nums; }
-.skill-timer-bar { display: block; height: .3rem; border-radius: 999px; background: var(--surface-soft); overflow: hidden; }
-.skill-timer-bar span { display: block; height: 100%; background: var(--brand); transition: width .3s linear; }
-.skill-timer.is-low .skill-timer-value { color: var(--danger); }
-.skill-timer.is-low .skill-timer-bar span { background: var(--danger); }
-.skill-review { display: grid; gap: .6rem; }
-.skill-review-grid { display: flex; flex-wrap: wrap; gap: .3rem; }
-.skill-review-cell { width: 2rem; height: 2rem; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); font-size: .75rem; font-weight: 700; cursor: pointer; }
-.skill-review-cell.is-answered { background: var(--success-soft); border-color: var(--success); color: var(--success); }
-.skill-review-cell.is-flagged { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-ink); }
-.skill-review-cell.is-empty { background: var(--surface); border-color: var(--border); color: var(--text-subtle); }
-.skill-review-legend { display: flex; flex-wrap: wrap; gap: .8rem; list-style: none; margin: 0; padding: 0; font-size: .72rem; color: var(--text-subtle); }
-.skill-review-legend li { display: flex; align-items: center; gap: .35rem; }
-.skill-review-legend span { width: .8rem; height: .8rem; border-radius: 4px; border: 1px solid var(--border); display: inline-block; }
-.skill-review-legend .is-answered { background: var(--success-soft); border-color: var(--success); }
-.skill-review-legend .is-flagged { background: var(--accent-soft); border-color: var(--accent); }
-.skill-review-legend .is-empty { background: var(--surface); border-color: var(--border); }
-.skill-result { display: grid; gap: 1rem; }
-.skill-result-summary { text-align: center; display: grid; gap: .35rem; justify-items: center; }
-.skill-result-band { margin: 0; font-size: 3rem; font-weight: 800; color: var(--brand); line-height: 1; }
-.skill-result-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .6rem; }
-.skill-result-list li { display: flex; gap: .7rem; align-items: flex-start; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: .7rem .8rem; background: var(--surface); }
-.skill-result-list li.is-correct { border-color: var(--success); }
-.skill-result-list li.is-wrong { border-color: var(--danger); }
-.skill-result-icon { flex: 0 0 auto; display: grid; place-items: center; width: 1.6rem; height: 1.6rem; border-radius: 999px; }
-.skill-result-list li.is-correct .skill-result-icon { background: var(--success-soft); color: var(--success); }
-.skill-result-list li.is-wrong .skill-result-icon { background: var(--danger-soft); color: var(--danger); }
-.skill-result-prompt { margin: 0; font-weight: 600; }
-.skill-explanation { margin: .3rem 0 0; font-size: .82rem; color: var(--text-muted); white-space: pre-line; }
 
-/* Ô nhập nội tuyến + nút gắn cờ nằm cạnh nhau, không phá dòng chữ. */
-.skill-inline-answer { display: inline-flex; align-items: center; gap: .15rem; vertical-align: middle; }
-.skill-flag-inline { display: inline-flex; align-items: center; justify-content: center; padding: .15rem; border-radius: 6px; line-height: 1; }
-.skill-flag-inline.is-active { color: var(--accent); background: var(--accent-soft); border-color: var(--accent); }
-
-.skill-workspace { display: grid; gap: 1rem; }
-.skill-workspace-bar {
-  display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
-  padding: .85rem 1rem; border: 1px solid var(--border); border-radius: var(--radius);
-  background: var(--surface); box-shadow: var(--shadow-sm); position: sticky; top: 0; z-index: 20;
-}
-.skill-workspace-title { flex: 1; min-width: 12rem; }
-.skill-workspace-title h1 { margin: 0; font-size: 1.05rem; }
-.skill-workspace-progress { display: grid; gap: .3rem; font-size: .78rem; color: var(--text-muted); min-width: 10rem; }
-.skill-workspace-progress .skill-timer-bar { width: 10rem; }
-.skill-workspace-body { display: grid; grid-template-columns: 16rem minmax(0, 1fr) minmax(0, 1.1fr); gap: 1rem; align-items: start; }
-.skill-workspace-side { display: grid; gap: 1rem; position: sticky; top: 5.5rem; }
-.skill-workspace-passage, .skill-workspace-questions {
-  border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow-sm);
-  padding: 1rem; display: grid; gap: .8rem; max-height: calc(100vh - 9rem); overflow-y: auto;
-}
-.skill-section-tabs { display: grid; gap: .3rem; }
-.skill-section-tab { text-align: left; border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); border-radius: var(--radius-sm); padding: .5rem .7rem; font-size: .78rem; font-weight: 600; cursor: pointer; }
-.skill-section-tab.is-active { border-color: var(--brand); background: var(--brand-soft); color: var(--brand-ink); }
-.card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr)); gap: 1rem; }
-.skill-card { display: flex; gap: .8rem; padding: 1rem; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow-sm); color: inherit; text-decoration: none; }
-.skill-card h3 { margin: .15rem 0 .3rem; font-size: 1rem; }
-.skill-card-icon { flex: 0 0 auto; width: 2.4rem; height: 2.4rem; border-radius: 12px; display: grid; place-items: center; background: var(--brand-soft); color: var(--brand); }
-.skill-card-meta { display: flex; align-items: center; gap: .35rem; font-size: .75rem; color: var(--text-subtle); }
-.filter-row { display: flex; flex-wrap: wrap; gap: .4rem; margin-bottom: 1rem; }
-.filter-chip { border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); border-radius: 999px; padding: .3rem .8rem; font-size: .78rem; font-weight: 600; cursor: pointer; }
-.filter-chip.is-active { background: var(--brand); border-color: var(--brand); color: var(--on-brand); }
-@media (max-width: 1080px) {
-  .skill-workspace-body { grid-template-columns: minmax(0, 1fr); }
-  .skill-workspace-side { position: static; }
-  .skill-workspace-passage, .skill-workspace-questions { max-height: none; }
-}
-
-/* ---------- Trang quản trị: kho đề Reading ---------- */
-.admin-skill-list { display: grid; gap: 1rem; margin-top: 1rem; }
-.admin-skill { border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; display: grid; gap: .7rem; background: var(--surface); }
-.admin-skill header { display: flex; gap: 1rem; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; }
-.admin-skill h3 { margin: .1rem 0; font-size: 1rem; }
-.admin-skill-actions { display: flex; gap: .4rem; flex-wrap: wrap; }
-.admin-skill ul { list-style: none; margin: 0; padding: 0; display: grid; gap: .5rem; }
-.admin-skill li { display: flex; gap: .8rem; align-items: center; flex-wrap: wrap; border-top: 1px solid var(--border); padding-top: .5rem; font-size: .85rem; }
-
-/* ---------- Trang tài liệu công khai (dùng chung bản tĩnh + bản React) ---------- */
-.doc-shell { min-height: 100vh; display: flex; flex-direction: column; }
-.doc-nav { max-width: 1180px; width: 100%; margin: auto; display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 24px 24px 4px; }
-.doc-nav > nav { display: flex; align-items: center; gap: 18px; }
-.doc-main { flex: 1; width: 100%; max-width: 880px; margin: 0 auto; padding: 28px 24px 64px; }
-.doc-page { display: grid; gap: 26px; }
-.doc-header { display: grid; gap: 12px; }
-.doc-eyebrow { font-size: 10.5px; letter-spacing: .16em; text-transform: uppercase; color: var(--brand-ink); font-weight: 700; }
-.doc-header h1 { font-size: clamp(28px, 4vw, 40px); line-height: 1.2; letter-spacing: -.035em; }
-.doc-summary { font-size: 16px; line-height: 1.7; color: var(--text-muted); max-width: 720px; }
-.doc-section { display: grid; gap: 13px; }
-.doc-section h2 { font-size: 21px; letter-spacing: -.02em; }
-.doc-section p { font-size: 14.5px; line-height: 1.75; color: var(--text-muted); }
-.doc-section ul { display: grid; gap: 8px; padding-left: 20px; margin: 0; }
-.doc-section li { font-size: 14px; line-height: 1.7; color: var(--text-muted); }
-.doc-footer { border-top: 1px solid var(--border); padding: 22px 24px; display: flex; flex-wrap: wrap; gap: 14px; justify-content: space-between; align-items: center; color: var(--text-subtle); font-size: 12.5px; }
-.doc-footer > a { color: var(--brand-ink); font-weight: 600; }
-@media (max-width: 767px) {
-  .doc-nav { padding: 18px 18px 2px; }
-  .doc-main { padding: 22px 18px 52px; }
-  .doc-header h1 { font-size: 28px; }
-  .doc-summary { font-size: 15px; }
-  .doc-section h2 { font-size: 19px; }
-}
 ```
 
 - [ ] **Step 8: Kiểm tra kiểu**
@@ -3704,17 +3765,25 @@ export default function ReadingResult() {
 ```tsx
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
-import { ArrowLeft, Send } from 'lucide-react'
+import { ArrowLeft, Clock, Maximize2, Minimize2, Send } from 'lucide-react'
 import { Notice, PageHeader } from '../components/ui'
 import { PassagePanel } from '../components/skill/PassagePanel.tsx'
 import { QuestionGroup } from '../components/skill/QuestionGroup.tsx'
 import { ReviewSheet } from '../components/skill/ReviewSheet.tsx'
-import { TestTimer } from '../components/skill/TestTimer.tsx'
 import { useCopy } from '../i18n'
 import { gradeSkill } from '../lib/skillApi.ts'
 import { loadSkillTest } from '../lib/skillRepository.ts'
-import { answeredCount, hasCompleteQuestionSet, progressPercent, type SkillQuestion, type SkillTest } from '../lib/skillLogic.ts'
+import { answeredCount, formatClock, hasCompleteQuestionSet, htmlToText, progressPercent, type SkillQuestion, type SkillTest } from '../lib/skillLogic.ts'
 
+/** Khoảng cách tối thiểu giữa hai cột, tính theo phần trăm. */
+const SPLIT_MIN = 24
+const SPLIT_MAX = 76
+
+/**
+ * Phòng làm bài Reading — bố cục hai cột: passage bên trái, câu hỏi bên phải,
+ * có thanh kéo giữa để đổi tỉ lệ. Thanh bên (sidebar) của ứng dụng có thể
+ * thu gọn, và chế độ "Focus" ẩn hẳn khung ứng dụng để đọc thoải mái.
+ */
 export default function ReadingTest() {
   const { c } = useCopy()
   const { slug = '' } = useParams()
@@ -3728,6 +3797,11 @@ export default function ReadingTest() {
   const [remaining, setRemaining] = useState(0)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [focus, setFocus] = useState(false)
+  const [reviewOpen, setReviewOpen] = useState(false)
+  const [split, setSplit] = useState(50)
+  const splitRef = useRef<HTMLDivElement>(null)
+  const dragging = useRef(false)
   const startedAt = useRef(Date.now())
 
   useEffect(() => {
@@ -3747,6 +3821,13 @@ export default function ReadingTest() {
     const timer = setInterval(() => setRemaining(value => (value > 0 ? value - 1 : 0)), 1000)
     return () => clearInterval(timer)
   }, [test, loading])
+
+  // Chế độ Focus ẩn khung ứng dụng (sidebar + thanh trên) để passage chiếm hết màn hình.
+  useEffect(() => {
+    if (!focus) return
+    document.documentElement.dataset.readingFocus = 'on'
+    return () => { delete document.documentElement.dataset.readingFocus }
+  }, [focus])
 
   const allQuestions = useMemo<SkillQuestion[]>(() => (test?.sections ?? []).flatMap(section => section.groups.flatMap(group => group.questions)), [test])
   const numbers = useMemo(() => {
@@ -3818,6 +3899,7 @@ export default function ReadingTest() {
     if (!target) return
     const owner = test?.sections.findIndex(item => item.groups.some(group => group.questions.some(question => question.id === target.id))) ?? -1
     if (owner >= 0) setActiveSection(owner)
+    setReviewOpen(false)
   }
 
   const submit = async () => {
@@ -3841,28 +3923,97 @@ export default function ReadingTest() {
     navigate(`/app/reading/result/${result.value.attemptId ?? 'latest'}`, { state: { grade: result.value } })
   }
 
+  /** Bắt đầu kéo thanh chia, dùng pointer capture để không mất sự kiện khi ra ngoài. */
+  const startDrag = (event: React.PointerEvent<HTMLDivElement>) => {
+    dragging.current = true
+    event.currentTarget.setPointerCapture(event.pointerId)
+  }
+
+  const onDrag = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!dragging.current || !splitRef.current) return
+    const rect = splitRef.current.getBoundingClientRect()
+    if (rect.width <= 0) return
+    const percent = ((event.clientX - rect.left) / rect.width) * 100
+    setSplit(Math.min(SPLIT_MAX, Math.max(SPLIT_MIN, percent)))
+  }
+
+  const endDrag = (event: React.PointerEvent<HTMLDivElement>) => {
+    dragging.current = false
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
+  }
+
+  /** Kéo bằng bàn phím — thanh kéo không được là cách duy nhất (WCAG 2.2). */
+  const onDividerKey = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    const step = event.shiftKey ? 8 : 2
+    if (event.key === 'ArrowLeft') { event.preventDefault(); setSplit(value => Math.max(SPLIT_MIN, value - step)) }
+    else if (event.key === 'ArrowRight') { event.preventDefault(); setSplit(value => Math.min(SPLIT_MAX, value + step)) }
+    else if (event.key === 'Home') { event.preventDefault(); setSplit(50) }
+  }
+
   if (loading) return <div className="loading-state" role="status">{c('Đang tải đề…', 'Loading the test…')}</div>
   if (failed || !test) return <div className="page">
     <PageHeader eyebrow={c('LUYỆN ĐỌC', 'READING')} title={c('Không tìm thấy đề', 'Test not found')} />
     <Notice error><div><strong>{c('Đề này không tồn tại hoặc đã bị ẩn.', 'This test does not exist or has been hidden.')}</strong></div></Notice>
   </div>
 
-  return <div className="skill-workspace">
-    <header className="skill-workspace-bar">
-      <button type="button" className="icon-button" onClick={() => navigate('/app/reading')} aria-label={c('Quay lại kho đề', 'Back to the library')}><ArrowLeft size={19} /></button>
-      <div className="skill-workspace-title">
-        <p className="eyebrow">{test.series}</p>
-        <h1>{test.title}</h1>
+  return <div className={`skill-room ${focus ? 'is-focus' : ''}`}>
+    <header className="skill-room-header">
+      <div className="skill-room-header-side">
+        <button type="button" className="icon-button" onClick={() => navigate('/app/reading')} aria-label={c('Quay lại kho đề', 'Back to the library')}><ArrowLeft size={19} /></button>
+        <span className="skill-room-series">{test.series}</span>
       </div>
-      <div className="skill-workspace-progress">
-        <span>{c('Đã trả lời', 'Answered')} {answered}/{allQuestions.length} ({progressPercent(answered, allQuestions.length)}%)</span>
-        <span className="skill-timer-bar"><span style={{ width: `${progressPercent(answered, allQuestions.length)}%` }} /></span>
+      <h1 className="skill-room-title">{test.title}</h1>
+      <div className="skill-room-header-side is-end">
+        <button type="button" className="button primary" onClick={() => void submit()} disabled={submitting || incomplete}>
+          <Send size={16} />{submitting ? c('Đang nộp…', 'Submitting…') : c('Nộp bài', 'Submit')}
+        </button>
       </div>
-      <TestTimer seconds={remaining} durationMinutes={test.durationMinutes} />
-      <button type="button" className="button primary" onClick={() => void submit()} disabled={submitting || incomplete}>
-        <Send size={16} />{submitting ? c('Đang nộp…', 'Submitting…') : c('Nộp bài', 'Submit')}
-      </button>
     </header>
+
+    <div className="skill-room-toolbar">
+      <div className="skill-room-toolbar-side">
+        <button
+          type="button"
+          className={`skill-room-focus ${focus ? 'is-active' : ''}`}
+          onClick={() => setFocus(value => !value)}
+          aria-pressed={focus}
+        >
+          {focus ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
+          {c('Tập trung', 'Focus')}
+        </button>
+        <nav className="skill-room-parts" aria-label={c('Các passage của bài', 'Test passages')}>
+          {test.sections.map((item, index) => <button
+            key={item.id}
+            type="button"
+            className={`skill-room-part-tab ${index === activeSection ? 'is-active' : ''}`}
+            onClick={() => setActiveSection(index)}
+            aria-current={index === activeSection ? 'true' : undefined}
+          >{c('Phần', 'Part')} {index + 1}</button>)}
+        </nav>
+      </div>
+      <div className="skill-room-timer">
+        <Clock size={16} />
+        <span className={remaining <= 300 ? 'is-low' : ''}>{formatClock(remaining)}</span>
+      </div>
+      <div className="skill-room-toolbar-side is-end">
+        <span className="skill-room-progress">{answered}/{allQuestions.length} · {progressPercent(answered, allQuestions.length)}%</span>
+        <button
+          type="button"
+          className={`skill-room-review-toggle ${reviewOpen ? 'is-active' : ''}`}
+          onClick={() => setReviewOpen(value => !value)}
+          aria-expanded={reviewOpen}
+          aria-controls="skill-room-review"
+        >
+          {c('Rà soát', 'Review')}
+        </button>
+      </div>
+    </div>
+
+    <div className="skill-room-part">
+      <strong>{c('Phần', 'Part')} {activeSection + 1}</strong>
+      <span className="skill-room-part-title">{section?.title}</span>
+      <p>{section ? htmlToText(section.groups[0]?.instructionHtml ?? '') : ''}</p>
+    </div>
 
     {incomplete && <Notice error><div>
       <strong>{c('Đề tải thiếu câu hỏi nên không thể nộp bài.', 'This test is missing questions, so it cannot be submitted.')}</strong>
@@ -3871,17 +4022,27 @@ export default function ReadingTest() {
 
     {error && <Notice error><div><strong>{c('Không nộp được bài.', 'The attempt could not be submitted.')}</strong><p>{c('Thử lại sau ít phút.', 'Please try again in a moment.')}</p></div></Notice>}
 
-    <div className="skill-workspace-body">
-      <aside className="skill-workspace-side">
-        <ReviewSheet questions={allQuestions} numbers={numbers} answers={answers} flagged={flagged} onJump={jumpTo} />
-        <nav className="skill-section-tabs" aria-label={c('Các passage của bài', 'Test passages')}>
-          {test.sections.map((item, index) => <button key={item.id} type="button" className={`skill-section-tab ${index === activeSection ? 'is-active' : ''}`} onClick={() => setActiveSection(index)}>{item.title}</button>)}
-        </nav>
-      </aside>
-      <section className="skill-workspace-passage">
+    <div className="skill-room-split" ref={splitRef} style={{ '--split': `${split}%` } as React.CSSProperties}>
+      <section className="skill-room-pane skill-room-pane-passage">
         {section && <PassagePanel section={section} />}
       </section>
-      <section className="skill-workspace-questions">
+      <div
+        className="skill-room-divider"
+        role="separator"
+        aria-orientation="vertical"
+        aria-label={c('Kéo để đổi độ rộng passage và câu hỏi', 'Drag to resize the passage and questions panes')}
+        aria-valuenow={Math.round(split)}
+        aria-valuemin={SPLIT_MIN}
+        aria-valuemax={SPLIT_MAX}
+        tabIndex={0}
+        onPointerDown={startDrag}
+        onPointerMove={onDrag}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
+        onKeyDown={onDividerKey}
+        onDoubleClick={() => setSplit(50)}
+      />
+      <section className="skill-room-pane skill-room-pane-questions">
         {section?.groups.map(group => <QuestionGroup
           key={group.id}
           group={group}
@@ -3894,6 +4055,16 @@ export default function ReadingTest() {
         />)}
       </section>
     </div>
+
+    {reviewOpen && <aside className="skill-room-review" id="skill-room-review">
+      <div className="skill-room-review-head">
+        <h2>{c('Rà soát câu trả lời', 'Answer review')}</h2>
+        <button type="button" className="icon-button" onClick={() => setReviewOpen(false)} aria-label={c('Đóng bảng rà soát', 'Close the review panel')}>
+          <ArrowLeft size={18} />
+        </button>
+      </div>
+      <ReviewSheet questions={allQuestions} numbers={numbers} answers={answers} flagged={flagged} onJump={jumpTo} />
+    </aside>}
   </div>
 }
 ```
@@ -4518,11 +4689,24 @@ try {
     const card = page.locator('.skill-card').first()
     if (await card.count()) {
       await card.click()
-      await page.waitForSelector('.skill-workspace', { timeout: 15000 })
-      check('reading test room opens', await page.locator('.skill-workspace').isVisible())
-      check('reading timer is visible', await page.locator('.skill-timer-value').isVisible())
+      await page.waitForSelector('.skill-room', { timeout: 15000 })
+      check('reading test room opens', await page.locator('.skill-room').isVisible())
+      check('reading timer is visible', await page.locator('.skill-room-timer').isVisible())
       check('passage content is rendered', await page.locator('.skill-passage-body').isVisible())
       check('question cards are rendered', (await page.locator('.skill-question').count()) > 0)
+      // Bố cục hai cột: passage │ câu hỏi, có thanh kéo giữa.
+      check('split panes are visible', await page.locator('.skill-room-split').isVisible())
+      check('resize divider is present', (await page.locator('.skill-room-divider').count()) === 1)
+      // Thanh bên ứng dụng thu gọn được và trạng thái được nhớ.
+      const sidebarToggle = page.locator('.sidebar-footer button')
+      if (await sidebarToggle.count()) {
+        await sidebarToggle.click()
+        await page.waitForTimeout(400)
+        check('sidebar collapses', (await page.locator('.app-shell.is-sidebar-collapsed').count()) === 1)
+        await page.locator('.sidebar-reopen').click()
+        await page.waitForTimeout(400)
+        check('sidebar reopens', (await page.locator('.app-shell.is-sidebar-collapsed').count()) === 0)
+      }
     }
   }
 } catch (error) {
