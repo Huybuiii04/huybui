@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { Flag } from 'lucide-react'
 import { useCopy } from '../../i18n'
 import { sanitizeHtml, splitHtmlByBlanks, type SkillQuestionGroup } from '../../lib/skillLogic.ts'
 import { QuestionCard } from './QuestionCard.tsx'
@@ -84,15 +85,28 @@ export function QuestionGroup({
         // Chỗ trống không thuộc nhóm này (số câu trùng với nhóm khác của passage)
         // thì để nguyên dạng chữ, nhóm sở hữu câu đó sẽ vẽ ô nhập.
         if (!id) return <span key={index} className="skill-inline-input">{segment.sourceNumber}</span>
-        return <input
-          key={index}
-          className="skill-inline-input"
-          type="text"
-          value={answers[id] ?? ''}
-          onChange={event => onAnswer(id, event.target.value)}
-          aria-label={c(`Đáp án câu ${segment.sourceNumber}`, `Answer for question ${segment.sourceNumber}`)}
-          placeholder="________"
-        />
+        const isFlagged = flagged.has(id)
+        // Ô nhập và nút cờ nằm cạnh nhau trong một span: nút cờ KHÔNG nằm trong
+        // <label>/<form> nên bấm cờ không kích hoạt nhầm ô nhập.
+        return <span key={index} className="skill-inline-answer">
+          <input
+            className="skill-inline-input"
+            type="text"
+            value={answers[id] ?? ''}
+            onChange={event => onAnswer(id, event.target.value)}
+            aria-label={c(`Đáp án câu ${segment.sourceNumber}`, `Answer for question ${segment.sourceNumber}`)}
+            placeholder="________"
+          />
+          <button
+            type="button"
+            className={`skill-flag skill-flag-inline ${isFlagged ? 'is-active' : ''}`}
+            onClick={() => onToggleFlag(id)}
+            aria-pressed={isFlagged}
+            aria-label={isFlagged ? c('Bỏ đánh dấu câu này', 'Remove the flag from this question') : c('Đánh dấu câu này để xem lại', 'Flag this question for review')}
+          >
+            <Flag size={13} />
+          </button>
+        </span>
       })}
     </div>}
 
