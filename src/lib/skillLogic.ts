@@ -159,19 +159,55 @@ const ALLOWED_TAGS = new Set([
 
 /** Thuộc tính được giữ lại khi lọc HTML — mọi thuộc tính khác bị bỏ. */
 const SAFE_ATTRIBUTES = new Set([
-  'href', 'src', 'alt', 'title', 'colspan', 'rowspan', 'width', 'height', 'lang', 'dir',
+  'href', 'src', 'alt', 'title', 'class', 'style',
+  'colspan', 'rowspan', 'width', 'height', 'lang', 'dir',
 ])
+
+/** Entity HTML có tên cần giải mã khi kiểm tra scheme URL. */
+const NAMED_ENTITIES: Record<string, string> = {
+  '&colon;': ':',
+  '&tab;': '\t',
+  '&newline;': '\n',
+}
+
+/**
+ * Giải mã entity HTML để không bị lách scheme độc
+ * (ví dụ `&#106;avascript:` hay `jav&#x09;ascript:`).
+ */
+function decodeEntities(value: string): string {
+  const fromCodePoint = (code: number): string => {
+    if (!Number.isFinite(code) || code < 0 || code > 0x10ffff) return ''
+    return String.fromCodePoint(code)
+  }
+  return value
+    .replace(/&#x([0-9a-f]+);/gi, (_, code: string) => fromCodePoint(parseInt(code, 16)))
+    .replace(/&#(\d+);/g, (_, code: string) => fromCodePoint(parseInt(code, 10)))
+    .replace(/&(colon|tab|newline);/gi, (_, name: string) => NAMED_ENTITIES[`&${name.toLowerCase()};`])
+}
 
 /**
  * Kiểm tra URL có an toàn để đặt trong `href`/`src` hay không.
- * Bỏ ký tự điều khiển và khoảng trắng trước khi so khớp để chặn cả
- * `java\nscript:` và ` JaVaScRiPt: `.
+ * Giải mã entity rồi bỏ ký tự điều khiển và khoảng trắng trước khi so khớp
+ * để chặn cả `java\nscript:`, `&#106;avascript:` và ` JaVaScRiPt: `.
  */
 function isSafeUrl(value: string): boolean {
-  const normalized = value.replace(/[\u0000-\u0020]/g, '').toLowerCase()
+  const normalized = decodeEntities(value).replace(/[\u0000-\u0020]/g, '').toLowerCase()
   if (normalized.startsWith('javascript:')) return false
   if (normalized.startsWith('vbscript:')) return false
   if (normalized.startsWith('data:')) return false
+  return true
+}
+
+/**
+ * Kiểm tra giá trị `style` trước khi giữ lại.
+ * Đề dùng `style` cho định dạng bảng nên chỉ loại bỏ giá trị chứa
+ * biểu thức hoặc URL độc, phần còn lại giữ nguyên.
+ */
+function isSafeStyle(value: string): boolean {
+  const normalized = decodeEntities(value).replace(/[\u0000-\u0020]/g, '').toLowerCase()
+  if (normalized.includes('expression(')) return false
+  if (normalized.includes('javascript:')) return false
+  if (normalized.includes('url(')) return false
   return true
 }
 
@@ -214,6 +250,7 @@ export function sanitizeHtml(html: string): string {
       if (attribute.name.startsWith('on')) continue
       if (!SAFE_ATTRIBUTES.has(attribute.name)) continue
       if ((attribute.name === 'href' || attribute.name === 'src') && !isSafeUrl(attribute.value)) continue
+      if (attribute.name === 'style' && !isSafeStyle(attribute.value)) continue
       kept.push(` ${attribute.name}="${attribute.value.replace(/"/g, '&quot;')}"`)
     }
     return `<${name}${kept.join('')}>`

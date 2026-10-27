@@ -79,7 +79,7 @@ test('sanitizeHtml keeps safe attributes on allowed tags', () => {
 })
 
 test('sanitizeHtml drops attributes outside the allow list', () => {
-  assert.equal(sanitizeHtml('<p class="lead" id="intro">text</p>'), '<p>text</p>')
+  assert.equal(sanitizeHtml('<p id="intro" draggable="true">text</p>'), '<p>text</p>')
 })
 
 test('sanitizeHtml drops unquoted javascript: links', () => {
@@ -126,6 +126,46 @@ test('sanitizeHtml removes dangerous and disallowed elements but keeps inner tex
     '<p>a</p>',
   )
   assert.equal(sanitizeHtml('<form>keep text</form>'), 'keep text')
+})
+
+test('sanitizeHtml keeps inline styles on allowed tags', () => {
+  const clean = sanitizeHtml('<td style="border:1px solid #555">x</td>')
+  assert.match(clean, /<td style="border:1px solid #555">x<\/td>/)
+})
+
+test('sanitizeHtml drops unsafe style values', () => {
+  const url = sanitizeHtml('<td style="background:url(evil.png)" colspan="2">x</td>')
+  assert.doesNotMatch(url, /url\(/i)
+  assert.match(url, /<td colspan="2">x<\/td>/)
+
+  const expression = sanitizeHtml('<td style="width:expression(alert(1))">x</td>')
+  assert.doesNotMatch(expression, /expression/i)
+  assert.match(expression, /<td>x<\/td>/)
+
+  const scriptUrl = sanitizeHtml('<td style="background:JavaScript:alert(1)">x</td>')
+  assert.doesNotMatch(scriptUrl, /javascript:/i)
+  assert.match(scriptUrl, /<td>x<\/td>/)
+})
+
+test('sanitizeHtml keeps class attributes', () => {
+  assert.equal(sanitizeHtml('<p class="lead">x</p>'), '<p class="lead">x</p>')
+})
+
+test('sanitizeHtml decodes entities before checking the url scheme', () => {
+  const decimal = sanitizeHtml('<a href="&#106;avascript:alert(1)" title="safe">x</a>')
+  assert.doesNotMatch(decimal, /javascript:/i)
+  assert.match(decimal, /<a title="safe">x<\/a>/)
+
+  const hex = sanitizeHtml('<a href="jav&#x09;ascript:alert(1)" title="safe">x</a>')
+  assert.match(hex, /<a title="safe">x<\/a>/)
+
+  const named = sanitizeHtml('<a href="javascript&colon;alert(1)" title="safe">x</a>')
+  assert.match(named, /<a title="safe">x<\/a>/)
+})
+
+test('sanitizeHtml still drops data attributes and id', () => {
+  const clean = sanitizeHtml('<p data-word="x" id="y" data-testid="z">text</p>')
+  assert.equal(clean, '<p>text</p>')
 })
 
 test('splitHtmlByBlanks finds numbered blanks', () => {
