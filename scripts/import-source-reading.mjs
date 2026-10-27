@@ -59,6 +59,39 @@ function normalizeDisplay(raw, fallback) {
   return fallback
 }
 
+/**
+ * Kiểu đã chuẩn hoá -> kiểu hiển thị hợp lệ.
+ * Khi câu hỏi không khai báo displayType, fallback phải là 1 trong 13 kiểu hợp lệ
+ * (không dùng 'mcq'/'matching' vì đó là kiểu câu hỏi, không phải kiểu hiển thị).
+ */
+const DISPLAY_FOR_TYPE = {
+  tfng: 'tfng',
+  ynng: 'ynng',
+  mcq: 'multiple-choice',
+  matching: 'matching-info',
+  fill: 'fill-blank',
+}
+
+/** Chỗ trống trong HTML: "31_______", "7 ………..", "12.____". */
+const BLANK_PATTERN = /\b(\d{1,3})\s*[._…]{4,}/g
+
+/** Đề nguồn để câu hỏi ở nhiều trường khác nhau; lấy biến thể đầu tiên dùng được. */
+const PROMPT_KEYS = ['question', 'text', 'question_text', 'questionText', 'statement']
+
+/**
+ * Lấy nội dung câu hỏi. Một biến thể rỗng (hoặc chỉ toàn khoảng trắng) thì thử
+ * biến thể kế tiếp — không chấp nhận chuỗi rỗng khi còn biến thể dùng được.
+ */
+function resolvePrompt(question) {
+  for (const key of PROMPT_KEYS) {
+    const value = question[key]
+    if (value === null || value === undefined) continue
+    const trimmed = String(value).trim()
+    if (trimmed) return trimmed
+  }
+  return ''
+}
+
 // ── 1. Đọc catalogue: test nào gồm passage nào ───────────────────────────────
 const testCatalogue = new Map()
 
@@ -148,7 +181,30 @@ for (const name of passageFiles) {
 
   const groupList = [...groups.entries()].map(([groupId, items], groupIndex) => {
     const first = items[0]
-    const displayType = normalizeDisplay(first.displayType ?? first._blockConfig?.type, normalizeType(first.type))
+    const displayType = normalizeDisplay(
+      first.displayType ?? first._blockConfig?.type,
+      DISPLAY_FOR_TYPE[normalizeType(first.type)] ?? 'fill-blank',
+    )
+
+    // ── Số câu gốc trong đề ──────────────────────────────────────────────────
+    // Ưu tiên question.id khi nó là số. Nhưng đề nguồn có vài nhóm bị lỗi:
+    //   - câu không có id (ew-1-1: 14 câu),
+    //   - câu có id trùng nhau (cam-11-3-1: id "8" xuất hiện 2 lần, thiếu id 9).
+    // Khi đó, số trong chỗ trống "N_______" của HTML chính là số câu gốc —
+    // dùng chỗ trống để suy ra, miễn là chỗ trống khớp 1-1 với số câu của nhóm.
+    const numericIds = items.map(question =>
+      /^\d+$/.test(String(question.id ?? '')) ? Number(question.id) : null)
+    const idsUsable = numericIds.every(value => value !== null)
+      && new Set(numericIds).size === items.length
+    const firstWithHtml = items.find(question => (question.questionHtml ?? '').trim().length > 0)
+    const blankNumbers = [...(firstWithHtml?.questionHtml ?? '').matchAll(BLANK_PATTERN)]
+      .map(match => Number(match[1]))
+    // Chỉ dùng chỗ trống khi đủ số chỗ trống và chúng là dãy liên tiếp —
+    // nếu không thì thứ tự chỗ trống có thể không khớp thứ tự câu hỏi.
+    const blanksUsable = blankNumbers.length === items.length
+      && blankNumbers.every((value, index) => index === 0 || value === blankNumbers[index - 1] + 1)
+    const useBlankNumbers = !idsUsable && blanksUsable
+
     return {
       key: groupId,
       order: groupIndex + 1,
@@ -158,11 +214,13 @@ for (const name of passageFiles) {
       questions: items.map((question, questionIndex) => ({
         sourceId: String(question.id ?? ''),
         // Số câu gốc trong đề — dùng để ánh xạ chỗ trống "31_______" trong HTML.
-        sourceNumber: /^\d+$/.test(String(question.id ?? '')) ? Number(question.id) : questionIndex + 1,
+        sourceNumber: useBlankNumbers
+          ? blankNumbers[questionIndex]
+          : (/^\d+$/.test(String(question.id ?? '')) ? Number(question.id) : questionIndex + 1),
         order: questionIndex + 1,
         type: normalizeType(question.type),
         displayType,
-        prompt: question.question ?? question.text ?? question.statement ?? '',
+        prompt: resolvePrompt(question),
         questionHtml: question.questionHtml ?? question.question_html ?? '',
         options: question.options ?? [],
         answerKey: String(question.answer ?? ''),
