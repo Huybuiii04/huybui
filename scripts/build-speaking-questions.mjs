@@ -99,9 +99,42 @@ const part3 = [
   ['leadership-and-role-models', 'Leadership and Role Models', ['What qualities make a good leader?', 'Are leaders born or made?', 'Why are role models important for young people?', 'Do you think celebrities make good role models?']],
 ]
 
+/**
+ * Part 3 trong kỳ thi thật nối chủ đề với Part 2. Map cue card → topic Part 3 liên quan,
+ * để mode "Full mock" chọn đúng cặp. Cuộc Part 3 không có mapping thì fallback random.
+ */
+const RELATED_PART3 = {
+  'describe-a-favourite-piece-of-technology': 'technology-and-communication',
+  'describe-a-website-or-app-you-use': 'technology-and-communication',
+  'describe-a-film-you-watched-recently': 'the-media-and-news',
+  'describe-a-tv-programme-you-like': 'the-media-and-news',
+  'describe-a-book-you-enjoyed': 'education-and-learning',
+  'describe-a-teacher-who-influenced-you': 'education-and-learning',
+  'describe-a-useful-skill-you-learned': 'work-and-careers',
+  'describe-a-memorable-trip': 'travel-and-tourism',
+  'describe-a-journey-you-remember': 'travel-and-tourism',
+  'describe-a-place-you-want-to-visit': 'travel-and-tourism',
+  'describe-a-tourist-attraction': 'travel-and-tourism',
+  'describe-a-city-you-have-visited': 'cities-and-urban-life',
+  'describe-your-favourite-food': 'health-and-lifestyle',
+  'describe-a-restaurant-you-like': 'health-and-lifestyle',
+  'describe-a-hobby-you-enjoy': 'happiness-and-well-being',
+  'describe-a-piece-of-advice': 'happiness-and-well-being',
+  'describe-an-invention': 'science-and-society',
+  'describe-a-work-of-art': 'art-and-creativity',
+  'describe-a-song-you-like': 'art-and-creativity',
+  'describe-a-person-you-admire': 'leadership-and-role-models',
+  'describe-an-old-person-you-admire': 'leadership-and-role-models',
+  'describe-your-best-friend': 'family-and-society',
+  'describe-a-time-you-helped-someone': 'family-and-society',
+  'describe-a-goal-you-want-to-achieve': 'success-and-ambition',
+  'describe-an-important-decision-you-made': 'success-and-ambition',
+  'describe-your-dream-home': 'cities-and-urban-life',
+}
+
 const rows = []
 for (const [slug, topic, questions] of part1) {
-  rows.push({ part: 'part-1', slug, topic, prompt_text: questions[0], questions, cue_card: null })
+  rows.push({ part: 'part-1', slug, topic, prompt_text: questions[0], questions, cue_card: null, related_part3_slug: null })
 }
 for (const [slug, topic, bullets] of part2) {
   rows.push({
@@ -111,10 +144,17 @@ for (const [slug, topic, bullets] of part2) {
     prompt_text: `Describe ${/^[aeiou]/i.test(topic.replace(/^Describe a[n]? /, '')) ? 'an' : 'a'} ${topic.replace(/^Describe (a|an) /, '').toLowerCase()}`,
     questions: [],
     cue_card: { topic, bullets, time_limit_seconds: 120 },
+    related_part3_slug: RELATED_PART3[slug] ?? null,
   })
 }
 for (const [slug, topic, questions] of part3) {
-  rows.push({ part: 'part-3', slug, topic, prompt_text: questions[0], questions, cue_card: null })
+  rows.push({ part: 'part-3', slug, topic, prompt_text: questions[0], questions, cue_card: null, related_part3_slug: null })
+}
+
+const part3Slugs = new Set(part3.map(([slug]) => slug))
+for (const [slug, related] of Object.entries(RELATED_PART3)) {
+  if (!part3Slugs.has(related)) throw new Error(`related_part3_slug "${related}" của "${slug}" không tồn tại`)
+  if (!part2.some(([part2Slug]) => part2Slug === slug)) throw new Error(`"${slug}" không có trong part2`)
 }
 
 const seen = new Set()

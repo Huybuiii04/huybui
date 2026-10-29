@@ -45,6 +45,7 @@ const payload = rows.map((row) => ({
   prompt_text: row.prompt_text,
   questions: row.questions,
   cue_card: row.cue_card,
+  related_part3_slug: row.related_part3_slug ?? null,
   is_active: true,
 }))
 
