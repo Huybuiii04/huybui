@@ -96,7 +96,23 @@ dùng lại nguyên pipeline `grade-speaking` đã có test (Gemini đọc audio
 
 Module **Reading** không bị đụng tới (mọi thay đổi là additive).
 
-## 7. Ba lỗi của pipeline chấm cũ phát hiện khi test live (đã sửa)
+## 7. Giọng giám khảo: cache sẵn + dự phòng trình duyệt
+
+Ba tầng, từ nhanh/ổn định nhất xuống:
+
+| Tầng | Khi nào dùng | Độ trễ | Chi phí |
+|---|---|---|---|
+| **1. Cache sẵn** (Storage `speaking-voice`) | Câu hỏi Cambridge đã được dựng sẵn | ~0.3–1 s (đọc Storage) | 0 |
+| **2. TTS server** (MiniMax → Gemini dự phòng) | Follow-up sinh động, câu chưa có trong cache | 2–7 s | có |
+| **3. Giọng trình duyệt** (`SpeechSynthesis`) | Server lỗi/hết số dư | ~0 ms | 0 |
+
+- Dựng sẵn: `node --env-file-if-exists=.env.local scripts/build-speaking-voice.mjs`
+  (ghi từng câu hỏi vào `voices/{accent}/{sha256(text|accent)}.mp3`; script **chạy lại được**
+  — file đã có thì bỏ qua).
+- Cache khớp với Edge Function vì cùng dùng `speakableQuestion()` + cùng cách ghép cue card.
+- Tầng 3 tự kích hoạt khi `voice` trả lỗi → phiên thi không bị dừng.
+
+## 8. Ba lỗi của pipeline chấm cũ phát hiện khi test live (đã sửa)
 
 Live mode dùng lại pipeline `grade-speaking` nên nó lộ ra 3 lỗi có sẵn của module Speaking
 (trước đây record mode cũng dính, chỉ là không ai thấy transcript sai):

@@ -333,6 +333,33 @@ function safeJson(text: string): unknown {
 
 // ------------------------------------------------------------------ voice
 
+/** Bucket chứa audio dựng sẵn cho câu hỏi Cambridge. */
+const VOICE_BUCKET = "speaking-voice";
+
+async function voiceCachePath(accent: string, text: string): Promise<string> {
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(`${accent}|${text.trim()}`),
+  );
+  const hash = Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+  return `voices/${accent}/${hash}.mp3`;
+}
+
+/** Đọc audio đã dựng sẵn (null nếu chưa có). */
+async function readVoiceCache(
+  service: SupabaseClient,
+  accent: string,
+  text: string,
+): Promise<Uint8Array | null> {
+  const path = await voiceCachePath(accent, text);
+  const download = await service.storage.from(VOICE_BUCKET).download(path);
+  if (download.error || !download.data) return null;
+  const bytes = new Uint8Array(await download.data.arrayBuffer());
+  return bytes.length ? bytes : null;
+}
+
 async function voice(
   request: Request,
   service: SupabaseClient,
@@ -342,15 +369,22 @@ async function voice(
 ): Promise<Response> {
   const { session } = await authorize(service, userId, body);
 
-  if (session.voice_calls >= LIVE_LIMITS.maxVoiceCalls) {
-    throw new AppError(429, "rate_limited", "This live session has reached its voice limit");
-  }
   const text = String(body.text ?? "").trim().slice(0, 600);
   if (!text) throw new AppError(400, "invalid_request", "The text to speak is required");
 
   const accent: LiveVoiceAccent = isLiveVoiceAccent(body.accent)
     ? body.accent
     : ((session.voice as LiveVoiceAccent) ?? "en-GB");
+
+  // Câu hỏi Cambridge đã được dựng sẵn → phát ngay, không tốn lượt gọi provider.
+  const cached = await readVoiceCache(service, accent, text);
+  if (cached) {
+    return voiceResponse(request, cached, "audio/mpeg", "cache", id);
+  }
+
+  if (session.voice_calls >= LIVE_LIMITS.maxVoiceCalls) {
+    throw new AppError(429, "rate_limited", "This live session has reached its voice limit");
+  }
 
   const speech = await synthesizeSpeech({ text, accent });
   await service
@@ -359,12 +393,22 @@ async function voice(
     .eq("id", session.id)
     .eq("user_id", userId);
 
+  return voiceResponse(request, speech.bytes, speech.mimeType, speech.engine, id);
+}
+
+function voiceResponse(
+  request: Request,
+  bytes: Uint8Array,
+  mimeType: string,
+  engine: string,
+  id: string,
+): Response {
   const headers = corsHeaders(request.headers.get("origin"), getEnv("ALLOWED_ORIGINS") ?? "*");
-  headers.set("content-type", speech.mimeType);
+  headers.set("content-type", mimeType);
   headers.set("cache-control", "no-store");
   headers.set("x-request-id", id);
-  headers.set("x-voice-engine", speech.engine);
-  return new Response(speech.bytes as unknown as BodyInit, { status: 200, headers });
+  headers.set("x-voice-engine", engine);
+  return new Response(bytes as unknown as BodyInit, { status: 200, headers });
 }
 
 // ------------------------------------------------------------------ transcribe

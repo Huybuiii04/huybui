@@ -7,6 +7,18 @@ import { rms } from './liveVad.ts'
 
 export type LiveVoiceAccent = 'en-GB' | 'en-US'
 
+/** Tải trước và phát cùng dùng một request; lỗi phải cho phép thử lại. */
+export function cachedVoice(cache: Map<string, Promise<Blob>>, key: string, load: () => Promise<Blob>): Promise<Blob> {
+  const cached = cache.get(key)
+  if (cached) return cached
+  const pending = load().catch(error => {
+    if (cache.get(key) === pending) cache.delete(key)
+    throw error
+  })
+  cache.set(key, pending)
+  return pending
+}
+
 export const ALLOWED_AUDIO_MIME_TYPES = [
   'audio/webm',
   'audio/mp4',
@@ -199,6 +211,86 @@ export type LiveTranscriber = {
  * Chỉ là đường tắt cho bộ não của giám khảo; transcript chính thức vẫn do
  * Gemini đọc từ audio ghi âm.
  */
+
+/**
+ * Đọc bằng giọng của trình duyệt (`SpeechSynthesis`).
+ *
+ * Dùng khi server không tổng hợp được audio (ví dụ hết số dư nhà cung cấp):
+ * không mất tiền, không cần CPU mạnh và bắt đầu phát gần như tức thì nên hợp
+ * với câu follow-up sinh động.
+ */
+export function browserVoiceAvailable(): boolean {
+  return typeof window !== 'undefined' && typeof window.speechSynthesis !== 'undefined'
+}
+
+/** Danh sách giọng (nạp bất đồng bộ ở một số trình duyệt). */
+export function browserVoices(): SpeechSynthesisVoice[] {
+  if (!browserVoiceAvailable()) return []
+  return window.speechSynthesis.getVoices()
+}
+
+/** Chờ danh sách giọng sẵn sàng (Chrome nạp bất đồng bộ). */
+export function waitForBrowserVoices(timeoutMs = 1500): Promise<SpeechSynthesisVoice[]> {
+  if (!browserVoiceAvailable()) return Promise.resolve([])
+  const existing = browserVoices()
+  if (existing.length) return Promise.resolve(existing)
+  return new Promise((resolve) => {
+    const done = (voices: SpeechSynthesisVoice[]) => {
+      window.speechSynthesis.removeEventListener?.('voiceschanged', onChange)
+      resolve(voices)
+    }
+    const onChange = () => done(browserVoices())
+    window.speechSynthesis.addEventListener?.('voiceschanged', onChange)
+    setTimeout(() => done(browserVoices()), timeoutMs)
+  })
+}
+
+/** Chọn giọng theo accent; ưu tiên các giọng quen thuộc trên Windows/Chrome. */
+export function pickBrowserVoice(accent: LiveVoiceAccent): SpeechSynthesisVoice | null {
+  const voices = browserVoices()
+  if (!voices.length) return null
+  const wanted = accent === 'en-GB' ? 'en-GB' : 'en-US'
+  const preferred = accent === 'en-GB'
+    ? ['Microsoft Ryan', 'Microsoft Libby', 'Microsoft Thomas', 'Google UK English Female', 'Daniel']
+    : ['Microsoft Aria', 'Microsoft Jenny', 'Microsoft Zira', 'Google US English', 'Samantha']
+  for (const name of preferred) {
+    const found = voices.find((voice) => voice.name === name && voice.lang.replace('_', '-').startsWith(wanted))
+    if (found) return found
+  }
+  return (
+    voices.find((voice) => voice.lang.replace('_', '-') === wanted) ??
+    voices.find((voice) => voice.lang.replace('_', '-').startsWith(wanted)) ??
+    voices.find((voice) => voice.lang.toLowerCase().startsWith('en')) ??
+    null
+  )
+}
+
+/**
+ * Đọc một câu bằng giọng trình duyệt. Trả false nếu trình duyệt không có giọng
+ * tiếng Anh (ví dụ môi trường headless).
+ */
+export async function speakWithBrowser(text: string, accent: LiveVoiceAccent): Promise<boolean> {
+  if (!browserVoiceAvailable() || !text.trim()) return false
+  if (!browserVoices().length) await waitForBrowserVoices()
+  const voice = pickBrowserVoice(accent)
+  if (!voice) return false
+  return new Promise((resolve) => {
+    try {
+      const utterance = new SpeechSynthesisUtterance(text)
+      utterance.lang = voice.lang
+      utterance.voice = voice
+      utterance.rate = 1
+      utterance.pitch = 1
+      utterance.onend = () => resolve(true)
+      utterance.onerror = () => resolve(false)
+      window.speechSynthesis.cancel()
+      window.speechSynthesis.speak(utterance)
+    } catch {
+      resolve(false)
+    }
+  })
+}
+
 export function createLiveTranscriber(onFinal: (text: string) => void): LiveTranscriber {
   const Ctor = getSpeechRecognitionCtor()
   if (!Ctor) {

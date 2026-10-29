@@ -96,7 +96,9 @@ export function partTiming(part: SpeakingPart): LiveTiming {
 export function cueCardScript(cueCard: LiveCueCard | null): string {
   if (!cueCard) return "Here is your topic.";
   const bullets = cueCard.bullets.length ? cueCard.bullets.join(". ") : "";
-  return `Here is your topic: ${cueCard.topic}. ${bullets ? `${bullets}. ` : ""}You have one minute to prepare, and then you have up to two minutes to talk about it.`;
+  return speakableQuestion(
+    `Here is your topic: ${cueCard.topic}. ${bullets ? `${bullets}. ` : ""}You have one minute to prepare, and then you have up to two minutes to talk about it.`,
+  );
 }
 
 /**
