@@ -3,9 +3,19 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { AnthropicError, PRICING_VERSION, requestStructured } from "../anthropic.ts";
 import { AppError, databaseError } from "../http.ts";
 import { buildCacheKey, findQuote, sha256Hex } from "../jobs.ts";
-import { buildEnrichmentPrompt, buildGradingPrompt, buildToolPrompt, ENRICHMENT_PROMPT_VERSION, GRADING_PROMPT_VERSION, RUBRIC_VERSION, TOOL_PROMPT_VERSION } from "../prompts.ts";
+import { buildAudioPrompt, buildEnrichmentPrompt, buildGradingPrompt, buildSpeakingPrompt, buildToolPrompt, ENRICHMENT_PROMPT_VERSION, GRADING_PROMPT_VERSION, RUBRIC_VERSION, SPEAKING_PROMPT_VERSION, SPEAKING_RUBRIC_VERSION, TOOL_PROMPT_VERSION } from "../prompts.ts";
 import type { WritingToolOperation } from "../schemas.ts";
-import { loadAssetImages, type EssayAssetRow } from "../storage.ts";
+import { bytesToBase64, loadAssetImages, removeSpeakingAudioObjects, type EssayAssetRow } from "../storage.ts";
+import { SPEAKING_AUDIO_BUCKET } from "../storage.ts";
+import { callAudioModel } from "./audioProvider.ts";
+import { renderSpeakingRubric } from "./speakingRubric.ts";
+import {
+  buildSpeakingResult,
+  SPEAKING_JSON_SCHEMA,
+  SPEAKING_SCHEMA_VERSION,
+  type SpeakingModelOutput,
+  type SpeakingResult,
+} from "./speaking.ts";
 import { GRADING_JSON_SCHEMA, GRADING_SCHEMA_VERSION, buildGradingResult, type GradingModelOutput, type GradingResult } from "./grade.ts";
 import { ENRICHMENT_JSON_SCHEMA, ENRICHMENT_SCHEMA_VERSION, coerceEnrichmentOutput } from "./enrich.ts";
 import { TOOL_JSON_SCHEMAS, TOOL_SCHEMA_VERSION, validateToolOutput } from "./tools.ts";
@@ -14,7 +24,7 @@ interface ClaimedJob {
   job_id: string;
   user_id: string;
   revision_id: string | null;
-  operation: "grade" | "enrich" | WritingToolOperation;
+  operation: "grade" | "grade-speaking" | "enrich" | WritingToolOperation;
   payload: Record<string, unknown>;
   cache_key: string | null;
   attempts: number;
@@ -68,6 +78,8 @@ export async function processOneAiJob(service: SupabaseClient): Promise<{ proces
     if (!cacheHit) {
       if (job.operation === "grade") {
         resultId = await runGrading(service, job);
+      } else if (job.operation === "grade-speaking") {
+        resultId = await runSpeakingGrading(service, job);
       } else if (job.operation === "enrich") {
         await runEnrichment(service, job);
       } else {
@@ -160,6 +172,180 @@ async function runGrading(service: SupabaseClient, job: ClaimedJob): Promise<str
 
   await insertUsageRows(service, job.job_id, calls);
   return await insertGradingResult(service, job.revision_id, revision, grading, model);
+}
+
+
+/**
+ * Cham 1 phien luyen noi: tai audio cua tung turn -> Gemini doc audio -> Claude cham rubric ETS.
+ *
+ * Luoi an toan: audio duoc XOA ngay sau khi cham (ke ca khi that bai), dung nhu
+ * "scored once then deleted" cua toey.app. No ton storage va khong giu giong noi cua nguoi hoc.
+ */
+async function runSpeakingGrading(service: SupabaseClient, job: ClaimedJob): Promise<string | null> {
+  const attemptId = stringPayload(job.payload, "attemptId").trim();
+  if (!/^[0-9a-f-]{36}$/i.test(attemptId)) {
+    throw new AppError(400, "invalid_job_input", "The speaking job has no attempt");
+  }
+
+  const attemptResult = await service
+    .from("speaking_attempts")
+    .select("id,user_id,mode,target_band,feedback_locale,status")
+    .eq("id", attemptId)
+    .maybeSingle();
+  if (attemptResult.error) throw databaseError("load the speaking attempt");
+  const attempt = attemptResult.data;
+  if (!attempt) throw new AppError(404, "attempt_not_found", "Speaking attempt not found");
+
+  const turnsResult = await service
+    .from("speaking_turns")
+    .select("id,order_index,part,prompt_text,questions,cue_card,audio_path,mime_type,status")
+    .eq("attempt_id", attemptId)
+    .eq("user_id", attempt.user_id)
+    .order("order_index", { ascending: true });
+  if (turnsResult.error) throw databaseError("load the speaking turns");
+  const turns = (turnsResult.data ?? []) as Array<{
+    id: string;
+    order_index: number;
+    part: string;
+    prompt_text: string;
+    questions: string[] | null;
+    cue_card: unknown;
+    audio_path: string;
+    mime_type: string;
+    status: string;
+  }>;
+  if (!turns.length) throw new AppError(400, "invalid_job_input", "The speaking attempt has no turns");
+
+  await service.from("speaking_attempts").update({ status: "processing" }).eq("id", attemptId);
+
+  const audioPaths = turns.map((turn) => turn.audio_path).filter(Boolean);
+
+  try {
+    // ---- LAY 1: Gemini doc audio (cac turn chay SONG SONG) ----
+    const audios: Array<{ turnId: string; base64: string; mimeType: string }> = [];
+    for (const turn of turns) {
+      const download = await service.storage.from(SPEAKING_AUDIO_BUCKET).download(turn.audio_path);
+      if (download.error) {
+        throw new AppError(503, "storage_unavailable", "Could not read the recording");
+      }
+      const bytes = new Uint8Array(await download.data.arrayBuffer());
+      audios.push({
+        turnId: turn.id,
+        base64: bytesToBase64(bytes),
+        mimeType: turn.mime_type,
+      });
+    }
+
+    const audioModel = modelForJob(job, "AI_MODEL_AUDIO");
+    const analyses = await Promise.all(
+      audios.map(async (audio) => {
+        try {
+          const result = await callAudioModel({
+            audioBase64: audio.base64,
+            mimeType: audio.mimeType,
+            prompt: buildAudioPrompt(),
+          });
+          return { turnId: audio.turnId, analysis: result.analysis, model: result.model, latencyMs: result.latencyMs };
+        } catch (error) {
+          console.error(JSON.stringify({
+            event: "speaking_audio_failed",
+            turnId: audio.turnId,
+            message: error instanceof Error ? error.message : "unknown",
+          }));
+          return { turnId: audio.turnId, analysis: null, model: audioModel, latencyMs: 0 };
+        }
+      }),
+    );
+
+    await insertUsageRows(
+      service,
+      job.job_id,
+      analyses
+        .filter((entry) => entry.analysis !== null)
+        .map((entry) => ({
+          usage: { input_tokens: 0, output_tokens: 0, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 },
+          providerRequestId: "",
+          model: entry.model,
+          latencyMs: entry.latencyMs,
+        })),
+      "gemini-pricing-v1",
+    );
+
+    // ---- LAY 2: Claude cham rubric ETS ----
+    const model = modelForJob(job, "AI_MODEL_GRADING");
+    const promptTurns = turns.map((turn, index) => ({
+      turnId: turn.id,
+      orderIndex: turn.order_index,
+      part: turn.part,
+      promptText: turn.prompt_text,
+      questions: turn.questions ?? [],
+      cueCard: turn.cue_card,
+      transcript: analyses[index]?.analysis?.transcript ?? "",
+      audioAnalysis: analyses[index]?.analysis ?? null,
+    }));
+    const prompt = buildSpeakingPrompt({
+      locale: attempt.feedback_locale === "en" ? "en" : "vi",
+      targetBand: attempt.target_band === null ? null : Number(attempt.target_band),
+      rubric: renderSpeakingRubric(),
+      turns: promptTurns,
+    });
+
+    const structured = await requestStructured<SpeakingResult>({
+      model,
+      system: prompt.system,
+      messages: prompt.messages,
+      schema: SPEAKING_JSON_SCHEMA as Record<string, unknown>,
+      maxTokens: 16_000,
+      repairInstruction:
+        "Repair this speaking evaluation output. Return valid JSON with exactly four criteria per turn and a turnId for each requested turn.",
+      validate: (value) =>
+        buildSpeakingResult(value as SpeakingModelOutput, { turnIds: turns.map((turn) => turn.id) }),
+    });
+
+    await insertUsageRows(service, job.job_id, structured.calls);
+
+    const transcript = promptTurns
+      .map((turn) => turn.transcript)
+      .filter(Boolean)
+      .join("\n\n");
+    const audioAnalysis = {
+      turns: promptTurns.map((turn) => ({
+        turnId: turn.turnId,
+        part: turn.part,
+        ...(turn.audioAnalysis as Record<string, unknown> | null ?? {}),
+      })),
+    };
+
+    const insert = await service
+      .from("speaking_results")
+      .insert({
+        attempt_id: attemptId,
+        fluency: structured.value.scores.fluency,
+        lexical_resource: structured.value.scores.lexical_resource,
+        grammatical_range: structured.value.scores.grammatical_range,
+        pronunciation: structured.value.scores.pronunciation,
+        overall_raw: structured.value.overallRaw,
+        overall_display: structured.value.overallDisplay,
+        transcript,
+        feedback: structured.value,
+        audio_analysis: audioAnalysis,
+        model,
+        prompt_version: SPEAKING_PROMPT_VERSION,
+        rubric_version: SPEAKING_RUBRIC_VERSION,
+        schema_version: SPEAKING_SCHEMA_VERSION,
+      })
+      .select("id")
+      .maybeSingle();
+    if (insert.error || !insert.data) throw databaseError("save the speaking result");
+
+    await service.from("speaking_attempts").update({ status: "succeeded" }).eq("id", attemptId);
+    await service.from("speaking_turns").update({ status: "graded" }).eq("attempt_id", attemptId);
+
+    return insert.data.id as string;
+  } finally {
+    // XOA audio sau khi cham (ke ca khi that bai).
+    await removeSpeakingAudioObjects(service, audioPaths);
+  }
 }
 
 async function runEnrichment(service: SupabaseClient, job: ClaimedJob): Promise<void> {
@@ -498,6 +684,7 @@ async function insertUsageRows(
     model: string;
     latencyMs: number;
   }>,
+  pricingVersion: string = PRICING_VERSION,
 ): Promise<void> {
   for (const call of calls) {
     const result = await service.from("ai_usage").insert({
@@ -515,8 +702,9 @@ async function insertUsageRows(
         call.usage.output_tokens,
         call.usage.cache_creation_input_tokens,
         call.usage.cache_read_input_tokens,
+        pricingVersion,
       ),
-      pricing_version: PRICING_VERSION,
+      pricing_version: pricingVersion,
       latency_ms: call.latencyMs,
       status: "ok",
     });
@@ -534,9 +722,10 @@ async function estimateCost(
   outputTokens: number,
   cacheCreationTokens: number,
   cacheReadTokens: number,
+  pricingVersion: string = PRICING_VERSION,
 ): Promise<number | null> {
   const { data, error } = await service.rpc("estimate_ai_cost", {
-    p_pricing_version: PRICING_VERSION,
+    p_pricing_version: pricingVersion,
     p_model: model,
     p_input_tokens: inputTokens,
     p_output_tokens: outputTokens,
@@ -768,7 +957,7 @@ function normalizeClaimedJob(data: unknown): ClaimedJob {
 }
 
 function isSupportedOperation(operation: string): boolean {
-  return ["grade", "enrich", "magic-rewrite", "argument-stress-test", "critical-thinking", "read-image"].includes(operation);
+  return ["grade", "enrich", "magic-rewrite", "argument-stress-test", "critical-thinking", "read-image", "grade-speaking"].includes(operation);
 }
 
 function modelForJob(job: ClaimedJob, environment: string): string {

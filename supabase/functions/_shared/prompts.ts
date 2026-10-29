@@ -5,6 +5,8 @@ export const GRADING_PROMPT_VERSION = "grading-prompt-v2";
 export const RUBRIC_VERSION = "ielts-rubric-v2";
 export const ENRICHMENT_PROMPT_VERSION = "enrichment-prompt-v2";
 export const TOOL_PROMPT_VERSION = "writing-tool-prompt-v1";
+export const SPEAKING_PROMPT_VERSION = "speaking-prompt-v1";
+export const SPEAKING_RUBRIC_VERSION = "ielts-speaking-descriptors-3-9";
 
 export interface PromptImage {
   mediaType: "image/png" | "image/jpeg" | "image/webp";
@@ -173,4 +175,116 @@ function toolInstructionFor(operation: WritingToolOperation): string {
     case "read-image":
       return "Read the supplied chart image. Extract only visible values, labels, units, and source quotes. Mark uncertain or unreadable items instead of guessing.";
   }
+}
+
+// ---------------------------------------------------------------- module Speaking
+
+/**
+ * Prompt lớp 1 — Gemini đọc recording.
+ * Yêu cầu MỘT JSON object, không code fence, không lời giải thích.
+ */
+export function buildAudioPrompt(): string {
+  return [
+    "You are an IELTS Speaking examiner listening to a candidate's recorded answer.",
+    "Return exactly one JSON object and nothing else. Do not wrap it in code fences.",
+    "Schema:",
+    JSON.stringify({
+      type: "object",
+      additionalProperties: false,
+      required: ["transcript", "fillerWords", "mispronounced", "intonationNotes", "estimatedWpm", "confidence"],
+      properties: {
+        transcript: { type: "string" },
+        fillerWords: { type: "array", items: { type: "string" } },
+        mispronounced: {
+          type: "array",
+          items: {
+            type: "object",
+            additionalProperties: false,
+            required: ["word", "issue"],
+            properties: { word: { type: "string" }, issue: { type: "string" } },
+          },
+        },
+        intonationNotes: { type: "array", items: { type: "string" } },
+        estimatedWpm: { type: ["number", "null"] },
+        confidence: { type: "string", enum: ["high", "medium", "low"] },
+      },
+    }),
+    "Rules for the transcript:",
+    "- Write exactly what was said. Keep grammatical mistakes, false starts and filler words (um, uh, like, er).",
+    "- Do not translate, correct, summarise or add any word that was not said.",
+    "- Use English punctuation and capital letters.",
+    "Rules for the analysis:",
+    "- fillerWords: only the fillers you actually heard.",
+    "- mispronounced: words whose pronunciation was unclear or wrong, with a short issue description.",
+    "- intonationNotes: short observations about intonation, rhythm and stress.",
+    "- estimatedWpm: approximate spoken words per minute, or null if you cannot estimate.",
+    "- confidence: how clearly the audio could be understood.",
+  ].join("\n");
+}
+
+export interface SpeakingPromptTurn {
+  turnId: string;
+  orderIndex: number;
+  part: string;
+  promptText: string;
+  questions: string[];
+  cueCard: unknown;
+  transcript: string;
+  audioAnalysis: unknown;
+}
+
+/**
+ * Prompt lớp 2 — Claude chấm rubric ETS.
+ * Server tự tính band tổng (trung bình qua các turn), không tin điểm tổng của model.
+ */
+export function buildSpeakingPrompt(input: {
+  locale: string;
+  targetBand: number | null;
+  rubric: string;
+  turns: SpeakingPromptTurn[];
+}): { system: string; messages: unknown[] } {
+  const feedbackLanguage = input.locale === "en"
+    ? "Write all feedback in English."
+    : "Write all feedback in Vietnamese (tiếng Việt). Keep the four IELTS criterion names in English.";
+
+  const lines: string[] = [
+    "You are a strict IELTS Speaking examiner scoring a candidate's recorded answers.",
+    feedbackLanguage,
+    "",
+    "OFFICIAL IELTS SPEAKING BAND DESCRIPTORS",
+    input.rubric,
+    "",
+    "SCORING RULES",
+    "- Score each criterion as a whole band from 0 to 9 using ONLY the descriptors above.",
+    "- A criterion score must be justified by what the candidate actually said or how they said it.",
+    "- Quote the transcript verbatim when you cite evidence. Never invent a quote.",
+    "- Pronunciation is judged from the audio analysis only. If the audio analysis could not observe intelligibility, say so plainly instead of guessing a high score.",
+    "- Be realistic: most candidates score between Band 5.5 and Band 7.5. Do not inflate.",
+    "- Prefer the LOWER band when the evidence sits between two bands.",
+    "- Score each turn independently; the overall band is computed by averaging across turns.",
+  ];
+  if (input.targetBand !== null) {
+    lines.push(
+      `- The candidate is aiming for Band ${input.targetBand}. Mention how far they are from it in the overall summary.`,
+    );
+  }
+
+  lines.push("", "CANDIDATE ANSWERS");
+  for (const turn of input.turns) {
+    lines.push("", `--- TURN ${turn.orderIndex + 1} (${turn.part}) ---`);
+    if (turn.questions.length) {
+      lines.push("Questions asked:", ...turn.questions.map((question) => `- ${question}`));
+    }
+    if (turn.cueCard) lines.push("Cue card:", JSON.stringify(turn.cueCard));
+    if (turn.promptText) lines.push("Prompt:", turn.promptText);
+    lines.push("Transcript:", turn.transcript || "(nothing intelligible was recorded)");
+    lines.push("Audio analysis:", JSON.stringify(turn.audioAnalysis));
+  }
+
+  lines.push(
+    "",
+    "Return one JSON object with a 'turns' array (one entry per turn, and turnId must match exactly) and an 'overall' object.",
+  );
+
+  return { system: lines.join("\n"), messages: [{ role: "user", content: "Score this candidate now." }] };
 }

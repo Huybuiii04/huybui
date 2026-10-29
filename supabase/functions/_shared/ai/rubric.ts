@@ -32,7 +32,7 @@ export type CriterionName =
 export type TaskType = "task1_academic" | "task1_general" | "task2"
 
 /** Mô tả band cho từng tiêu chí, theo loại bài. */
-export const BAND_DESCRIPTORS: Record<TaskType, Record<CriterionName, BandDescriptor[]>> = {
+export const BAND_DESCRIPTORS: Record<TaskType, Partial<Record<CriterionName, BandDescriptor[]>>> = {
   task2: {
     task_response: [
       {
@@ -645,7 +645,7 @@ export function renderRubric(taskType: TaskType): string {
   const lines: string[] = [];
   for (const [criterion, descriptors] of Object.entries(criteria)) {
     const key = criterion as CriterionName;
-    if (!descriptors.length) continue;
+    if (!descriptors || !descriptors.length) continue;
     lines.push(`### ${names[key]}`);
     for (const descriptor of descriptors) {
       if (descriptor.band < 6 || descriptor.band > 8) continue;

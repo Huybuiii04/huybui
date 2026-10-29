@@ -151,7 +151,7 @@ function isNotFound(error: { statusCode?: string | number; status?: number; mess
   return status === 404 || /not found/i.test(error.message ?? "");
 }
 
-function bytesToBase64(bytes: Uint8Array): string {
+export function bytesToBase64(bytes: Uint8Array): string {
   const chunkSize = 0x8000;
   let binary = "";
   for (let offset = 0; offset < bytes.length; offset += chunkSize) {
