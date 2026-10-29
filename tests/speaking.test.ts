@@ -7,7 +7,9 @@ import {
   buildSessionPlan,
   computeOverallBand,
   formatBand,
+  groupSpeakingTests,
   maxDurationMs,
+  speakingTestLabel,
   validateAudio,
 } from '../src/lib/speakingLogic.ts'
 
@@ -53,16 +55,39 @@ test('aggregateTurnScores trung bình từng tiêu chí rồi tính overall', ()
   assert.equal(result.overallDisplay, 6.5)
 })
 
-test('buildSessionPlan sinh 4 turn cho mode mock', () => {
-  const plan = buildSessionPlan('mock', { part1: ['a', 'b'], part2: ['c'], part3: ['d'] })
+test('buildSessionPlan sinh 4 turn cho mode full 3 phần', () => {
+  const plan = buildSessionPlan('mock')
   assert.equal(plan.length, 4)
-  assert.deepEqual(plan.map((turn) => turn.part), ['part-1', 'part-1', 'part-2', 'part-3'])
+  assert.deepEqual(plan.map((turn) => turn.part), ['part-1', 'part-2', 'part-3', 'part-3'])
 })
 
 test('buildSessionPlan sinh 1 turn cho mode 1 phần', () => {
-  const plan = buildSessionPlan('part-2', { part1: [], part2: ['c'], part3: [] })
+  const plan = buildSessionPlan('part-2')
   assert.equal(plan.length, 1)
   assert.equal(plan[0].part, 'part-2')
+})
+
+test('groupSpeakingTests gom dòng theo cuốn và test', () => {
+  const rows = [
+    { id: '1', part: 'part-1', book_number: 12, test_number: 5, sub_index: 0, topic: 'Health' },
+    { id: '2', part: 'part-2', book_number: 12, test_number: 5, sub_index: 0, topic: 'Waiting' },
+    { id: '3', part: 'part-3', book_number: 12, test_number: 5, sub_index: 0, topic: 'Arriving early' },
+    { id: '4', part: 'part-3', book_number: 12, test_number: 5, sub_index: 1, topic: 'Being patient' },
+    { id: '5', part: 'part-1', book_number: 13, test_number: 1, sub_index: 0, topic: 'Television' },
+  ] as never
+  const groups = groupSpeakingTests(rows)
+  assert.equal(groups.length, 2)
+  assert.equal(groups[0].bookNumber, 12)
+  assert.equal(groups[0].testNumber, 5)
+  assert.equal(groups[0].part1?.topic, 'Health')
+  assert.equal(groups[0].part2?.topic, 'Waiting')
+  assert.deepEqual(groups[0].part3.map((row) => row.topic), ['Arriving early', 'Being patient'])
+  assert.equal(groups[1].bookNumber, 13)
+  assert.equal(groups[1].part3.length, 0)
+})
+
+test('speakingTestLabel đặt nhãn cuốn và test', () => {
+  assert.equal(speakingTestLabel(12, 5), 'Cambridge 12 · Test 5')
 })
 
 test('formatBand hiển thị 1 chữ số', () => {

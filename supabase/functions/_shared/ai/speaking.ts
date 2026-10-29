@@ -256,10 +256,12 @@ export function parseAudioAnalysis(value: unknown): AudioAnalysis {
     throw new SpeakingContractError("invalid_audio_analysis", "The audio analysis is not an object");
   }
   const record = value as Record<string, unknown>;
-  const transcript = typeof record.transcript === "string" ? record.transcript.trim() : "";
-  if (!transcript) {
+  // Transcript rỗng là hợp lệ (người học nói quá nhỏ / không nói gì) — chỉ thiếu hẳn key
+  // mới là lỗi hợp đồng. Pipeline sẽ tự báo `no_speech_detected` nếu mọi turn đều rỗng.
+  if (typeof record.transcript !== "string") {
     throw new SpeakingContractError("missing_transcript", "The audio analysis has no transcript");
   }
+  const transcript = record.transcript.trim();
   const confidence = record.confidence;
   if (confidence !== "high" && confidence !== "medium" && confidence !== "low") {
     throw new SpeakingContractError("invalid_confidence", "The audio confidence must be high, medium or low");

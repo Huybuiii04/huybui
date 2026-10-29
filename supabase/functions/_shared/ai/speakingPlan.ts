@@ -3,6 +3,9 @@
  * dựa trên chế độ người học chọn.
  *
  * File thuần, không I/O — test được bằng `node --test`.
+ *
+ * Mỗi "test" của Cambridge gồm 4 dòng trong `speaking_questions`:
+ *   part-1 (1 dòng) · part-2 (1 dòng) · part-3 (2 dòng: chủ đề A và chủ đề B).
  */
 
 import type { SpeakingMode, SpeakingPart } from "../schemas.ts";
@@ -11,6 +14,7 @@ export type SpeakingCueCard = {
   topic: string;
   bullets: string[];
   time_limit_seconds: number;
+  explain?: string;
 };
 
 export type SpeakingQuestionRow = {
@@ -22,6 +26,10 @@ export type SpeakingQuestionRow = {
   questions: string[];
   cue_card: SpeakingCueCard | null;
   related_part3_slug: string | null;
+  /** 0 cho Part 1/2; 0 và 1 cho hai chủ đề của Part 3. */
+  sub_index?: number;
+  book_number?: number | null;
+  test_number?: number | null;
 };
 
 export type SpeakingPlanTurn = {
@@ -53,23 +61,42 @@ function turnFromRow(row: SpeakingQuestionRow, orderIndex: number): SpeakingPlan
   };
 }
 
+/** Sắp xếp các dòng của 1 test theo thứ tự luyện: P1 → P2 → P3A → P3B. */
+function sortSetRows(rows: SpeakingQuestionRow[]): SpeakingQuestionRow[] {
+  const partOrder: Record<SpeakingPart, number> = { "part-1": 0, "part-2": 1, "part-3": 2 };
+  return [...rows].sort((a, b) => {
+    if (partOrder[a.part] !== partOrder[b.part]) return partOrder[a.part] - partOrder[b.part];
+    return (a.sub_index ?? 0) - (b.sub_index ?? 0);
+  });
+}
+
 /**
  * Sinh kế hoạch phiên.
  *
- * - `part-1` / `part-2` / `part-3`: đúng 1 turn, dùng câu hỏi đã chọn.
- * - `mock`: 4 turn — 2 topic Part 1, 1 cue card Part 2, 1 topic Part 3.
- *   Topic Part 3 được ưu tiên theo `related_part3_slug` của cue card Part 2 để
- *   giữ đúng chủ đề như kỳ thi thật; không có thì chọn ngẫu nhiên.
+ * - `part-1` / `part-2` / `part-3`: đúng 1 turn, lấy từ `setRows` (dòng của test được chọn).
+ *   `part-3` ưu tiên dòng được chỉ định (`questionRow`), nếu không thì lấy chủ đề A.
+ * - `mock` (full 3 phần): 4 turn — Part 1 → Part 2 → Part 3 chủ đề A → Part 3 chủ đề B.
+ * - Khi không có `setRows`, `mock` rơi về cách chọn ngẫu nhiên trong kho câu hỏi cũ.
  */
 export function buildSpeakingPlan(input: {
   mode: SpeakingMode;
   question: string | null;
   questionRow: SpeakingQuestionRow | null;
+  setRows: SpeakingQuestionRow[];
   pool: { part1: SpeakingQuestionRow[]; part2: SpeakingQuestionRow[]; part3: SpeakingQuestionRow[] };
 }): SpeakingPlanTurn[] {
-  const { mode, question, questionRow, pool } = input;
+  const { mode, question, questionRow, setRows, pool } = input;
 
   if (mode !== "mock") {
+    if (setRows.length) {
+      const wanted = mode as SpeakingPart;
+      const candidates = sortSetRows(setRows).filter((row) => row.part === wanted);
+      const picked =
+        wanted === "part-3" && questionRow && questionRow.part === "part-3"
+          ? questionRow
+          : candidates[0];
+      return picked ? [turnFromRow(picked, 0)] : [];
+    }
     if (questionRow) return [turnFromRow(questionRow, 0)];
     // Câu hỏi tự nhập: chỉ hợp lệ với Part 1 (câu hỏi mở đầu).
     if (question && mode === "part-1") {
@@ -85,6 +112,10 @@ export function buildSpeakingPlan(input: {
       ];
     }
     return [];
+  }
+
+  if (setRows.length) {
+    return sortSetRows(setRows).map((row, index) => turnFromRow(row, index));
   }
 
   const usedPart1 = new Set<SpeakingQuestionRow>();

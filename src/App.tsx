@@ -49,6 +49,7 @@ export function routes() {
           <Route path="/app/reading/:slug" element={<Suspense fallback={<AppFallback />}><ReadingTest /></Suspense>} />
           <Route path="/app/speaking" element={<Suspense fallback={<AppFallback />}><Speaking /></Suspense>} />
           <Route path="/app/speaking/result/:attemptId" element={<Suspense fallback={<AppFallback />}><SpeakingResult /></Suspense>} />
+          <Route path="/app/speaking/:mode/:book/:test" element={<Suspense fallback={<AppFallback />}><SpeakingRoom /></Suspense>} />
           <Route path="/app/speaking/:mode" element={<Suspense fallback={<AppFallback />}><SpeakingRoom /></Suspense>} />
           <Route path="/admin" element={<Admin />} />
         </Route>

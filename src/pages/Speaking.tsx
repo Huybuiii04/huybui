@@ -4,33 +4,23 @@ import { Layers, MessageSquare, Mic, Puzzle } from 'lucide-react'
 
 import { Empty, PageHeader } from '../components/ui'
 import { useCopy } from '../i18n'
-import { loadSpeakingQuestions, type SpeakingQuestion } from '../lib/speaking.ts'
-import type { SpeakingMode, SpeakingPart } from '../lib/speakingLogic.ts'
+import { loadSpeakingTests, type SpeakingQuestion } from '../lib/speaking.ts'
+import { groupSpeakingTests, type SpeakingTestGroup } from '../lib/speakingLogic.ts'
 
-const MODES: Array<{
-  mode: SpeakingMode
-  icon: typeof Mic
-  title: string
-  sub: readonly [string, string]
-}> = [
-  { mode: 'part-1', icon: MessageSquare, title: 'Part 1', sub: ['5 câu · 60 giây', '5 questions · 60s'] },
-  { mode: 'part-2', icon: Layers, title: 'Part 2', sub: ['Cue card · 120 giây', 'Cue card · 120s'] },
-  { mode: 'part-3', icon: Puzzle, title: 'Part 3', sub: ['4 câu · 90 giây', '4 questions · 90s'] },
-  { mode: 'mock', icon: Mic, title: 'Full mock', sub: ['Cả 3 phần · 14 phút', 'All three parts · 14 min'] },
-]
+const BOOKS = [12, 13, 14, 15, 16, 17, 18, 19, 20]
 
 export default function Speaking() {
   const { c } = useCopy()
-  const [questions, setQuestions] = useState<SpeakingQuestion[]>([])
-  const [filter, setFilter] = useState<'' | SpeakingPart>('')
+  const [rows, setRows] = useState<SpeakingQuestion[]>([])
+  const [book, setBook] = useState<number>(BOOKS[0])
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     let alive = true
-    void loadSpeakingQuestions().then((items) => {
+    void loadSpeakingTests().then((items) => {
       if (!alive) return
-      setQuestions(items)
+      setRows(items)
       setLoading(false)
     })
     return () => {
@@ -38,15 +28,21 @@ export default function Speaking() {
     }
   }, [])
 
-  const visible = useMemo(
-    () =>
-      questions.filter((question) => {
-        if (filter && question.part !== filter) return false
-        if (search && !question.topic.toLowerCase().includes(search.toLowerCase())) return false
-        return true
-      }),
-    [questions, filter, search],
-  )
+  const groups = useMemo(() => groupSpeakingTests(rows), [rows])
+
+  const books = useMemo(() => {
+    const found = [...new Set(groups.map((group) => group.bookNumber))].sort((a, b) => a - b)
+    return found.length ? found : BOOKS
+  }, [groups])
+
+  const visible = useMemo(() => {
+    const keyword = search.trim().toLowerCase()
+    return groups.filter((group) => {
+      if (group.bookNumber !== book) return false
+      if (!keyword) return true
+      return groupMatches(group, keyword)
+    })
+  }, [groups, book, search])
 
   return (
     <div className="page">
@@ -54,26 +50,12 @@ export default function Speaking() {
         eyebrow={c('LUYỆN NÓI', 'SPEAKING')}
         title={c('Luyện nói', 'Speaking practice')}
         description={c(
-          'Ghi âm bài trả lời và nhận band trên cả bốn tiêu chí Speaking chính thức của IELTS.',
-          'Record your answer and get a band on all four official IELTS Speaking criteria.',
+          'Đề Speaking Cambridge 12–20. Chọn cuốn, chọn test, rồi luyện từng part hoặc luyện cả 3 phần.',
+          'Cambridge 12–20 Speaking tests. Pick a book and a test, then drill one part or all three.',
         )}
       />
 
-      <div className="card-grid">
-        {MODES.map((item) => (
-          <Link key={item.mode} to={`/app/speaking/${item.mode}`} className="skill-card">
-            <span className="skill-card-icon">
-              <item.icon size={20} aria-hidden />
-            </span>
-            <div>
-              <h3>{item.title}</h3>
-              <p className="muted">{c(...item.sub)}</p>
-            </div>
-          </Link>
-        ))}
-      </div>
-
-      <div className="mt-8 flex flex-wrap items-center gap-3">
+      <div className="mt-6 flex flex-wrap items-center gap-3">
         <input
           type="search"
           value={search}
@@ -81,22 +63,15 @@ export default function Speaking() {
           placeholder={c('Tìm chủ đề…', 'Search topics…')}
           aria-label={c('Tìm chủ đề', 'Search topics')}
         />
-        <div className="filter-row">
-          <button
-            type="button"
-            className={`filter-chip ${filter === '' ? 'is-active' : ''}`}
-            onClick={() => setFilter('')}
-          >
-            {c('Tất cả', 'All')}
-          </button>
-          {(['part-1', 'part-2', 'part-3'] as SpeakingPart[]).map((part) => (
+        <div className="filter-row" role="group" aria-label={c('Chọn cuốn Cambridge', 'Choose a Cambridge book')}>
+          {books.map((number) => (
             <button
-              key={part}
+              key={number}
               type="button"
-              className={`filter-chip ${filter === part ? 'is-active' : ''}`}
-              onClick={() => setFilter(part)}
+              className={`filter-chip ${book === number ? 'is-active' : ''}`}
+              onClick={() => setBook(number)}
             >
-              {part.toUpperCase()}
+              {`C${number}`}
             </button>
           ))}
         </div>
@@ -110,33 +85,118 @@ export default function Speaking() {
 
       {!loading && visible.length === 0 && (
         <Empty
-          title={c('Chưa có câu hỏi', 'No questions yet')}
+          title={c('Chưa có đề', 'No tests yet')}
           description={c(
-            'Quản trị viên sẽ thêm câu hỏi vào kho.',
-            'An administrator will publish questions here.',
+            'Đề Speaking Cambridge 12–20 sẽ xuất hiện ở đây.',
+            'Cambridge 12–20 speaking tests will appear here.',
           )}
         />
       )}
 
       {!loading && visible.length > 0 && (
-        <div className="card-grid mt-4">
-          {visible.map((question) => (
-            <Link
-              key={question.id}
-              to={`/app/speaking/${question.part}`}
-              className="skill-card"
-            >
-              <span className="skill-card-icon">
-                <Mic size={20} aria-hidden />
-              </span>
-              <div>
-                <p className="eyebrow">{question.part.toUpperCase()}</p>
-                <h3>{question.topic}</h3>
-              </div>
-            </Link>
+        <div className="flex flex-col gap-4 mt-6">
+          {visible.map((group) => (
+            <TestCard key={`${group.bookNumber}-${group.testNumber}`} group={group} />
           ))}
         </div>
       )}
     </div>
+  )
+}
+
+function groupMatches(group: SpeakingTestGroup, keyword: string): boolean {
+  const haystack = [
+    group.label,
+    group.part1?.topic ?? '',
+    group.part2?.topic ?? '',
+    ...group.part3.map((row) => row.topic),
+  ]
+    .join(' ')
+    .toLowerCase()
+  return haystack.includes(keyword)
+}
+
+function TestCard({ group }: { group: SpeakingTestGroup }) {
+  const { c } = useCopy()
+  const base = `/app/speaking`
+  const parts: Array<{
+    key: string
+    icon: typeof MessageSquare
+    label: string
+    topic: string
+    to: string | null
+  }> = []
+
+  if (group.part1) {
+    parts.push({
+      key: 'part-1',
+      icon: MessageSquare,
+      label: 'Part 1',
+      topic: group.part1.topic,
+      to: `${base}/part-1/${group.bookNumber}/${group.testNumber}`,
+    })
+  }
+  if (group.part2) {
+    parts.push({
+      key: 'part-2',
+      icon: Layers,
+      label: 'Part 2',
+      topic: group.part2.topic,
+      to: `${base}/part-2/${group.bookNumber}/${group.testNumber}`,
+    })
+  }
+  group.part3.forEach((row, index) => {
+    parts.push({
+      key: `part-3-${index}`,
+      icon: Puzzle,
+      label: c('Part 3', 'Part 3'),
+      topic: row.topic,
+      to: `${base}/part-3/${group.bookNumber}/${group.testNumber}?question=${row.id}`,
+    })
+  })
+
+  return (
+    <section className="panel">
+      <div className="panel-heading">
+        <div>
+          <p className="eyebrow">{group.label}</p>
+          <h2>{c('Test', 'Test')} {group.testNumber}</h2>
+        </div>
+        <Link
+          className="button primary small"
+          to={`${base}/mock/${group.bookNumber}/${group.testNumber}`}
+        >
+          <Mic size={15} aria-hidden /> {c('Luyện cả 3 phần', 'All three parts')}
+        </Link>
+      </div>
+
+      {group.sourceLabel && (
+        <p className="muted text-[12px] mb-3">
+          {c('Nguồn', 'Source')}: {group.sourceLabel}
+        </p>
+      )}
+
+      <ul className="flex flex-col gap-2">
+        {parts.map((part) => (
+          <li
+            key={part.key}
+            className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border)] pb-2 last:border-0"
+          >
+            <span className="flex items-center gap-2 text-[14px]">
+              <part.icon size={16} aria-hidden className="text-[var(--text-subtle)]" />
+              <strong>{part.label}</strong>
+              <span className="muted">{part.topic ?? c('(chưa có)', '(missing)')}</span>
+            </span>
+            {part.to ? (
+              <Link className="button small" to={part.to}>
+                {c('Luyện', 'Practice')}
+              </Link>
+            ) : (
+              <span className="muted text-[12px]">{c('Thiếu dữ liệu', 'Missing data')}</span>
+            )}
+          </li>
+        ))}
+      </ul>
+    </section>
   )
 }

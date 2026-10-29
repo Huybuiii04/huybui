@@ -5,6 +5,7 @@ export type SpeakingCueCard = {
   topic: string
   bullets: string[]
   time_limit_seconds: number
+  explain?: string
 }
 
 export type SpeakingTurnPlan = {
@@ -89,6 +90,8 @@ async function invoke<T>(
 /** Mở một phiên luyện nói: server sinh kế hoạch turn và cấp signed upload URL. */
 export function prepareSpeaking(input: {
   mode: SpeakingMode
+  bookNumber?: number | null
+  testNumber?: number | null
   questionId?: string | null
   question?: string | null
   targetBand?: number | null
@@ -107,11 +110,7 @@ export function commitSpeakingTurn(input: {
 }): Promise<
   { ok: true; value: { committed: boolean; jobId: string | null } } | { ok: false; code: string }
 > {
-  return invoke('submit-speaking', {
-    action: 'commit',
-    ...input,
-    idempotencyKey: `speaking-${input.attemptId}-${input.turnId}`,
-  })
+  return invoke('submit-speaking', { action: 'commit', ...input })
 }
 
 /** Đẩy audio thẳng lên Storage bằng signed URL do server cấp. */
@@ -203,14 +202,24 @@ export type SpeakingQuestion = {
   questions: string[]
   cue_card: SpeakingCueCard | null
   related_part3_slug: string | null
+  sub_index: number
+  book_number: number | null
+  test_number: number | null
+  source_label: string
 }
 
-export async function loadSpeakingQuestions(part?: SpeakingPart): Promise<SpeakingQuestion[]> {
-  let query = supabase
+/** Nạp toàn bộ đề Cambridge 12–20 (mỗi test = 1 Part 1 + 1 Part 2 + 2 Part 3). */
+export async function loadSpeakingTests(): Promise<SpeakingQuestion[]> {
+  const { data } = await supabase
     .from('speaking_questions')
-    .select('id,part,slug,topic,prompt_text,questions,cue_card,related_part3_slug')
+    .select(
+      'id,part,slug,topic,prompt_text,questions,cue_card,related_part3_slug,sub_index,book_number,test_number,source_label',
+    )
     .eq('is_active', true)
-  if (part) query = query.eq('part', part)
-  const { data } = await query.order('topic', { ascending: true })
+    .not('book_number', 'is', null)
+    .order('book_number', { ascending: true })
+    .order('test_number', { ascending: true })
+    .order('part', { ascending: true })
+    .order('sub_index', { ascending: true })
   return (data ?? []) as unknown as SpeakingQuestion[]
 }

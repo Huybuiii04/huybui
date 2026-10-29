@@ -21,6 +21,7 @@ npm test                       # 203 test logic thuần: học tập, auth, đ�
 npm run test:edge              # 112 test hợp đồng của Edge Function
 node tests/browser.mjs         # luồng trình duyệt thật (Playwright, cần dev server)
 node tests/skill-flow.mjs      # luồng Reading: kho đề → phòng làm bài (đồng hồ, passage, câu hỏi)
+node tests/speaking-flow.mjs   # luồng Speaking: chọn cuốn Cambridge → test → part → phòng luyện
 node tests/accessibility.mjs   # axe WCAG 2.1 AA trên 6 route, cả theme sáng và tối
 node tests/i18n.mjs            # kiểm tra song ngữ VI/EN trên 16 route
 node tests/vocabulary-library.mjs  # thư viện 25 chủ đề: chọn chủ đề, thêm từ vào sổ, lọc
@@ -46,6 +47,8 @@ npm run db:migrate             # áp dụng 21 file migration (idempotent)
 npm run db:verify              # kiểm tra schema + RLS
 npm run db:seed                # nạp nội dung, đề bài và bảng giá AI
 npm run db:seed:vocabulary     # nạp thư viện từ vựng 25 chủ đề (5.000 mục)
+npm run db:seed:speaking:cambridge  # nạp 144 đề Speaking Cambridge 12–20 (36 test × 4 dòng)
+npm run build:speaking:cambridge     # sinh lại speaking-cambridge.json từ 9 file DOCX nguồn
 npm run db:import:reading      # sinh lại dataset đề từ repo nguồn (cần clone repo nguồn)
 npm run db:seed:skills         # nạp toàn bộ đề Reading
 npm run db:prune               # dọn đề Task 1 trùng (dry-run, thêm --apply để xoá)
@@ -150,6 +153,7 @@ Cần `SUPABASE_ACCESS_TOKEN` trong `.env.local`. Xem `supabase/README.md` cho t
 | `src/lib/promptRepository.ts` | Đọc đề/chủ đề/dạng biểu đồ từ PostgREST |
 | `src/lib/vocabularyLogic.ts` · `vocabularyRepository.ts` | Thư viện từ vựng 25 chủ đề: map hàng, lọc, tạo thẻ ôn tập + đọc PostgREST |
 | `src/lib/skillLogic.ts` · `skillRepository.ts` · `skillApi.ts` | Kiểu dữ liệu + helper thuần, đọc đề từ PostgREST, gọi Edge Function chấm điểm |
+| `src/lib/speakingLogic.ts` · `speaking.ts` | Speaking: gom đề theo cuốn/test, gọi Edge Function `submit-speaking`, upload audio + polling kết quả |
 | `src/components/GradingResult.tsx` | Hiển thị kết quả chấm: 4 tiêu chí, dẫn chứng, hành động |
 | `src/components/ChartPreview.tsx` | Dựng biểu đồ SVG từ dữ liệu của đề |
 | `src/components/skill/` | Thẻ câu hỏi, passage, đồng hồ, lưới rà soát, khung kết quả |
@@ -177,6 +181,15 @@ Cần `SUPABASE_ACCESS_TOKEN` trong `.env.local`. Xem `supabase/README.md` cho t
 - **Đáp án không lộ ra trình duyệt**: `skill_questions` chỉ cấp quyền đọc cho các cột không phải đáp án; Edge Function `grade-skill` chấm điểm bằng service role rồi ghi lịch sử. Chỉ service role được ghi `skill_attempts`, nên người dùng không tự khai được điểm.
 - **Quy đổi band**: bảng Cambridge trong `supabase/functions/_shared/skillGrading.ts`.
 - **Chạy lại đề**: `npm run db:import:reading` rồi `npm run db:seed:skills` (idempotent).
+
+## Speaking (Cambridge 12–20)
+
+- **Đề nằm trong Postgres** (`speaking_questions`), chia theo **cuốn Cambridge → test → part**: 9 cuốn (12–20) × 4 test = **36 test**, mỗi test có 1 dòng Part 1 (4 câu), 1 dòng Part 2 (cue card) và 2 dòng Part 3 (2 chủ đề × 3 câu) → **144 dòng**.
+- **Nguồn**: 9 file `.docx` OCR trong `IELTS_Speaking_Cambridge_12-20_Word_Pack/Theo_tung_Cambridge`. Script `npm run build:speaking:cambridge` tự giải nén DOCX (không cần dependency), bóc tách Part 1/2/3, **tự sửa lỗi OCR rõ ràng** và ghi `supabase/seed/speaking-cambridge-flags.md` cho các câu còn lỗi. Câu sửa tay nằm trong `MANUAL_FIXES` của chính script.
+- **Luồng học**: `/app/speaking` → chọn cuốn (C12…C20) → chọn test → **luyện từng part** (Part 1 / Part 2 / Part 3 chủ đề A hoặc B) hoặc **luyện cả 3 phần** (4 lượt: P1 → P2 → P3A → P3B của cùng test).
+- **Chấm 2 lớp**: `gemini-3.8-flash` đọc audio → transcript + phát âm/ngữ điệu; `claude-haiku-5-5` chấm rubric ETS band 3–9 trên transcript. Band tổng = trung bình theo lượt (đúng luật IELTS "average performance across all parts").
+- **Route**: `/app/speaking/:mode/:book/:test` (`mode` = `part-1` · `part-2` · `part-3` · `mock`), Part 3 chọn chủ đề qua `?question=<id>`.
+- **Audio** lưu ở bucket riêng `speaking-audio` (private, ≤ 4 MiB) và **xoá ngay sau khi chấm**.
 
 ## Hành vi hiện tại
 

@@ -155,6 +155,18 @@ test("parseAudioAnalysis reject khi thiếu transcript", () => {
   assert.throws(() => parseAudioAnalysis({ fillerWords: [] } as never));
 });
 
+test("parseAudioAnalysis chấp nhận transcript rỗng", () => {
+  const analysis = parseAudioAnalysis({
+    transcript: "   ",
+    fillerWords: [],
+    mispronounced: [],
+    intonationNotes: [],
+    estimatedWpm: null,
+    confidence: "low",
+  });
+  assert.equal(analysis.transcript, "");
+});
+
 test("parseAudioAnalysis chấp nhận payload đầy đủ", () => {
   const analysis = parseAudioAnalysis({
     transcript: "I live in Hanoi.",

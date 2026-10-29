@@ -77,20 +77,94 @@ export function aggregateTurnScores(turns: TurnCriterionScore[][]): {
 
 export type SessionPlanTurn = { part: SpeakingPart; index: number }
 
-/** Số turn của mỗi chế độ: 1 phần = 1 turn, full mock = 4 turn. */
-export function buildSessionPlan(
-  mode: SpeakingMode,
-  pool: { part1: string[]; part2: string[]; part3: string[] },
-): SessionPlanTurn[] {
+/**
+ * Số turn của mỗi chế độ: 1 phần = 1 turn, full 3 phần = 4 turn
+ * (Part 1 → Part 2 → Part 3 chủ đề A → Part 3 chủ đề B).
+ */
+export function buildSessionPlan(mode: SpeakingMode): SessionPlanTurn[] {
   if (mode === 'mock') {
     return [
       { part: 'part-1', index: 0 },
-      { part: 'part-1', index: 1 },
       { part: 'part-2', index: 0 },
       { part: 'part-3', index: 0 },
+      { part: 'part-3', index: 1 },
     ]
   }
   return [{ part: mode, index: 0 }]
+}
+
+export type SpeakingCueCard = {
+  topic: string
+  bullets: string[]
+  time_limit_seconds: number
+  explain?: string
+}
+
+/** Một dòng câu hỏi trong kho (mỗi test có 1 Part 1, 1 Part 2, 2 Part 3). */
+export type SpeakingTestRow = {
+  id: string
+  part: SpeakingPart
+  slug: string
+  topic: string
+  prompt_text: string
+  questions: string[]
+  cue_card: SpeakingCueCard | null
+  related_part3_slug: string | null
+  sub_index: number
+  book_number: number | null
+  test_number: number | null
+  source_label: string
+}
+
+/** Một test Cambridge đã gom: Part 1 + Part 2 + 2 chủ đề Part 3. */
+export type SpeakingTestGroup = {
+  bookNumber: number
+  testNumber: number
+  label: string
+  sourceLabel: string
+  part1: SpeakingTestRow | null
+  part2: SpeakingTestRow | null
+  part3: SpeakingTestRow[]
+}
+
+/** Nhãn hiển thị của một test Cambridge. */
+export function speakingTestLabel(bookNumber: number, testNumber: number): string {
+  return `Cambridge ${bookNumber} · Test ${testNumber}`
+}
+
+/**
+ * Gom các dòng câu hỏi theo cuốn Cambridge và số test.
+ * Dòng không thuộc Cambridge (book_number = null) bị bỏ qua.
+ */
+export function groupSpeakingTests(rows: SpeakingTestRow[]): SpeakingTestGroup[] {
+  const groups = new Map<string, SpeakingTestGroup>()
+  for (const row of rows) {
+    if (row.book_number === null || row.test_number === null) continue
+    const key = `${row.book_number}-${row.test_number}`
+    let group = groups.get(key)
+    if (!group) {
+      group = {
+        bookNumber: row.book_number,
+        testNumber: row.test_number,
+        label: speakingTestLabel(row.book_number, row.test_number),
+        sourceLabel: row.source_label ?? '',
+        part1: null,
+        part2: null,
+        part3: [],
+      }
+      groups.set(key, group)
+    }
+    if (!group.sourceLabel && row.source_label) group.sourceLabel = row.source_label
+    if (row.part === 'part-1') group.part1 = row
+    else if (row.part === 'part-2') group.part2 = row
+    else group.part3.push(row)
+  }
+  for (const group of groups.values()) {
+    group.part3.sort((a, b) => a.sub_index - b.sub_index)
+  }
+  return [...groups.values()].sort(
+    (a, b) => a.bookNumber - b.bookNumber || a.testNumber - b.testNumber,
+  )
 }
 
 export function formatBand(band: number): string {

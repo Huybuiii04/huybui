@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react'
-import { useParams } from 'react-router'
+import { useParams, useSearchParams } from 'react-router'
 
 import { Notice, PageHeader } from '../components/ui'
 import { SpeakingRecorder } from '../components/speaking/SpeakingRecorder.tsx'
@@ -14,7 +14,7 @@ import {
   type SpeakingAttempt,
   type SpeakingResultView,
 } from '../lib/speaking.ts'
-import type { SpeakingMode } from '../lib/speakingLogic.ts'
+import { speakingTestLabel, type SpeakingMode } from '../lib/speakingLogic.ts'
 
 const ERROR_MESSAGES: Record<string, readonly [string, string]> = {
   unauthenticated: ['Bạn cần đăng nhập.', 'You need to sign in.'],
@@ -41,7 +41,12 @@ const ERROR_MESSAGES: Record<string, readonly [string, string]> = {
 }
 
 export default function SpeakingRoom() {
-  const { mode = 'part-1' } = useParams<{ mode: string }>()
+  const { mode = 'part-1', book, test } = useParams<{
+    mode: string
+    book?: string
+    test?: string
+  }>()
+  const [searchParams] = useSearchParams()
   const { c } = useCopy()
   const [attempt, setAttempt] = useState<SpeakingAttempt | null>(null)
   const [turnIndex, setTurnIndex] = useState(0)
@@ -49,11 +54,18 @@ export default function SpeakingRoom() {
   const [error, setError] = useState('')
   const [result, setResult] = useState<SpeakingResultView | null>(null)
 
+  const bookNumber = book ? Number(book) : null
+  const testNumber = test ? Number(test) : null
+  const questionId = searchParams.get('question')
+
   const start = useCallback(async () => {
     setError('')
     setResult(null)
     const prepared = await prepareSpeaking({
       mode: mode as SpeakingMode,
+      bookNumber: Number.isFinite(bookNumber) ? bookNumber : null,
+      testNumber: Number.isFinite(testNumber) ? testNumber : null,
+      questionId: questionId || null,
       feedbackLocale: 'vi',
     })
     if (!prepared.ok) {
@@ -62,7 +74,7 @@ export default function SpeakingRoom() {
     }
     setAttempt(prepared.value)
     setTurnIndex(0)
-  }, [mode])
+  }, [mode, bookNumber, testNumber, questionId])
 
   async function onRecorded(audio: { blob: Blob; mimeType: string; durationMs: number }) {
     if (!attempt) return
@@ -125,11 +137,15 @@ export default function SpeakingRoom() {
   }
 
   const turn = attempt?.turns[turnIndex]
+  const testLabel =
+    bookNumber !== null && testNumber !== null && Number.isFinite(bookNumber) && Number.isFinite(testNumber)
+      ? speakingTestLabel(bookNumber, testNumber)
+      : ''
 
   return (
     <div className="page">
       <PageHeader
-        eyebrow="SPEAKING"
+        eyebrow={testLabel || 'SPEAKING'}
         title={c('Luyện nói', 'Speaking practice')}
         description={c(
           'Ghi âm, rồi AI chấm band trên bốn tiêu chí chính thức của IELTS.',

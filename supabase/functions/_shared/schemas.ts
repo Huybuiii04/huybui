@@ -104,6 +104,10 @@ export interface PrepareSpeakingInput {
   mode: SpeakingMode;
   questionId: string | null;
   question: string | null;
+  /** Số cuốn Cambridge (12…20). */
+  bookNumber: number | null;
+  /** Số test trong cuốn (1…8). */
+  testNumber: number | null;
   targetBand: number | null;
   feedbackLocale: "vi" | "en";
 }
@@ -163,7 +167,13 @@ export function parsePrepareSpeaking(input: unknown): PrepareSpeakingInput {
     : requiredUuid(record, "questionId");
   const question = optionalString(record, "question", { max: 2_000 })?.trim() || null;
 
-  if (!questionId && !question) {
+  const bookNumber = optionalInteger(record, "bookNumber", 9, 25);
+  const testNumber = optionalInteger(record, "testNumber", 1, 12);
+  if ((bookNumber === null) !== (testNumber === null)) {
+    fail("bookNumber", "bookNumber and testNumber must be provided together");
+  }
+
+  if (!questionId && !question && bookNumber === null) {
     fail("question", "Pick a question or type your own");
   }
 
@@ -171,6 +181,8 @@ export function parsePrepareSpeaking(input: unknown): PrepareSpeakingInput {
     mode: mode as SpeakingMode,
     questionId,
     question,
+    bookNumber,
+    testNumber,
     targetBand,
     feedbackLocale: locale as "vi" | "en",
   };
@@ -193,13 +205,17 @@ export function parseCommitSpeakingTurn(input: unknown): CommitSpeakingTurnInput
     fail("durationMs", "Invalid recording duration");
   }
 
+  const attemptId = requiredUuid(record, "attemptId");
+  const turnId = requiredUuid(record, "turnId");
+
   return {
-    attemptId: requiredUuid(record, "attemptId"),
-    turnId: requiredUuid(record, "turnId"),
+    attemptId,
+    turnId,
     mimeType,
     byteSize,
     durationMs: Math.round(durationMs),
-    idempotencyKey: requiredIdempotencyKey(record),
+    // Server tu sinh idempotencyKey: client khong can (va khong nen) tu chon.
+    idempotencyKey: `speaking-${attemptId}-${turnId}`,
   };
 }
 
@@ -250,6 +266,22 @@ function optionalString(
 
 function requiredUuid(record: Record<string, unknown>, field: string): string {
   return requiredString(record, field, { pattern: UUID_PATTERN });
+}
+
+/** Số nguyên tuỳ chọn trong khoảng [min, max]; undefined/null → null. */
+function optionalInteger(
+  record: Record<string, unknown>,
+  field: string,
+  min: number,
+  max: number,
+): number | null {
+  const value = record[field];
+  if (value === undefined || value === null) return null;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < min || parsed > max) {
+    fail(field, `${field} must be an integer between ${min} and ${max}`);
+  }
+  return parsed;
 }
 
 function requiredIdempotencyKey(record: Record<string, unknown>): string {

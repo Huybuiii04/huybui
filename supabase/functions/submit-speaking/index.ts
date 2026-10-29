@@ -32,15 +32,6 @@ import {
   type SpeakingQuestionRow,
 } from "../_shared/ai/speakingPlan.ts";
 
-const EXTENSION_BY_MIME: Record<string, string> = {
-  "audio/webm": "webm",
-  "audio/mp4": "mp4",
-  "audio/ogg": "ogg",
-  "audio/wav": "wav",
-  "audio/mpeg": "mp3",
-  "audio/mp3": "mp3",
-};
-
 Deno.serve(async (request) => {
   const id = requestId();
   try {
@@ -75,7 +66,7 @@ async function prepare(
   if (input.questionId) {
     const result = await service
       .from("speaking_questions")
-      .select("id,part,slug,topic,prompt_text,questions,cue_card,related_part3_slug")
+      .select("id,part,slug,topic,prompt_text,questions,cue_card,related_part3_slug,sub_index,book_number,test_number")
       .eq("id", input.questionId)
       .eq("is_active", true)
       .maybeSingle();
@@ -83,11 +74,17 @@ async function prepare(
     questionRow = (result.data as SpeakingQuestionRow | null) ?? null;
   }
 
-  const pool = await loadQuestionPool(service);
+  // Test được chọn: nạp đúng 4 dòng của test đó (P1, P2, P3 chủ đề A, P3 chủ đề B).
+  const setRows = input.bookNumber !== null && input.testNumber !== null
+    ? await loadTestRows(service, input.bookNumber, input.testNumber)
+    : [];
+
+  const pool = setRows.length ? { part1: [], part2: [], part3: [] } : await loadQuestionPool(service);
   const turns = buildSpeakingPlan({
     mode: input.mode,
     question: input.question,
     questionRow,
+    setRows,
     pool,
   });
   if (!turns.length) {
@@ -106,6 +103,8 @@ async function prepare(
       target_band: input.targetBand,
       feedback_locale: input.feedbackLocale,
       turn_count: turns.length,
+      book_number: input.bookNumber,
+      test_number: input.testNumber,
       status: "recording",
     })
     .select("id")
@@ -142,6 +141,9 @@ async function prepare(
   for (const turn of turns) {
     const row = created.find((item) => item.order_index === turn.orderIndex);
     if (!row) throw databaseError("create the speaking turns");
+    // Duong dan object CANON: client co the ghi am bang webm/mp4/wav/... nen khong
+    // duoc doan ten file o thoi diem prepare. Mime that duoc client bao o buoc commit
+    // va luu rieng trong DB (khong phai suy tu duoi file).
     const objectPath = `${userId}/${attemptId}/${row.id}.webm`;
     const signed = await service.storage
       .from(SPEAKING_AUDIO_BUCKET)
@@ -207,8 +209,8 @@ async function commit(
     throw new AppError(409, "turn_already_uploaded", "This recording has already been submitted");
   }
 
-  const extension = EXTENSION_BY_MIME[input.mimeType] ?? "webm";
-  const objectPath = `${userId}/${input.attemptId}/${input.turnId}.${extension}`;
+  // Phai dung CHINH xac duong dan da cap o buoc prepare (canonical, duoi .webm).
+  const objectPath = `${userId}/${input.attemptId}/${input.turnId}.webm`;
 
   // Xác minh audio thực sự đã nằm trên Storage.
   const download = await service.storage.from(SPEAKING_AUDIO_BUCKET).download(objectPath);
@@ -284,7 +286,7 @@ async function loadQuestionPool(service: SupabaseClient): Promise<{
 }> {
   const result = await service
     .from("speaking_questions")
-    .select("id,part,slug,topic,prompt_text,questions,cue_card,related_part3_slug")
+    .select("id,part,slug,topic,prompt_text,questions,cue_card,related_part3_slug,sub_index,book_number,test_number")
     .eq("is_active", true);
   if (result.error) throw databaseError("load the speaking questions");
   const rows = (result.data ?? []) as SpeakingQuestionRow[];
@@ -293,4 +295,20 @@ async function loadQuestionPool(service: SupabaseClient): Promise<{
     part2: rows.filter((row) => row.part === "part-2"),
     part3: rows.filter((row) => row.part === "part-3"),
   };
+}
+
+/** Nạp các dòng của 1 test Cambridge (P1, P2, P3 chủ đề A, P3 chủ đề B). */
+async function loadTestRows(
+  service: SupabaseClient,
+  bookNumber: number,
+  testNumber: number,
+): Promise<SpeakingQuestionRow[]> {
+  const result = await service
+    .from("speaking_questions")
+    .select("id,part,slug,topic,prompt_text,questions,cue_card,related_part3_slug,sub_index,book_number,test_number")
+    .eq("is_active", true)
+    .eq("book_number", bookNumber)
+    .eq("test_number", testNumber);
+  if (result.error) throw databaseError("load the speaking test");
+  return (result.data ?? []) as SpeakingQuestionRow[];
 }

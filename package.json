@@ -22,6 +22,8 @@
     "db:seed:pricing": "node --env-file-if-exists=.env.local supabase/seed/seed-ai-pricing.mjs",
     "db:seed:vocabulary": "node --env-file-if-exists=.env.local supabase/seed/seed-vocabulary.mjs",
     "db:seed:speaking": "node --env-file-if-exists=.env.local supabase/seed/seed-speaking-questions.mjs",
+    "db:seed:speaking:cambridge": "node --env-file-if-exists=.env.local supabase/seed/seed-speaking-cambridge.mjs",
+    "build:speaking:cambridge": "node scripts/build-speaking-cambridge.mjs",
     "db:seed:skills": "node --env-file-if-exists=.env.local supabase/seed/seed-skills.mjs",
     "db:import:reading": "node scripts/import-source-reading.mjs",
     "db:prune": "node --env-file-if-exists=.env.local supabase/scripts/prune-duplicate-prompts.mjs",
