@@ -16,6 +16,9 @@ const Writing = lazy(() => import('./pages/Writing'))
 const Reading = lazy(() => import('./pages/Reading'))
 const ReadingTest = lazy(() => import('./pages/ReadingTest'))
 const ReadingResult = lazy(() => import('./pages/ReadingResult'))
+const Speaking = lazy(() => import('./pages/Speaking'))
+const SpeakingRoom = lazy(() => import('./pages/SpeakingRoom'))
+const SpeakingResult = lazy(() => import('./pages/SpeakingResult'))
 
 export function AppFallback() {
   const { c } = useCopy()
@@ -44,6 +47,9 @@ export function routes() {
           <Route path="/app/reading" element={<Suspense fallback={<AppFallback />}><Reading /></Suspense>} />
           <Route path="/app/reading/result/:attemptId" element={<Suspense fallback={<AppFallback />}><ReadingResult /></Suspense>} />
           <Route path="/app/reading/:slug" element={<Suspense fallback={<AppFallback />}><ReadingTest /></Suspense>} />
+          <Route path="/app/speaking" element={<Suspense fallback={<AppFallback />}><Speaking /></Suspense>} />
+          <Route path="/app/speaking/result/:attemptId" element={<Suspense fallback={<AppFallback />}><SpeakingResult /></Suspense>} />
+          <Route path="/app/speaking/:mode" element={<Suspense fallback={<AppFallback />}><SpeakingRoom /></Suspense>} />
           <Route path="/admin" element={<Admin />} />
         </Route>
         <Route path="*" element={<NotFound />} />
