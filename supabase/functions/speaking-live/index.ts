@@ -30,11 +30,7 @@ import { corsHeaders } from "../_shared/cors.ts";
 import {
   buildLiveTurnPlan,
   countQuestions,
-  LIVE_BRAIN_SCHEMA,
   LIVE_LIMITS,
-  liveBrainSystemPrompt,
-  liveBrainUserPrompt,
-  parseLiveBrainReply,
   signLiveToken,
   transcriptToText,
   verifyLiveToken,
@@ -45,15 +41,7 @@ import {
 } from "../_shared/ai/liveSpeaking.ts";
 import { isLiveVoiceAccent, synthesizeSpeech, type LiveVoiceAccent } from "../_shared/ai/liveVoice.ts";
 import { callAudioModel } from "../_shared/ai/audioProvider.ts";
-
-const BRAIN_MODEL_ENV = "AI_MODEL_LIVE";
-const DEFAULT_BRAIN_MODEL = "gemini-3.8-flash";
-/**
- * Trần thời gian cho một lượt "AI examiner".
- * Provider hiện tại (gemini qua proxy) có lúc suy nghĩ 10–15 giây; quá hạn thì bỏ
- * follow-up và đi tiếp để người học không phải chờ.
- */
-const BRAIN_TIMEOUT_MS = 8_000;
+import { callBrain, liveAnswerAudio } from "../_shared/ai/liveBrain.ts";
 
 Deno.serve(async (request) => {
   const id = requestId();
@@ -61,7 +49,7 @@ Deno.serve(async (request) => {
     if (request.method === "OPTIONS") return preflightResponse(request);
     requireMethod(request, ["POST"]);
     const context = await requireAuthenticatedUser(request);
-    const body = (await readJsonBody(request)) as Record<string, unknown>;
+    const body = (await readJsonBody(request, 6 * 1024 * 1024)) as Record<string, unknown>;
     const action = String(body.action ?? "");
 
     if (action === "start") return await start(request, context.service, context.userId, body, id);
@@ -217,6 +205,7 @@ async function brain(
   const stepIndex = Number(body.stepIndex ?? 0);
   const candidateAnswer = String(body.candidateAnswer ?? "").slice(0, 4000);
   const allowFollowUp = body.allowFollowUp === true;
+  const audio = liveAnswerAudio(body);
 
   const plan = await loadPlan(service, session);
   const turn = plan[turnIndex];
@@ -236,12 +225,13 @@ async function brain(
     allowFollowUp,
   };
 
-  const reply = await callBrain(input);
+  // Cả lượt gọi lỗi cũng tiêu hạn mức, tránh thử vô hạn khi provider hỏng.
   await service
     .from("speaking_live_sessions")
     .update({ brain_calls: session.brain_calls + 1, updated_at: new Date().toISOString() })
     .eq("id", session.id)
     .eq("user_id", userId);
+  const reply = await callBrain(input, audio);
 
   return jsonResponse(
     request,
@@ -256,79 +246,6 @@ async function brain(
     },
     { requestId: id },
   );
-}
-
-/** Gọi gemini qua route native của provider và ép trả về JSON. */
-async function callBrain(input: LiveBrainInput) {
-  const baseUrl = (getEnv("AI_API_BASE_URL") ?? "").replace(/\/+$/, "");
-  const apiKey = getEnv("AI_API_KEY") ?? getEnv("ANTHROPIC_API_KEY");
-  if (!baseUrl || !apiKey) {
-    throw new AppError(503, "server_misconfigured", "The AI provider is not configured");
-  }
-  const model = (getEnv(BRAIN_MODEL_ENV) ?? "").trim() || DEFAULT_BRAIN_MODEL;
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), BRAIN_TIMEOUT_MS);
-
-  try {
-    const response = await fetch(
-      `${baseUrl}/v1beta/models/${model}:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ role: "user", parts: [{ text: liveBrainUserPrompt(input) }] }],
-          systemInstruction: { parts: [{ text: liveBrainSystemPrompt() }] },
-          generationConfig: {
-            temperature: 0.4,
-            maxOutputTokens: 256,
-            responseMimeType: "application/json",
-            responseSchema: LIVE_BRAIN_SCHEMA,
-          },
-        }),
-        signal: controller.signal,
-      },
-    );
-    if (!response.ok) {
-      throw new AppError(502, "brain_provider_error", `The AI provider failed with status ${response.status}`);
-    }
-    const body = (await response.json()) as {
-      candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
-    };
-    const text = (body.candidates?.[0]?.content?.parts ?? [])
-      .map((part) => part.text ?? "")
-      .join("")
-      .trim();
-    const parsed = safeJson(text);
-    return parseLiveBrainReply(parsed);
-  } catch (error) {
-    // Hết giờ hoặc provider lỗi: bỏ follow-up, phiên thi vẫn tiếp tục.
-    console.error(JSON.stringify({
-      event: "live_brain_failed",
-      message: error instanceof Error ? error.message : "unknown",
-    }));
-    return { ack: "", followUp: null, advance: false };
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-
-function safeJson(text: string): unknown {
-  if (!text) return {};
-  const cleaned = text.replace(/```(?:json)?/gi, "").replace(/```/g, "").trim();
-  try {
-    return JSON.parse(cleaned);
-  } catch {
-    const start = cleaned.indexOf("{");
-    const end = cleaned.lastIndexOf("}");
-    if (start >= 0 && end > start) {
-      try {
-        return JSON.parse(cleaned.slice(start, end + 1));
-      } catch {
-        return {};
-      }
-    }
-    return {};
-  }
 }
 
 // ------------------------------------------------------------------ voice

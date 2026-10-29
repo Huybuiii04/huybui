@@ -67,8 +67,9 @@ async function postJson<T>(body: Record<string, unknown>): Promise<LiveApiOk<T> 
       body: body as Record<string, unknown>,
     })
     if (error) {
-      const context = (error as { context?: { code?: string; error?: { code?: string } } }).context
-      return { ok: false, code: context?.error?.code ?? context?.code ?? 'unknown_error' }
+      const context = (error as { context?: unknown }).context
+      const body = (context instanceof Response ? await context.json().catch(() => null) : context) as { code?: string; error?: { code?: string } } | null
+      return { ok: false, code: body?.error?.code ?? body?.code ?? 'unknown_error' }
     }
     return { ok: true, value: (data ?? null) as T }
   } catch {
@@ -85,15 +86,29 @@ export function startLiveSession(input: {
 }
 
 /** Hỏi "AI examiner" câu tiếp theo (kèm follow-up tuỳ chọn). */
-export function requestBrain(input: {
+export async function requestBrain(input: {
   sessionId: string
   token: string
   turnIndex: number
   stepIndex: number
   candidateAnswer: string
   allowFollowUp: boolean
+  audio?: Blob | null
 }): Promise<LiveApiOk<LiveBrainReply> | LiveApiError> {
-  return postJson<LiveBrainReply>({ action: 'brain', ...input })
+  const { audio, ...body } = input
+  if (!body.candidateAnswer.trim() && audio?.size) {
+    if (audio.size > 4 * 1024 * 1024) return { ok: false, code: 'body_too_large' }
+    try {
+      const audioBase64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(String(reader.result).split(',')[1])
+        reader.onerror = () => reject(reader.error)
+        reader.readAsDataURL(audio)
+      })
+      return postJson<LiveBrainReply>({ action: 'brain', ...body, audioBase64, mimeType: audio.type })
+    } catch { return { ok: false, code: 'recording_failed' } }
+  }
+  return postJson<LiveBrainReply>({ action: 'brain', ...body })
 }
 
 /** Chép lời người học từ audio (dự phòng khi trình duyệt không có Web Speech). */

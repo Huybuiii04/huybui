@@ -46,15 +46,18 @@ export function normalizeAudioMimeType(mimeType: string): string {
   return (mimeType || 'audio/webm').split(';')[0].trim() || 'audio/webm'
 }
 
-/** Bộ ghi âm liên tục cho cả một phần thi. */
+/** Một bản ghi mỗi phần; pause/resume giữ nguyên các câu trả lời đã thu. */
 export type LiveRecorder = {
   start: () => void
+  pause: () => void
   stop: () => Promise<{ blob: Blob; mimeType: string; durationMs: number }>
   readonly startedAt: number
 }
 
 export type LiveMic = {
   recorder: LiveRecorder
+  startAnswerRecording: () => void
+  stopAnswerRecording: () => Promise<Blob | null>
   /** Mức âm lượng hiện tại (RMS 0..1). */
   level: () => number
   /** Đóng mic và giải phóng tài nguyên. */
@@ -75,6 +78,8 @@ export async function openLiveMic(onLevel: (level: number) => void): Promise<Liv
       autoGainControl: true,
     },
   })
+  const setEnabled = (enabled: boolean) => stream.getAudioTracks().forEach(track => { track.enabled = enabled })
+  setEnabled(false)
 
   const context = new AudioContext()
   const source = context.createMediaStreamSource(stream)
@@ -98,30 +103,56 @@ export async function openLiveMic(onLevel: (level: number) => void): Promise<Liv
   let recorder: MediaRecorder | null = null
   let chunks: BlobPart[] = []
   let startedAt = 0
+  let resumedAt = 0
+  let recordedMs = 0
+  let answerRecorder: MediaRecorder | null = null
+  let answerAudio: Promise<Blob | null> = Promise.resolve(null)
+
+  const stopAnswerRecording = () => {
+    const current = answerRecorder
+    answerRecorder = null
+    if (!current) return Promise.resolve(null)
+    if (current.state !== 'inactive') current.stop()
+    return answerAudio
+  }
 
   const liveRecorder: LiveRecorder = {
     get startedAt() {
       return startedAt
     },
     start() {
-      if (recorder) return
-      const mimeType = pickRecorderMimeType()
-      chunks = []
-      recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined)
-      recorder.ondataavailable = (event) => {
-        if (event.data.size) chunks.push(event.data)
+      if (recorder?.state === 'recording') return
+      if (recorder) {
+        recorder.resume()
+      } else {
+        const mimeType = pickRecorderMimeType()
+        chunks = []
+        recordedMs = 0
+        recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined)
+        recorder.ondataavailable = (event) => {
+          if (event.data.size) chunks.push(event.data)
+        }
+        recorder.start()
+        startedAt = Date.now()
       }
-      recorder.start()
-      startedAt = Date.now()
+      resumedAt = Date.now()
+      setEnabled(true)
+    },
+    pause() {
+      setEnabled(false)
+      if (recorder?.state !== 'recording') return
+      recordedMs += Date.now() - resumedAt
+      recorder.pause()
     },
     stop() {
+      liveRecorder.pause()
       return new Promise((resolve) => {
         const current = recorder
         if (!current) {
           resolve({ blob: new Blob([], { type: 'audio/webm' }), mimeType: 'audio/webm', durationMs: 0 })
           return
         }
-        const durationMs = Date.now() - startedAt
+        const durationMs = recordedMs
         const type = normalizeAudioMimeType(current.mimeType || 'audio/webm')
         current.onstop = () => {
           recorder = null
@@ -134,9 +165,25 @@ export async function openLiveMic(onLevel: (level: number) => void): Promise<Liv
 
   return {
     recorder: liveRecorder,
+    startAnswerRecording() {
+      const mimeType = pickRecorderMimeType()
+      const current = new MediaRecorder(stream, mimeType ? { mimeType } : undefined)
+      const parts: BlobPart[] = []
+      answerAudio = new Promise(resolve => {
+        current.ondataavailable = event => { if (event.data.size) parts.push(event.data) }
+        current.onstop = () => resolve(new Blob(parts, { type: normalizeAudioMimeType(current.mimeType) }))
+        current.onerror = () => resolve(null)
+      })
+      answerRecorder = current
+      current.start()
+    },
+    stopAnswerRecording,
     level: () => currentLevel,
     close() {
       running = false
+      liveRecorder.pause()
+      void stopAnswerRecording()
+      if (recorder && recorder.state !== 'inactive') recorder.stop()
       stream.getTracks().forEach((track) => track.stop())
       void context.close().catch(() => undefined)
     },
@@ -198,8 +245,8 @@ export type LiveTranscriber = {
   supported: boolean
   /** Bắt đầu nghe; `onFinal` nhận đoạn vừa nói xong. */
   start: () => void
-  /** Dừng nghe. */
-  stop: () => void
+  /** Dừng nghe, chờ kết quả cuối tối đa 300 ms. */
+  stop: () => Promise<void>
   /** Lấy toàn bộ lời đã nghe được kể từ lần start gần nhất. */
   text: () => string
   /** Xoá lời đã nghe (dùng khi sang câu hỏi mới). */
@@ -297,7 +344,7 @@ export function createLiveTranscriber(onFinal: (text: string) => void): LiveTran
     return {
       supported: false,
       start: () => undefined,
-      stop: () => undefined,
+      stop: async () => undefined,
       text: () => '',
       clear: () => undefined,
     }
@@ -305,6 +352,7 @@ export function createLiveTranscriber(onFinal: (text: string) => void): LiveTran
 
   let recognition: SpeechRecognitionLike | null = null
   let chunks: string[] = []
+  let interim = ''
 
   const ensure = () => {
     if (recognition) return recognition
@@ -314,11 +362,13 @@ export function createLiveTranscriber(onFinal: (text: string) => void): LiveTran
     instance.lang = 'en-US'
     instance.maxAlternatives = 1
     instance.onresult = (event) => {
+      interim = ''
       for (let index = event.resultIndex; index < event.results.length; index += 1) {
         const result = event.results[index]
-        if (!result?.isFinal) continue
+        if (!result) continue
         const text = result[0]?.transcript?.trim()
         if (!text) continue
+        if (!result.isFinal) { interim += `${text} `; continue }
         chunks.push(text)
         onFinal(text)
       }
@@ -340,17 +390,29 @@ export function createLiveTranscriber(onFinal: (text: string) => void): LiveTran
       }
     },
     stop() {
-      try {
-        recognition?.stop()
-      } catch {
-        // Bỏ qua.
-      }
+      const current = recognition
+      if (!current) return Promise.resolve()
+      return new Promise<void>(resolve => {
+        // ponytail: tối đa 300 ms chờ lời cuối; audio vẫn là nguồn chấm điểm chính.
+        const done = () => {
+          clearTimeout(timer)
+          current.onresult = null
+          current.onend = null
+          try { current.abort() } catch { /* Đã dừng hoặc trình duyệt đã đóng mic. */ }
+          if (recognition === current) recognition = null
+          resolve()
+        }
+        const timer = setTimeout(done, 300)
+        current.onend = done
+        try { current.stop() } catch { done() }
+      })
     },
     text() {
-      return chunks.join(' ').trim()
+      return [...chunks, interim].join(' ').trim()
     },
     clear() {
       chunks = []
+      interim = ''
     },
   }
 }

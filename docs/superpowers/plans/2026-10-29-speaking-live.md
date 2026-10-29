@@ -1,6 +1,6 @@
 # Kế hoạch: Luyện nói trực tiếp (Live Speaking) — AI examiner hỏi, người học trả lời bằng mic
 
-Ngày: 2026-10-29 · Trạng thái: đã triển khai backend (Supabase), chưa deploy frontend (Vercel)
+Ngày: 2026-10-29 · Trạng thái: backend Speaking đã cập nhật; frontend triển khai qua GitHub và Vercel theo yêu cầu người dùng.
 
 ## 1. Vấn đề & ràng buộc đã đo
 
@@ -135,7 +135,7 @@ Ngoài ra `extractJson` giờ bóc được tool call mà provider trả dạng 
 ## 8. Cách dùng
 
 1. `/app/speaking` → chọn đề Cambridge → **Luyện nói trực tiếp**.
-2. Chọn giọng giám khảo (`en-GB` / `en-US`), bật/tắt follow-up.
+2. Chọn giọng giám khảo (`en-GB` / `en-US`); follow-up tự động bật, không cần tick.
 3. Bấm **Bắt đầu** → cấp quyền mic → giám khảo hỏi, bạn trả lời; VAD tự chuyển câu.
 4. Hết bài → upload → chấm → hiện band trên 4 tiêu chí (dùng lại `SpeakingResult`).
 
@@ -153,8 +153,13 @@ Ngoài ra `extractJson` giờ bóc được tool call mà provider trả dạng 
 
 ## 10. Giới hạn đã biết
 
-- Follow-up sinh động chậm (6–15 s với `gemini-3.8-flash`): mặc định **tắt**; bật thì cần chấp nhận
-  độ trễ, hoặc đổi `AI_MODEL_LIVE=claude-haiku-5-5` (3.6 s).
+- Sửa cục bộ ngày 29/10: khi Web Speech không có transcript, gửi bản ghi riêng của câu vừa trả lời
+  vào cùng lượt gọi AI hỏi thêm. Bản ghi cả phần vẫn giữ riêng để chấm; mỗi câu chính có bản ghi phụ.
+  Hỏi thêm tự động bật; prompt cho phép câu hỏi mới cùng chủ đề. Gemini 3 dùng mức thinking `minimal` và hạn
+  chờ 15 giây. Timeout, lỗi provider, JSON lỗi và lượt không có follow-up đều được báo trên giao diện.
+  Claude dùng API text của provider, cần transcript từ trình duyệt. Backend đã được deploy riêng cho Speaking.
+- Follow-up có thể cần vài giây xử lý. Số đo cũ trước khi giảm thinking: 6–15 s với
+  `gemini-3.8-flash`, 3.6 s với `claude-haiku-5-5`; đây không phải cam kết độ trễ sau sửa.
 - Web Speech (Chrome/Edge) chỉ dùng làm transcript phụ cho bộ não giám khảo; transcript chính thức
   do Gemini đọc từ audio nên không phụ thuộc trình duyệt.
 - Provider chỉ có 2 giọng cố định → nhãn `en-GB`/`en-US` là lựa chọn giữa hai giọng có sẵn, chưa phải

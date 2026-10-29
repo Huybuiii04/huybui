@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { BRAIN_TIMEOUT_MS, callBrain, liveAnswerAudio } from "../ai/liveBrain.ts";
 
 import {
   appendTranscript,
@@ -7,6 +8,7 @@ import {
   countQuestions,
   cueCardScript,
   liveBrainUserPrompt,
+  liveBrainSystemPrompt,
   LIVE_LIMITS,
   parseLiveBrainReply,
   partTiming,
@@ -155,6 +157,58 @@ test("prompt gửi cho AI examiner luôn kèm câu hỏi kế tiếp và transcr
   assert.match(prompt, /Questions already asked in this part/);
   assert.match(prompt, /Follow-up allowed: yes/);
   assert.match(prompt, /I prefer the countryside\./);
+  assert.match(liveBrainSystemPrompt(), /Use the test plan for main questions/);
+  assert.match(liveBrainSystemPrompt(), /followUp.*must be ONE short question/);
+});
+
+test("follow-up nghe audio khi thiếu transcript; lỗi và timeout không bị nuốt", async t => {
+  const scope = globalThis as unknown as { Deno?: { env: { get: (key: string) => string | undefined } } };
+  const original = scope.Deno;
+  const env: Record<string, string> = { AI_API_BASE_URL: "https://fixture.invalid", AI_API_KEY: "fixture-key", AI_MODEL_LIVE: "gemini-3.8-flash" };
+  scope.Deno = { env: { get: key => env[key] } };
+  t.after(() => { scope.Deno = original; });
+  const input = { mode: "part-1", part: "part-1", topic: "Festivals", asked: ["Which festival do you like?"], nextQuestion: "Q2", candidateAnswer: "", transcript: "", allowFollowUp: true } as const;
+  const audio = liveAnswerAudio({ audioBase64: "YWJj", mimeType: "audio/webm" });
+  let sent: Record<string, any> = {};
+  let endpoint = "";
+  let outcome = "ok";
+  t.mock.method(globalThis, "fetch", async (url: string, options: RequestInit) => {
+    endpoint = String(url);
+    sent = JSON.parse(String(options.body));
+    if (outcome === "timeout") return new Promise((_, reject) => options.signal!.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")), { once: true }));
+    if (outcome === "error") return new Response("unavailable", { status: 503 });
+    const reply = { ack: "", followUp: "Why do you enjoy that festival?", advance: false };
+    if (outcome === "claude") return Response.json({ content: [{ type: "tool_use", input: reply }] });
+    return Response.json({ candidates: [{ content: { parts: [{ thought: true, text: "private reasoning" }, { text: outcome === "invalid" ? "not JSON" : JSON.stringify(reply) }] } }] });
+  });
+  assert.equal((await callBrain(input, audio)).followUp, "Why do you enjoy that festival?");
+  assert.deepEqual(sent.contents[0].parts[1].inlineData, audio);
+  assert.deepEqual(sent.generationConfig.thinkingConfig, { thinkingLevel: "minimal" });
+  assert.match(sent.contents[0].parts[0].text, /attached audio recording/);
+  outcome = "error";
+  await assert.rejects(callBrain(input, audio), { code: "brain_provider_error" });
+  outcome = "invalid";
+  await assert.rejects(callBrain(input, audio), { code: "brain_invalid_output" });
+  outcome = "timeout";
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const timed = callBrain(input, audio);
+  const timedCheck = assert.rejects(timed, { code: "brain_timeout" });
+  t.mock.timers.tick(BRAIN_TIMEOUT_MS);
+  await timedCheck;
+  t.mock.timers.reset();
+  env.AI_MODEL_LIVE = "claude-haiku-5-5";
+  outcome = "claude";
+  assert.ok((await callBrain({ ...input, candidateAnswer: "I enjoy local festivals." })).followUp);
+  assert.equal(endpoint, "https://fixture.invalid/v1/messages", "Claude uses its text API instead of Gemini's endpoint");
+  await assert.rejects(callBrain(input, audio), { code: "browser_transcription_required" });
+});
+
+test("audio của follow-up chặn payload sai và quá lớn", () => {
+  assert.equal(liveAnswerAudio({}), undefined);
+  for (const audioBase64 of [null, "", "not base64!", "YQ=", "A".repeat(5592408)]) {
+    assert.throws(() => liveAnswerAudio({ audioBase64, mimeType: "audio/webm" }), { code: "invalid_request" });
+  }
+  assert.throws(() => liveAnswerAudio({ audioBase64: "YWJj", mimeType: "text/html" }), { code: "invalid_mime_type" });
 });
 
 test("transcript giữ nguyên thứ tự và bỏ lượt rỗng", () => {
