@@ -100,6 +100,22 @@ export function cueCardScript(cueCard: LiveCueCard | null): string {
 }
 
 /**
+ * Làm sạch câu hỏi để đọc lên tiếng.
+ *
+ * Đề Cambridge ghi kèm các biến thể trong ngoặc vuông, ví dụ
+ * "Is it important to you to eat healthy food? [Why?/Why not?]" — đọc nguyên văn
+ * sẽ thành câu vô nghĩa, nên phần trong ngoặc bị bỏ đi.
+ */
+export function speakableQuestion(text: string): string {
+  return (text ?? "")
+    .replace(/\[[^\]]*\]/g, "")
+    .replace(/\s+/g, " ")
+    .replace(/\s+([,.?!])/g, "$1")
+    .replace(/[\s:;,-]+$/, "")
+    .trim();
+}
+
+/**
  * Mở rộng các turn của `speaking_turns` thành danh sách câu hỏi tuần tự mà
  * giám khảo sẽ đọc. Part 2 chỉ có 1 bước (đọc cue card), Part 1/3 có 1 bước
  * cho mỗi câu hỏi.
@@ -114,7 +130,8 @@ export function buildLiveTurnPlan(turns: LiveTurnInput[]): LiveTurnPlan[] {
       const questions = turn.questions.filter((question) => question.trim().length > 0);
       const source = questions.length ? questions : [turn.promptText];
       source.slice(0, LIVE_LIMITS.maxQuestionsPerPart).forEach((question, index) => {
-        steps.push({ index, text: question.trim(), isCueCard: false });
+        const text = speakableQuestion(question);
+        steps.push({ index, text: text || "Could you tell me more?", isCueCard: false });
       });
     }
     return {

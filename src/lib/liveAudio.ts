@@ -16,10 +16,22 @@ export const ALLOWED_AUDIO_MIME_TYPES = [
   'audio/mp3',
 ] as const
 
+/**
+ * Chọn mime cho MediaRecorder.
+ *
+ * Không dùng biến thể `;codecs=opus`: bucket `speaking-audio` chỉ cho phép đúng
+ * các mime dạng `audio/webm`, `audio/mp4`, `audio/ogg`... — có tham số codec thì
+ * Storage từ chối upload.
+ */
 export function pickRecorderMimeType(): string {
   if (typeof MediaRecorder === 'undefined') return ''
-  const candidates = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus']
+  const candidates = ['audio/webm', 'audio/mp4', 'audio/ogg']
   return candidates.find((type) => MediaRecorder.isTypeSupported?.(type)) ?? ''
+}
+
+/** Bỏ tham số codec để mime khớp với danh sách Storage cho phép. */
+export function normalizeAudioMimeType(mimeType: string): string {
+  return (mimeType || 'audio/webm').split(';')[0].trim() || 'audio/webm'
 }
 
 /** Bộ ghi âm liên tục cho cả một phần thi. */
@@ -98,7 +110,7 @@ export async function openLiveMic(onLevel: (level: number) => void): Promise<Liv
           return
         }
         const durationMs = Date.now() - startedAt
-        const type = current.mimeType || 'audio/webm'
+        const type = normalizeAudioMimeType(current.mimeType || 'audio/webm')
         current.onstop = () => {
           recorder = null
           resolve({ blob: new Blob(chunks, { type }), mimeType: type, durationMs })

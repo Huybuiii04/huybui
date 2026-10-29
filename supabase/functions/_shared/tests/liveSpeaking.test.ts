@@ -11,6 +11,7 @@ import {
   parseLiveBrainReply,
   partTiming,
   signLiveToken,
+  speakableQuestion,
   transcriptToText,
   verifyLiveToken,
   type LiveTurnInput,
@@ -61,6 +62,22 @@ test("câu hỏi rỗng thì lấy prompt_text làm câu hỏi duy nhất", () =
   const plan = buildLiveTurnPlan([turn({ turnId: "x", part: "part-1", promptText: "Only prompt", questions: [] })]);
   assert.equal(plan[0].steps.length, 1);
   assert.equal(plan[0].steps[0].text, "Only prompt");
+});
+
+test("bỏ nhãn trong ngoặc vuông và dấu thừa khi đọc câu hỏi", () => {
+  assert.equal(
+    speakableQuestion("Is it important to you to eat healthy food? [Why?/Why not?]"),
+    "Is it important to you to eat healthy food?",
+  );
+  assert.equal(speakableQuestion("Describe your hometown :"), "Describe your hometown");
+  assert.equal(speakableQuestion("  Talk   about   work  "), "Talk about work");
+});
+
+test("câu hỏi trong đề Cambridge được làm sạch trước khi đọc", () => {
+  const plan = buildLiveTurnPlan([
+    turn({ turnId: "p1", part: "part-1", questions: ["Do you like healthy food? [Why?/Why not?]"] }),
+  ]);
+  assert.equal(plan[0].steps[0].text, "Do you like healthy food?");
 });
 
 test("không cắt quá số câu hỏi cho phép", () => {
