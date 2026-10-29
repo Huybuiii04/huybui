@@ -74,7 +74,10 @@
 
 ## Task 6: Deploy
 
-- [ ] **Step 1**: `npm run db:migrate` + `npm run db:seed:speaking:cambridge`.
-- [ ] **Step 2**: `npm run db:deploy`.
-- [ ] **Step 3**: `git push origin main` → `npx vercel --prod --yes`.
-- [ ] **Step 4**: `TEST_URL=… node tests/production.mjs`.
+- [x] **Step 1**: `npm run db:migrate` + `npm run db:seed:speaking:cambridge` (144 dòng, idempotent).
+- [x] **Step 2**: `npm run db:deploy` (Edge Function `submit-speaking` + toàn bộ 15 function).
+- [x] **Step 3**: `git push origin feature/reading-module:main`.
+- [ ] **Step 4**: Deploy Vercel — **người dùng yêu cầu KHÔNG deploy Vercel**; đã rollback về bản production
+      trước đó (`huybui-3p6dgc6sj`). Frontend vẫn chạy bản cũ, backend Supabase đã có đầy đủ dữ liệu + function mới.
+- [x] **Step 5**: Kiểm thử trình duyệt `tests/speaking-flow.mjs` (11 assertion, xanh) + `npm test` (236) +
+      `npm run test:edge` (136) + `npm run build` sạch.
