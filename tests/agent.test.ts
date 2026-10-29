@@ -534,7 +534,7 @@ function runThemeBootstrap(storage: { getItem(key: string): string | null }, sys
 }
 
 test('the shared theme bootstrap applies the app theme to every static page', () => {
-  assert.equal(themeStorageKey, 'ielts-theme')
+  assert.equal(themeStorageKey, 'ielts-theme-v2')
   assert.equal(defaultTheme, 'light')
 
   const readKeys: string[] = []

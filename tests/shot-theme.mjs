@@ -14,7 +14,7 @@ page.on('pageerror', error => errors.push(error.message))
 
 for (const theme of ['dark', 'light']) {
   await page.goto(base)
-  await page.evaluate(value => localStorage.setItem('ielts-theme', value), theme)
+  await page.evaluate(value => localStorage.setItem('ielts-theme-v2', value), theme)
   await page.reload()
   await page.waitForTimeout(900)
   await page.screenshot({ path: `test-results/theme-landing-${theme}.png`, fullPage: true })
@@ -24,7 +24,7 @@ for (const theme of ['dark', 'light']) {
   console.log(`${theme}: bg=${bg} | color=${color} | font=${font}`)
 }
 
-await page.evaluate(() => localStorage.setItem('ielts-theme', 'dark'))
+await page.evaluate(() => localStorage.setItem('ielts-theme-v2', 'dark'))
 await page.goto(`${base}/app`)
 await page.waitForTimeout(1200)
 await page.screenshot({ path: 'test-results/theme-dashboard.png', fullPage: false })

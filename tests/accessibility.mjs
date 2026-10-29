@@ -11,7 +11,7 @@ try {
   for (const theme of ['light', 'dark']) {
     for (const route of ['/app', '/app/write', '/app/prompts', '/app/vocabulary', '/app/essays', '/auth']) {
       await page.goto(`${base}${route}`)
-      await page.evaluate(value => { localStorage.setItem('ielts-theme', value) }, theme)
+      await page.evaluate(value => { localStorage.setItem('ielts-theme-v2', value) }, theme)
       await page.reload()
       await page.locator('h1').waitFor()
       const applied = await page.evaluate(() => document.documentElement.dataset.theme)

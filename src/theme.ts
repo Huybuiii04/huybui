@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react'
-import { defaultTheme, themeStorageKey } from './agent/theme'
+import { defaultTheme, legacyThemeStorageKey, themeStorageKey } from './agent/theme'
 
 export type ThemePreference = 'light' | 'dark' | 'system'
 export type ResolvedTheme = 'light' | 'dark'
@@ -11,6 +11,9 @@ let preference: ThemePreference = defaultTheme
 try {
   const stored = localStorage.getItem(storageKey)
   if (stored === 'light' || stored === 'dark' || stored === 'system') preference = stored
+  // Khoá cũ lưu mặc định "dark" từ trước khi đổi sang sáng: xoá để người dùng
+  // cũ bắt đầu ở giao diện sáng, còn lựa chọn mới vẫn tôn trọng.
+  localStorage.removeItem(legacyThemeStorageKey)
 } catch { /* Browser storage may be disabled; use the default theme. */ }
 
 function systemTheme(): ResolvedTheme {

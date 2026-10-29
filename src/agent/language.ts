@@ -2,6 +2,8 @@
 // inline đặt ngôn ngữ trước lần vẽ đầu tiên. src/i18n.ts dùng lại khoá này
 // nên app và bản tĩnh không thể lệch nhau.
 
+import { themeStorageKey } from './theme.ts'
+
 export const languageStorageKey = 'ielts-language'
 
 // Script inline chèn vào <head> của landing: đặt ngôn ngữ theo lựa chọn đã lưu
@@ -36,7 +38,7 @@ export function renderLanguageScript() {
       var theme = root.dataset.theme === "dark" ? "light" : "dark"
       root.dataset.theme = theme
       root.style.colorScheme = theme
-      try { localStorage.setItem("ielts-theme", theme) } catch (error) {}
+      try { localStorage.setItem("${themeStorageKey}", theme) } catch (error) {}
       return
     }
     if (!target || target.closest("[data-landing-react]")) return

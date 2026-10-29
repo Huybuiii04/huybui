@@ -22,7 +22,7 @@ try {
     await page.screenshot({ path: `test-results/redesign-${width}.png`, fullPage: true, animations: 'disabled' })
   }
   for (const theme of ['dark', 'light']) {
-    await page.evaluate(theme => localStorage.setItem('ielts-theme', theme), theme)
+    await page.evaluate(theme => localStorage.setItem('ielts-theme-v2', theme), theme)
     await page.reload()
     await page.setViewportSize({ width: 1440, height: 1000 })
     await page.emulateMedia({ reducedMotion: 'reduce' })

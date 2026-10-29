@@ -29,7 +29,7 @@ try {
     const context = await browser.newContext({ viewport: { width, height: width === 390 ? 844 : 1000 }, reducedMotion: 'reduce' })
     await context.addInitScript(() => {
       if (!localStorage.getItem('ielts-language')) localStorage.setItem('ielts-language', 'vi')
-      if (!localStorage.getItem('ielts-theme')) localStorage.setItem('ielts-theme', 'dark')
+      if (!localStorage.getItem('ielts-theme-v2')) localStorage.setItem('ielts-theme-v2', 'light')
       sessionStorage.setItem('ielts-admin-session', JSON.stringify({ token: 'ui-only', expiresAt: Date.now() + 3600000 }))
     })
     await context.route('**/*', async route => {
@@ -77,7 +77,7 @@ try {
     for (const theme of ['dark', 'light']) {
       for (const path of paths.filter(path => !process.env.UI_PATHS || process.env.UI_PATHS.split(',').includes(path))) {
         await page.goto(base + path)
-        await page.evaluate(value => { localStorage.setItem('ielts-theme', value); document.documentElement.dataset.theme = value; document.documentElement.style.colorScheme = value }, theme)
+        await page.evaluate(value => { localStorage.setItem('ielts-theme-v2', value); document.documentElement.dataset.theme = value; document.documentElement.style.colorScheme = value }, theme)
         await page.locator('h1').first().waitFor()
         await page.evaluate(() => document.fonts.ready)
         // Let async library content settle; no arbitrary timer or backend access.
