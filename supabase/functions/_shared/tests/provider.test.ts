@@ -206,3 +206,26 @@ describe("json extraction", () => {
     assert.match(instruction, /"type":"object"/);
   });
 });
+
+describe("extractJson", () => {
+  it("boc JSON ke trong code fence", () => {
+    assert.deepEqual(extractJson('```json\n{"a":1}\n```'), { a: 1 });
+  });
+
+  it("boc JSON ke sau loi dan", () => {
+    assert.deepEqual(extractJson('Day la ket qua:\n{"a":1}\nHet.'), { a: 1 });
+  });
+
+  it("boc tool call duoc proxy tra thanh text", () => {
+    const text = '<tool_calls>[{"name":"result","arguments":{"a":1}}]</tool_calls>';
+    assert.deepEqual(extractJson(text), { a: 1 });
+  });
+
+  it("bo qua dau ngoac trong chuoi", () => {
+    assert.deepEqual(extractJson('x {"a":"}"} y'), { a: "}" });
+  });
+
+  it("tra null khi khong co JSON", () => {
+    assert.equal(extractJson("khong co json"), null);
+  });
+});

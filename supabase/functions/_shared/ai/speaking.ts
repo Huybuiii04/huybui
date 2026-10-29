@@ -250,6 +250,37 @@ export function aggregateTurnScores(turns: Array<{ criteria: Array<{ criterion: 
   return { scores, overallRaw: overall.overallRaw, overallDisplay: overall.overallDisplay };
 }
 
+/**
+ * Đổi turnId mà model tự đặt về turnId thật.
+ *
+ * Với turnId là UUID, model hay "tiện tay" đặt lại thành nhãn đọc được
+ * ("TURN 1 (part-1)") — hợp đồng validate yêu cầu đúng UUID nên phần chấm fail.
+ * Ở đây ta gửi model mã đơn giản ("turn-1", "turn-2") rồi map ngược về UUID thật.
+ */
+export function remapTurnIds(output: SpeakingModelOutput, turnIds: string[]): SpeakingModelOutput {
+  if (!output || !Array.isArray(output.turns)) return output;
+  const promptIds = new Map<string, string>();
+  turnIds.forEach((id, index) => promptIds.set(`turn-${index + 1}`, id));
+
+  const used = new Set<string>();
+  const turns = output.turns.map((turn, index) => {
+    if (!turn || typeof turn !== "object") return turn;
+    const raw = typeof turn.turnId === "string" ? turn.turnId.trim() : "";
+    let target = promptIds.get(raw) ?? promptIds.get(raw.toLowerCase());
+    if (!target) {
+      // Model tự dán nhãn ("TURN 1 (part-1)") → khớp theo số thứ tự trong nhãn,
+      // không có thì theo vị trí trong mảng.
+      const match = /(\d+)/.exec(raw);
+      const position = match ? Number(match[1]) - 1 : index;
+      target = turnIds[position] ?? turnIds[index];
+    }
+    if (!target || used.has(target)) return turn;
+    used.add(target);
+    return { ...turn, turnId: target };
+  });
+  return { ...output, turns };
+}
+
 /** Validate kết quả lớp 1 (Gemini đọc audio). */
 export function parseAudioAnalysis(value: unknown): AudioAnalysis {
   if (!value || typeof value !== "object") {

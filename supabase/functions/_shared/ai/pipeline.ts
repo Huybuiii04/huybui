@@ -11,6 +11,7 @@ import { callAudioModel } from "./audioProvider.ts";
 import { renderSpeakingRubric } from "./speakingRubric.ts";
 import {
   buildSpeakingResult,
+  remapTurnIds,
   SPEAKING_JSON_SCHEMA,
   SPEAKING_SCHEMA_VERSION,
   type SpeakingModelOutput,
@@ -219,6 +220,7 @@ async function runSpeakingGrading(service: SupabaseClient, job: ClaimedJob): Pro
   await service.from("speaking_attempts").update({ status: "processing" }).eq("id", attemptId);
 
   const audioPaths = turns.map((turn) => turn.audio_path).filter(Boolean);
+  let succeeded = false;
 
   try {
     // ---- LAY 1: Gemini doc audio (cac turn chay SONG SONG) ----
@@ -257,6 +259,17 @@ async function runSpeakingGrading(service: SupabaseClient, job: ClaimedJob): Pro
       }),
     );
 
+    // Khong co lời nói nào đọc được ở bất kỳ turn nào => báo rõ cho user thay vì
+    // chấm một bài rỗng rồi ra band 0 khó hiểu.
+    const hasAnySpeech = analyses.some((entry) => (entry.analysis?.transcript ?? "").length > 0);
+    if (!hasAnySpeech) {
+      await service
+        .from("speaking_attempts")
+        .update({ status: "failed", error_code: "no_speech_detected" })
+        .eq("id", attemptId);
+      throw new AppError(422, "no_speech_detected", "No speech was detected in the recording");
+    }
+
     await insertUsageRows(
       service,
       job.job_id,
@@ -273,8 +286,11 @@ async function runSpeakingGrading(service: SupabaseClient, job: ClaimedJob): Pro
 
     // ---- LAY 2: Claude cham rubric ETS ----
     const model = modelForJob(job, "AI_MODEL_GRADING");
+    // Model duoc gui ma turn don gian ("turn-1", "turn-2") thay vi UUID: UUID khong
+    // mang y nghia nen model hay tu dan nhan ("TURN 1 (part-1)"). Ket qua duoc map
+    // nguoc ve UUID that truoc khi validate.
     const promptTurns = turns.map((turn, index) => ({
-      turnId: turn.id,
+      turnId: `turn-${index + 1}`,
       orderIndex: turn.order_index,
       part: turn.part,
       promptText: turn.prompt_text,
@@ -299,7 +315,10 @@ async function runSpeakingGrading(service: SupabaseClient, job: ClaimedJob): Pro
       repairInstruction:
         "Repair this speaking evaluation output. Return valid JSON with exactly four criteria per turn and a turnId for each requested turn.",
       validate: (value) =>
-        buildSpeakingResult(value as SpeakingModelOutput, { turnIds: turns.map((turn) => turn.id) }),
+        buildSpeakingResult(
+          remapTurnIds(value as SpeakingModelOutput, turns.map((turn) => turn.id)),
+          { turnIds: turns.map((turn) => turn.id) },
+        ),
     });
 
     await insertUsageRows(service, job.job_id, structured.calls);
@@ -309,8 +328,9 @@ async function runSpeakingGrading(service: SupabaseClient, job: ClaimedJob): Pro
       .filter(Boolean)
       .join("\n\n");
     const audioAnalysis = {
-      turns: promptTurns.map((turn) => ({
-        turnId: turn.turnId,
+      turns: promptTurns.map((turn, index) => ({
+        // Luu UUID that cua turn, khong phai ma "turn-N" duoc gui cho model.
+        turnId: turns[index]?.id ?? turn.turnId,
         part: turn.part,
         ...(turn.audioAnalysis as Record<string, unknown> | null ?? {}),
       })),
@@ -340,11 +360,15 @@ async function runSpeakingGrading(service: SupabaseClient, job: ClaimedJob): Pro
 
     await service.from("speaking_attempts").update({ status: "succeeded" }).eq("id", attemptId);
     await service.from("speaking_turns").update({ status: "graded" }).eq("attempt_id", attemptId);
+    succeeded = true;
 
     return insert.data.id as string;
   } finally {
-    // XOA audio sau khi cham (ke ca khi that bai).
-    await removeSpeakingAudioObjects(service, audioPaths);
+    // XOA audio khi da cham xong, hoac khi het luot thu (attempts >= 3) de retry
+    // van co audio de doc. Xoa som khi that bai se lam retry that bai khong duoc audio.
+    if (succeeded || job.attempts >= 3) {
+      await removeSpeakingAudioObjects(service, audioPaths);
+    }
   }
 }
 

@@ -96,14 +96,46 @@ dùng lại nguyên pipeline `grade-speaking` đã có test (Gemini đọc audio
 
 Module **Reading** không bị đụng tới (mọi thay đổi là additive).
 
-## 7. Cách dùng
+## 7. Ba lỗi của pipeline chấm cũ phát hiện khi test live (đã sửa)
+
+Live mode dùng lại pipeline `grade-speaking` nên nó lộ ra 3 lỗi có sẵn của module Speaking
+(trước đây record mode cũng dính, chỉ là không ai thấy transcript sai):
+
+1. **Proxy không chuyển audio cho model.** Route OpenAI-compatible `input_audio` của
+   `api.apiz.vn` trả về "audio" nhưng model không nghe được — cùng một file cho ra hai
+   transcript bịa khác nhau. Đã đổi sang route **native** Gemini
+   (`/v1beta/models/{model}:generateContent` + `inlineData`): transcript đúng với cả mp3
+   lẫn webm/opus. Sửa ở `_shared/ai/audioProvider.ts`.
+2. **Model tự đặt lại `turnId`.** Gửi UUID cho model thì model hay ghi thành nhãn đọc được
+   ("TURN 1 (part-1)") → hợp đồng validate fail → `invalid_model_output`. Đã gửi mã đơn giản
+   (`turn-1`, `turn-2`) rồi map ngược về UUID bằng `remapTurnIds` trong `_shared/ai/speaking.ts`.
+3. **`speaking_results` là quan hệ 1-1** (`attempt_id` UNIQUE) nên PostgREST trả về **object**,
+   không phải mảng. Code đọc `results[0]` nên luôn ra `not_found` dù đã chấm xong — cả live
+   lẫn record mode đều không hiện kết quả. Đã xử lý cả hai dạng trong `src/lib/speaking.ts`.
+
+Ngoài ra `extractJson` giờ bóc được tool call mà provider trả dạng text
+(`<tool_calls>[{...}]</tool_calls>`) và JSON lẫn trong prose.
+
+## 8. Cách dùng
 
 1. `/app/speaking` → chọn đề Cambridge → **Luyện nói trực tiếp**.
 2. Chọn giọng giám khảo (`en-GB` / `en-US`), bật/tắt follow-up.
 3. Bấm **Bắt đầu** → cấp quyền mic → giám khảo hỏi, bạn trả lời; VAD tự chuyển câu.
 4. Hết bài → upload → chấm → hiện band trên 4 tiêu chí (dùng lại `SpeakingResult`).
 
-## 8. Giới hạn đã biết
+## 9. Kiểm chứng (đã chạy thật)
+
+| Bước | Kết quả |
+|---|---|
+| `npm test` | 242 ✓ |
+| `npm run test:edge` | 159 ✓ |
+| `npm run build` | ✓ |
+| `speaking-live` deploy Supabase | ✓ (start/voice/brain/finish) |
+| E2E trình duyệt (mic bơm audio TTS) | hỏi 4 câu Cambridge → VAD chuyển câu → upload 194 KB webm → chấm → **band 5.5** |
+| E2E chấm bằng audio thật | transcript đúng ("I live in Da Nang…") → band 5.5 |
+| Migration `029` | ✓ đã áp dụng |
+
+## 10. Giới hạn đã biết
 
 - Follow-up sinh động chậm (6–15 s với `gemini-3.8-flash`): mặc định **tắt**; bật thì cần chấp nhận
   độ trễ, hoặc đổi `AI_MODEL_LIVE=claude-haiku-5-5` (3.6 s).

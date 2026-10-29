@@ -54,6 +54,13 @@ const ERROR_MESSAGES: Record<string, readonly [string, string]> = {
   rate_limited: ['Bạn đã dùng quá nhiều phiên. Hãy thử lại sau.', 'You have reached the live-session limit. Try again later.'],
   invalid_live_token: ['Phiên đã hết hạn. Hãy bắt đầu lại.', 'The live session expired. Please start again.'],
   voice_failed: ['Không phát được giọng giám khảo.', 'The examiner voice could not be played.'],
+  no_speech_detected: [
+    'Không nhận được lời nói trong bản ghi âm. Hãy kiểm tra mic và thử lại.',
+    'No speech was detected in your recording. Check your microphone and try again.',
+  ],
+  not_found: ['Không tìm thấy bài làm. Hãy tải lại trang.', 'The attempt could not be found. Please reload the page.'],
+  upload_failed: ['Không tải được bản ghi âm lên.', 'The recording could not be uploaded.'],
+  attempt_not_found: ['Không tìm thấy bài làm.', 'The attempt could not be found.'],
   unknown_error: ['Vui lòng thử lại.', 'Please try again.'],
 }
 

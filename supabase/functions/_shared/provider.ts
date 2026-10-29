@@ -239,7 +239,43 @@ export function structuredInstruction(schema: Record<string, unknown>): string {
   ].join("\n");
 }
 
-/** Bóc JSON ra khỏi raw text: bỏ code fence, bỏ prose, rồi mới parse. */
+/**
+ * Tìm object JSON đầu tiên trong text, bỏ qua dấu ngoặc nằm trong chuỗi.
+ * Dùng khi provider trả lời lẫn prose với JSON, hoặc bọc tool call trong text.
+ */
+function sliceJsonObject(text: string): string | null {
+  const start = text.indexOf("{");
+  if (start < 0) return null;
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let index = start; index < text.length; index += 1) {
+    const char = text[index];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (char === "\\") escaped = true;
+      else if (char === '"') inString = false;
+      continue;
+    }
+    if (char === '"') {
+      inString = true;
+      continue;
+    }
+    if (char === "{") depth += 1;
+    else if (char === "}") {
+      depth -= 1;
+      if (depth === 0) return text.slice(start, index + 1);
+    }
+  }
+  return null;
+}
+
+/**
+ * Bóc JSON ra khỏi raw text: bỏ code fence, bỏ prose, rồi mới parse.
+ *
+ * Provider đôi lúc trả tool call dạng text (`<tool_calls>[{...}]</tool_calls>`)
+ * hoặc kẹt JSON trong lời dẫn — cả hai đều được xử lý ở đây.
+ */
 export function extractJson(rawText: string): unknown | null {
   const trimmed = (rawText ?? "").trim();
   if (!trimmed) return null;
@@ -250,15 +286,36 @@ export function extractJson(rawText: string): unknown | null {
   const start = trimmed.indexOf("{");
   const end = trimmed.lastIndexOf("}");
   if (start >= 0 && end > start) candidates.push(trimmed.slice(start, end + 1));
+  const balanced = sliceJsonObject(trimmed);
+  if (balanced) candidates.push(balanced);
+
   for (const candidate of candidates) {
     try {
       const parsed = JSON.parse(candidate);
-      if (parsed && typeof parsed === "object") return parsed;
+      const unwrapped = unwrapToolArguments(parsed);
+      if (unwrapped && typeof unwrapped === "object") return unwrapped;
     } catch {
       // Thử candidate tiếp theo.
     }
   }
   return null;
+}
+
+/**
+ * Provider có thể trả tool call dạng text: `{"name":"result","arguments":{...}}`.
+ * Trả về phần `arguments` bên trong.
+ */
+function unwrapToolArguments(value: unknown): unknown {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+  const record = value as Record<string, unknown>;
+  const args = record.arguments;
+  if (args && typeof args === "object" && !Array.isArray(args)) {
+    const keys = Object.keys(record);
+    if (keys.every((key) => key === "arguments" || key === "name" || key === "id" || key === "type")) {
+      return args;
+    }
+  }
+  return value;
 }
 
 function numberOrZero(value: unknown): number {

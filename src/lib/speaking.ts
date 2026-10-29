@@ -146,12 +146,15 @@ export async function pollSpeakingResult(
       .select('id,status,error_code,speaking_results(*)')
       .eq('id', attemptId)
       .maybeSingle()
-    if (error || !data) return { ok: false, code: 'not_found' }
+    if (error || !data) {
+      console.warn('[speaking] poll failed', error?.code ?? '', error?.message ?? '', error?.details ?? '')
+      return { ok: false, code: 'not_found' }
+    }
 
     const row = data as unknown as {
       status?: string | null
       error_code?: string | null
-      speaking_results?: Record<string, unknown>[]
+      speaking_results?: Record<string, unknown> | Record<string, unknown>[] | null
     }
     const status = String(row.status ?? '')
     if (status !== lastStatus) {
@@ -159,7 +162,10 @@ export async function pollSpeakingResult(
       onUpdate?.(status)
     }
     if (status === 'succeeded') {
-      const result = row.speaking_results?.[0]
+      // `speaking_results.attempt_id` là UNIQUE nên PostgREST trả về OBJECT,
+      // không phải mảng — phải xử lý cả hai dạng.
+      const raw = row.speaking_results
+      const result = Array.isArray(raw) ? raw[0] : (raw ?? null)
       if (!result) return { ok: false, code: 'not_found' }
       return { ok: true, value: speakingResultView(attemptId, result) }
     }
