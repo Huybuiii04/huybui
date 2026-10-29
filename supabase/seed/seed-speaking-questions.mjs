@@ -1,0 +1,59 @@
+/**
+ * Nạp bộ câu hỏi IELTS Speaking mẫu vào bảng `speaking_questions`.
+ *
+ *   node --env-file-if-exists=.env.local supabase/seed/seed-speaking-questions.mjs
+ *
+ * - Nguồn dữ liệu: `supabase/seed/speaking-questions.json` (sinh bởi
+ *   `scripts/build-speaking-questions.mjs`). Chỉ gồm câu hỏi Part 1/3 và bullet
+ *   cue card Part 2 — dạng nội dung IELTS tiêu chuẩn.
+ * - Idempotent: upsert theo `slug`, nên chạy lại nhiều lần vẫn an toàn.
+ */
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+
+const url = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL
+const secret = process.env.SUPABASE_SECRET_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY
+if (!url || !secret) {
+  console.error('Thiếu SUPABASE_URL hoặc SUPABASE_SECRET_KEY trong .env.local')
+  process.exit(1)
+}
+
+const file = resolve(process.cwd(), 'supabase/seed/speaking-questions.json')
+const { rows } = JSON.parse(readFileSync(file, 'utf8'))
+
+const headers = {
+  apikey: secret,
+  Authorization: `Bearer ${secret}`,
+  'Content-Type': 'application/json',
+  Prefer: 'resolution=merge-duplicates,return=representation',
+  Connection: 'close',
+}
+
+async function post(path, body) {
+  const response = await fetch(`${url}/rest/v1/${path}`, { method: 'POST', headers, body: JSON.stringify(body) })
+  if (!response.ok) {
+    console.error(`Lỗi nạp ${path}:`, response.status, await response.text())
+    process.exit(1)
+  }
+  return response.json()
+}
+
+const payload = rows.map((row) => ({
+  part: row.part,
+  slug: row.slug,
+  topic: row.topic,
+  prompt_text: row.prompt_text,
+  questions: row.questions,
+  cue_card: row.cue_card,
+  is_active: true,
+}))
+
+const saved = await post('speaking_questions?on_conflict=slug', payload)
+const counts = saved.reduce((acc, row) => {
+  acc[row.part] = (acc[row.part] ?? 0) + 1
+  return acc
+}, {})
+console.log(`Đã nạp ${saved.length} câu hỏi:`)
+for (const [part, count] of Object.entries(counts)) console.log(`  ${part}: ${count}`)
+
+// Không gọi process.exit: để event loop tự tắt, tránh lỗi uv_close trên Windows.

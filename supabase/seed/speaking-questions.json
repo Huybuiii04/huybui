@@ -1,0 +1,1194 @@
+{
+  "generatedAt": "2026-10-29",
+  "source": "IELTS standard speaking topic questions",
+  "rows": [
+    {
+      "part": "part-1",
+      "slug": "hometown-and-hobbies",
+      "topic": "Hometown & Hobbies",
+      "prompt_text": "Where is your hometown?",
+      "questions": [
+        "Where is your hometown?",
+        "What do you like most about your hometown?",
+        "What do you like to do in your free time?",
+        "Have you had any hobbies since you were a child?",
+        "Do you prefer indoor or outdoor activities?"
+      ],
+      "cue_card": null
+    },
+    {
+      "part": "part-1",
+      "slug": "work-or-study",
+      "topic": "Work or Study",
+      "prompt_text": "Do you work or are you a student?",
+      "questions": [
+        "Do you work or are you a student?",
+        "What do you like most about your job?",
+        "Why did you choose that line of work?",
+        "Is there anything you would change about it?",
+        "What would you like to do in the future?"
+      ],
+      "cue_card": null
+    },
+    {
+      "part": "part-1",
+      "slug": "daily-routine",
+      "topic": "Daily Routine",
+      "prompt_text": "Can you describe a typical day for you?",
+      "questions": [
+        "Can you describe a typical day for you?",
+        "Which part of the day do you enjoy most?",
+        "Has your routine changed compared to a few years ago?",
+        "Do you think it is important to have a daily routine?",
+        "Is there anything about your routine you would like to change?"
+      ],
+      "cue_card": null
+    },
+    {
+      "part": "part-1",
+      "slug": "food-and-cooking",
+      "topic": "Food and Cooking",
+      "prompt_text": "What kind of food do you enjoy most?",
+      "questions": [
+        "What kind of food do you enjoy most?",
+        "Who usually does the cooking in your home?",
+        "Do you prefer eating at home or eating out?",
+        "Have you ever tried cooking a dish yourself for the first time?",
+        "Do you watch any cooking shows?"
+      ],
+      "cue_card": null
+    },
+    {
+      "part": "part-1",
+      "slug": "music",
+      "topic": "Music",
+      "prompt_text": "What kind of music do you enjoy?",
+      "questions": [
+        "What kind of music do you enjoy?",
+        "When do you usually listen to music?",
+        "Did you learn to play a musical instrument as a child?",
+        "Do you think it is important for children to learn music?",
+        "Has your taste in music changed over the years?"
+      ],
+      "cue_card": null
+    },
+    {
+      "part": "part-1",
+      "slug": "sports-and-exercise",
+      "topic": "Sports and Exercise",
+      "prompt_text": "Do you do any sports or exercise?",
+      "questions": [
+        "Do you do any sports or exercise?",
+        "Did you play any sports when you were a child?",
+        "Do you prefer team sports or individual sports?",
+        "Do you think people today do enough exercise?",
+        "Would you like to try a new sport in the future?"
+      ],
+      "cue_card": null
+    },
+    {
+      "part": "part-1",
+      "slug": "weather-and-seasons",
+      "topic": "Weather and Seasons",
+      "prompt_text": "What is the weather usually like where you live?",
+      "questions": [
+        "What is the weather usually like where you live?",
+        "Which season do you like best?",
+        "Does the weather affect your mood or daily life?",
+        "Do you prefer hot weather or cold weather?",
+        "Has the weather in your country changed over the years?"
+      ],
+      "cue_card": null
+    },
+    {
+      "part": "part-1",
+      "slug": "reading-and-books",
+      "topic": "Reading and Books",
+      "prompt_text": "Do you enjoy reading?",
+      "questions": [
+        "Do you enjoy reading?",
+        "What kind of books do you like to read?",
+        "Did you read a lot as a child?",
+        "Do you prefer paper books or e-books?",
+        "Would you like to write a book one day?"
+      ],
+      "cue_card": null
+    },
+    {
+      "part": "part-1",
+      "slug": "the-internet-and-social-media",
+      "topic": "The Internet and Social Media",
+      "prompt_text": "How often do you use the internet?",
+      "questions": [
+        "How often do you use the internet?",
+        "What do you mainly use the internet for?",
+        "Do you use social media a lot?",
+        "Do you think you spend too much time online?",
+        "How has the internet changed your daily life?"
+      ],
+      "cue_card": null
+    },
+    {
+      "part": "part-1",
+      "slug": "films-and-tv",
+      "topic": "Films and TV",
+      "prompt_text": "Do you enjoy watching films?",
+      "questions": [
+        "Do you enjoy watching films?",
+        "What kind of films do you like?",
+        "Do you prefer watching films at the cinema or at home?",
+        "Do you watch much television?",
+        "Have your tastes in films changed over time?"
+      ],
+      "cue_card": null
+    },
+    {
+      "part": "part-1",
+      "slug": "transport-and-getting-around",
+      "topic": "Transport and Getting Around",
+      "prompt_text": "How do you usually travel around?",
+      "questions": [
+        "How do you usually travel around?",
+        "Do you prefer public transport or driving yourself?",
+        "Is the public transport good where you live?",
+        "Has the way people travel changed in recent years?",
+        "How could transport be improved in your city?"
+      ],
+      "cue_card": null
+    },
+    {
+      "part": "part-1",
+      "slug": "festivals-and-celebrations",
+      "topic": "Festivals and Celebrations",
+      "prompt_text": "What is the most important festival in your country?",
+      "questions": [
+        "What is the most important festival in your country?",
+        "How do people usually celebrate it?",
+        "Do you enjoy celebrating festivals?",
+        "Have festivals changed since you were a child?",
+        "Are there any festivals from other countries you would like to experience?"
+      ],
+      "cue_card": null
+    },
+    {
+      "part": "part-1",
+      "slug": "animals-and-pets",
+      "topic": "Animals and Pets",
+      "prompt_text": "Do you have any pets?",
+      "questions": [
+        "Do you have any pets?",
+        "Did you have any pets when you were a child?",
+        "Do you think keeping pets is good for people?",
+        "What is your favourite animal?",
+        "Are people's attitudes to animals changing?"
+      ],
+      "cue_card": null
+    },
+    {
+      "part": "part-1",
+      "slug": "clothes-and-fashion",
+      "topic": "Clothes and Fashion",
+      "prompt_text": "What kind of clothes do you usually wear?",
+      "questions": [
+        "What kind of clothes do you usually wear?",
+        "Are you interested in fashion?",
+        "Do you prefer comfortable clothes or fashionable clothes?",
+        "Have your clothing tastes changed over the years?",
+        "Do people in your country care about fashion?"
+      ],
+      "cue_card": null
+    },
+    {
+      "part": "part-1",
+      "slug": "accommodation-and-home",
+      "topic": "Accommodation and Home",
+      "prompt_text": "Do you live in a house or an apartment?",
+      "questions": [
+        "Do you live in a house or an apartment?",
+        "What is your favourite room in your home?",
+        "Would you like to change anything about your home?",
+        "Do you prefer living in the city or the countryside?",
+        "What kind of home would you like to have in the future?"
+      ],
+      "cue_card": null
+    },
+    {
+      "part": "part-1",
+      "slug": "shopping-and-markets",
+      "topic": "Shopping and Markets",
+      "prompt_text": "Do you enjoy shopping?",
+      "questions": [
+        "Do you enjoy shopping?",
+        "Do you prefer shopping online or in physical stores?",
+        "Do you like going to markets?",
+        "Has the way people shop changed in recent years?",
+        "Do you think people buy too many unnecessary things?"
+      ],
+      "cue_card": null
+    },
+    {
+      "part": "part-1",
+      "slug": "colours",
+      "topic": "Colours",
+      "prompt_text": "What is your favourite colour?",
+      "questions": [
+        "What is your favourite colour?",
+        "Are there any colours you dislike?",
+        "Do you like to wear colourful clothes?",
+        "What colours are common in your home?",
+        "Do you think colours affect people's moods?"
+      ],
+      "cue_card": null
+    },
+    {
+      "part": "part-1",
+      "slug": "celebrities",
+      "topic": "Celebrities",
+      "prompt_text": "Is there a celebrity you admire?",
+      "questions": [
+        "Is there a celebrity you admire?",
+        "Do you follow news about celebrities?",
+        "Would you like to be famous?",
+        "How do people usually become famous in your country?",
+        "Do you think celebrities have a responsibility to be good role models?"
+      ],
+      "cue_card": null
+    },
+    {
+      "part": "part-1",
+      "slug": "sleep",
+      "topic": "Sleep",
+      "prompt_text": "How many hours do you usually sleep?",
+      "questions": [
+        "How many hours do you usually sleep?",
+        "Do you like to take naps during the day?",
+        "Do you usually sleep well?",
+        "Has your sleep changed compared to when you were younger?",
+        "What advice would you give for sleeping well?"
+      ],
+      "cue_card": null
+    },
+    {
+      "part": "part-1",
+      "slug": "photography",
+      "topic": "Photography",
+      "prompt_text": "Do you like taking photographs?",
+      "questions": [
+        "Do you like taking photographs?",
+        "Do you prefer taking photos with a camera or a phone?",
+        "What kind of photos do you like to take?",
+        "Do you keep your old photographs?",
+        "Do you like having your photo taken?"
+      ],
+      "cue_card": null
+    },
+    {
+      "part": "part-1",
+      "slug": "time-management",
+      "topic": "Time Management",
+      "prompt_text": "Are you good at managing your time?",
+      "questions": [
+        "Are you good at managing your time?",
+        "Are you usually punctual?",
+        "How do you usually plan your day?",
+        "Do you think you sometimes waste time?",
+        "Is it important to be on time in your culture?"
+      ],
+      "cue_card": null
+    },
+    {
+      "part": "part-1",
+      "slug": "free-time-and-relaxation",
+      "topic": "Free Time and Relaxation",
+      "prompt_text": "What do you usually do in your free time?",
+      "questions": [
+        "What do you usually do in your free time?",
+        "How do you usually relax after a busy day?",
+        "Do you have enough free time these days?",
+        "Did you have more free time when you were younger?",
+        "Is it important to have hobbies?"
+      ],
+      "cue_card": null
+    },
+    {
+      "part": "part-1",
+      "slug": "the-news-and-newspapers",
+      "topic": "The News and Newspapers",
+      "prompt_text": "How do you usually get your news?",
+      "questions": [
+        "How do you usually get your news?",
+        "How often do you follow the news?",
+        "What kinds of news are you most interested in?",
+        "Do you prefer to read the news or watch it on TV?",
+        "Do you think it is important to keep up with the news?"
+      ],
+      "cue_card": null
+    },
+    {
+      "part": "part-1",
+      "slug": "birthdays",
+      "topic": "Birthdays",
+      "prompt_text": "How do you usually celebrate your birthday?",
+      "questions": [
+        "How do you usually celebrate your birthday?",
+        "Do you enjoy celebrating your birthday?",
+        "What did you do on your last birthday?",
+        "Do people in your country give presents on birthdays?",
+        "Are birthdays important in your culture?"
+      ],
+      "cue_card": null
+    },
+    {
+      "part": "part-1",
+      "slug": "flowers-and-plants",
+      "topic": "Flowers and Plants",
+      "prompt_text": "Do you like flowers?",
+      "questions": [
+        "Do you like flowers?",
+        "Do you have any plants at home?",
+        "Do people in your country often give flowers as gifts?",
+        "Would you like to learn more about growing plants?",
+        "Do you prefer wild flowers or garden flowers?"
+      ],
+      "cue_card": null
+    },
+    {
+      "part": "part-2",
+      "slug": "describe-a-person-you-admire",
+      "topic": "Describe a Person You Admire",
+      "prompt_text": "Describe a person you admire",
+      "questions": [],
+      "cue_card": {
+        "topic": "Describe a Person You Admire",
+        "bullets": [
+          "who this person is",
+          "how you know this person",
+          "what this person is like",
+          "and explain why you admire this person"
+        ],
+        "time_limit_seconds": 120
+      }
+    },
+    {
+      "part": "part-2",
+      "slug": "describe-a-memorable-trip",
+      "topic": "Describe a Memorable Trip",
+      "prompt_text": "Describe a memorable trip",
+      "questions": [],
+      "cue_card": {
+        "topic": "Describe a Memorable Trip",
+        "bullets": [
+          "where you went",
+          "who you went with",
+          "what you did there",
+          "and explain why this trip was memorable"
+        ],
+        "time_limit_seconds": 120
+      }
+    },
+    {
+      "part": "part-2",
+      "slug": "describe-a-place-you-want-to-visit",
+      "topic": "Describe a Place You Want to Visit",
+      "prompt_text": "Describe a place you want to visit",
+      "questions": [],
+      "cue_card": {
+        "topic": "Describe a Place You Want to Visit",
+        "bullets": [
+          "where this place is",
+          "how you found out about it",
+          "what you would do there",
+          "and explain why you want to visit it"
+        ],
+        "time_limit_seconds": 120
+      }
+    },
+    {
+      "part": "part-2",
+      "slug": "describe-a-book-you-enjoyed",
+      "topic": "Describe a Book You Enjoyed",
+      "prompt_text": "Describe a book you enjoyed",
+      "questions": [],
+      "cue_card": {
+        "topic": "Describe a Book You Enjoyed",
+        "bullets": [
+          "what the book is",
+          "what it is about",
+          "when and why you read it",
+          "and explain why you enjoyed it"
+        ],
+        "time_limit_seconds": 120
+      }
+    },
+    {
+      "part": "part-2",
+      "slug": "describe-a-useful-skill-you-learned",
+      "topic": "Describe a Useful Skill You Learned",
+      "prompt_text": "Describe an useful skill you learned",
+      "questions": [],
+      "cue_card": {
+        "topic": "Describe a Useful Skill You Learned",
+        "bullets": [
+          "what the skill is",
+          "how and when you learned it",
+          "who taught you or how you picked it up",
+          "and explain why it has been useful"
+        ],
+        "time_limit_seconds": 120
+      }
+    },
+    {
+      "part": "part-2",
+      "slug": "describe-a-favourite-piece-of-technology",
+      "topic": "Describe a Favourite Piece of Technology",
+      "prompt_text": "Describe a favourite piece of technology",
+      "questions": [],
+      "cue_card": {
+        "topic": "Describe a Favourite Piece of Technology",
+        "bullets": [
+          "what the piece of technology is",
+          "how you use it",
+          "how long you have had it",
+          "and explain why it is so useful to you"
+        ],
+        "time_limit_seconds": 120
+      }
+    },
+    {
+      "part": "part-2",
+      "slug": "describe-a-special-day-you-remember",
+      "topic": "Describe a Special Day You Remember",
+      "prompt_text": "Describe a special day you remember",
+      "questions": [],
+      "cue_card": {
+        "topic": "Describe a Special Day You Remember",
+        "bullets": [
+          "what day it was",
+          "where you were and who you were with",
+          "what happened",
+          "and explain why it was so special to you"
+        ],
+        "time_limit_seconds": 120
+      }
+    },
+    {
+      "part": "part-2",
+      "slug": "describe-a-hobby-you-enjoy",
+      "topic": "Describe a Hobby You Enjoy",
+      "prompt_text": "Describe a hobby you enjoy",
+      "questions": [],
+      "cue_card": {
+        "topic": "Describe a Hobby You Enjoy",
+        "bullets": [
+          "what the hobby is",
+          "how and when you got into it",
+          "how often you do it",
+          "and explain why you enjoy it"
+        ],
+        "time_limit_seconds": 120
+      }
+    },
+    {
+      "part": "part-2",
+      "slug": "describe-an-important-decision-you-made",
+      "topic": "Describe an Important Decision You Made",
+      "prompt_text": "Describe an important decision you made",
+      "questions": [],
+      "cue_card": {
+        "topic": "Describe an Important Decision You Made",
+        "bullets": [
+          "what the decision was",
+          "when and why you had to make it",
+          "how you decided",
+          "and explain why it was so important"
+        ],
+        "time_limit_seconds": 120
+      }
+    },
+    {
+      "part": "part-2",
+      "slug": "describe-your-best-friend",
+      "topic": "Describe Your Best Friend",
+      "prompt_text": "Describe a describe your best friend",
+      "questions": [],
+      "cue_card": {
+        "topic": "Describe Your Best Friend",
+        "bullets": [
+          "who your best friend is",
+          "how and when you met",
+          "what this person is like",
+          "and explain why you get on so well"
+        ],
+        "time_limit_seconds": 120
+      }
+    },
+    {
+      "part": "part-2",
+      "slug": "describe-a-city-you-have-visited",
+      "topic": "Describe a City You Have Visited",
+      "prompt_text": "Describe a city you have visited",
+      "questions": [],
+      "cue_card": {
+        "topic": "Describe a City You Have Visited",
+        "bullets": [
+          "which city you visited",
+          "when you went and who with",
+          "what you did there",
+          "and explain what impression it left on you"
+        ],
+        "time_limit_seconds": 120
+      }
+    },
+    {
+      "part": "part-2",
+      "slug": "describe-your-dream-home",
+      "topic": "Describe Your Dream Home",
+      "prompt_text": "Describe a describe your dream home",
+      "questions": [],
+      "cue_card": {
+        "topic": "Describe Your Dream Home",
+        "bullets": [
+          "where this home would be",
+          "what it would look like",
+          "who you would live there with",
+          "and explain why it appeals to you"
+        ],
+        "time_limit_seconds": 120
+      }
+    },
+    {
+      "part": "part-2",
+      "slug": "describe-a-film-you-watched-recently",
+      "topic": "Describe a Film You Watched Recently",
+      "prompt_text": "Describe a film you watched recently",
+      "questions": [],
+      "cue_card": {
+        "topic": "Describe a Film You Watched Recently",
+        "bullets": [
+          "what the film was",
+          "when and where you watched it",
+          "what it was about",
+          "and explain what you thought of it"
+        ],
+        "time_limit_seconds": 120
+      }
+    },
+    {
+      "part": "part-2",
+      "slug": "describe-a-teacher-who-influenced-you",
+      "topic": "Describe a Teacher Who Influenced You",
+      "prompt_text": "Describe a teacher who influenced you",
+      "questions": [],
+      "cue_card": {
+        "topic": "Describe a Teacher Who Influenced You",
+        "bullets": [
+          "who this teacher was",
+          "what subject they taught",
+          "what they were like",
+          "and explain how they influenced you"
+        ],
+        "time_limit_seconds": 120
+      }
+    },
+    {
+      "part": "part-2",
+      "slug": "describe-a-goal-you-want-to-achieve",
+      "topic": "Describe a Goal You Want to Achieve",
+      "prompt_text": "Describe a goal you want to achieve",
+      "questions": [],
+      "cue_card": {
+        "topic": "Describe a Goal You Want to Achieve",
+        "bullets": [
+          "what the goal is",
+          "when you set it",
+          "what you are doing to achieve it",
+          "and explain why it is important to you"
+        ],
+        "time_limit_seconds": 120
+      }
+    },
+    {
+      "part": "part-2",
+      "slug": "describe-an-object-you-value",
+      "topic": "Describe an Object You Value",
+      "prompt_text": "Describe an object you value",
+      "questions": [],
+      "cue_card": {
+        "topic": "Describe an Object You Value",
+        "bullets": [
+          "what the object is",
+          "how you got it",
+          "how long you have had it",
+          "and explain why it is so important to you"
+        ],
+        "time_limit_seconds": 120
+      }
+    },
+    {
+      "part": "part-2",
+      "slug": "describe-a-time-you-helped-someone",
+      "topic": "Describe a Time You Helped Someone",
+      "prompt_text": "Describe a time you helped someone",
+      "questions": [],
+      "cue_card": {
+        "topic": "Describe a Time You Helped Someone",
+        "bullets": [
+          "who you helped",
+          "what the situation was",
+          "what you did to help",
+          "and explain how you felt about it"
+        ],
+        "time_limit_seconds": 120
+      }
+    },
+    {
+      "part": "part-2",
+      "slug": "describe-a-website-or-app-you-use",
+      "topic": "Describe a Website or App You Use",
+      "prompt_text": "Describe a website or app you use",
+      "questions": [],
+      "cue_card": {
+        "topic": "Describe a Website or App You Use",
+        "bullets": [
+          "what the website or app is",
+          "how you found out about it",
+          "what you use it for",
+          "and explain why it is so useful to you"
+        ],
+        "time_limit_seconds": 120
+      }
+    },
+    {
+      "part": "part-2",
+      "slug": "describe-a-piece-of-good-news-you-received",
+      "topic": "Describe a Piece of Good News You Received",
+      "prompt_text": "Describe a piece of good news you received",
+      "questions": [],
+      "cue_card": {
+        "topic": "Describe a Piece of Good News You Received",
+        "bullets": [
+          "what the good news was",
+          "how you received it",
+          "who you shared it with",
+          "and explain how you felt about it"
+        ],
+        "time_limit_seconds": 120
+      }
+    },
+    {
+      "part": "part-2",
+      "slug": "describe-a-restaurant-you-like",
+      "topic": "Describe a Restaurant You Like",
+      "prompt_text": "Describe a restaurant you like",
+      "questions": [],
+      "cue_card": {
+        "topic": "Describe a Restaurant You Like",
+        "bullets": [
+          "what kind of restaurant it is",
+          "where it is",
+          "what you usually eat there",
+          "and explain why you like it so much"
+        ],
+        "time_limit_seconds": 120
+      }
+    },
+    {
+      "part": "part-2",
+      "slug": "describe-a-gift-you-received",
+      "topic": "Describe a Gift You Received",
+      "prompt_text": "Describe a gift you received",
+      "questions": [],
+      "cue_card": {
+        "topic": "Describe a Gift You Received",
+        "bullets": [
+          "what the gift was",
+          "who gave it to you",
+          "when you received it",
+          "and explain why it was so special"
+        ],
+        "time_limit_seconds": 120
+      }
+    },
+    {
+      "part": "part-2",
+      "slug": "describe-a-photo-you-like",
+      "topic": "Describe a Photo You Like",
+      "prompt_text": "Describe a photo you like",
+      "questions": [],
+      "cue_card": {
+        "topic": "Describe a Photo You Like",
+        "bullets": [
+          "what the photo shows",
+          "who took it",
+          "when it was taken",
+          "and explain why you like it so much"
+        ],
+        "time_limit_seconds": 120
+      }
+    },
+    {
+      "part": "part-2",
+      "slug": "describe-an-invention",
+      "topic": "Describe an Invention",
+      "prompt_text": "Describe an invention",
+      "questions": [],
+      "cue_card": {
+        "topic": "Describe an Invention",
+        "bullets": [
+          "what the invention is",
+          "what it does",
+          "how it has changed daily life",
+          "and explain why you think it is so important"
+        ],
+        "time_limit_seconds": 120
+      }
+    },
+    {
+      "part": "part-2",
+      "slug": "describe-a-song-you-like",
+      "topic": "Describe a Song You Like",
+      "prompt_text": "Describe a song you like",
+      "questions": [],
+      "cue_card": {
+        "topic": "Describe a Song You Like",
+        "bullets": [
+          "what the song is",
+          "what it is about",
+          "when you usually listen to it",
+          "and explain why you like it so much"
+        ],
+        "time_limit_seconds": 120
+      }
+    },
+    {
+      "part": "part-2",
+      "slug": "describe-a-happy-childhood-memory",
+      "topic": "Describe a Happy Childhood Memory",
+      "prompt_text": "Describe a happy childhood memory",
+      "questions": [],
+      "cue_card": {
+        "topic": "Describe a Happy Childhood Memory",
+        "bullets": [
+          "what the memory is",
+          "when it happened",
+          "who you were with",
+          "and explain why it is such a happy memory"
+        ],
+        "time_limit_seconds": 120
+      }
+    },
+    {
+      "part": "part-2",
+      "slug": "describe-your-favourite-food",
+      "topic": "Describe Your Favourite Food",
+      "prompt_text": "Describe a describe your favourite food",
+      "questions": [],
+      "cue_card": {
+        "topic": "Describe Your Favourite Food",
+        "bullets": [
+          "what the dish is",
+          "how it is made",
+          "when you usually eat it",
+          "and explain why you love it so much"
+        ],
+        "time_limit_seconds": 120
+      }
+    },
+    {
+      "part": "part-2",
+      "slug": "describe-a-work-of-art",
+      "topic": "Describe a Work of Art",
+      "prompt_text": "Describe a work of art",
+      "questions": [],
+      "cue_card": {
+        "topic": "Describe a Work of Art",
+        "bullets": [
+          "what the work of art is",
+          "where you saw it",
+          "what it looks like",
+          "and explain why you like it so much"
+        ],
+        "time_limit_seconds": 120
+      }
+    },
+    {
+      "part": "part-2",
+      "slug": "describe-an-old-person-you-admire",
+      "topic": "Describe an Old Person You Admire",
+      "prompt_text": "Describe an old person you admire",
+      "questions": [],
+      "cue_card": {
+        "topic": "Describe an Old Person You Admire",
+        "bullets": [
+          "who the person is",
+          "how you know them",
+          "what they are like",
+          "and explain why you admire them so much"
+        ],
+        "time_limit_seconds": 120
+      }
+    },
+    {
+      "part": "part-2",
+      "slug": "describe-a-piece-of-advice",
+      "topic": "Describe a Piece of Advice",
+      "prompt_text": "Describe a piece of advice",
+      "questions": [],
+      "cue_card": {
+        "topic": "Describe a Piece of Advice",
+        "bullets": [
+          "what the advice was",
+          "who gave it to you",
+          "when you received it",
+          "and explain why it was so useful"
+        ],
+        "time_limit_seconds": 120
+      }
+    },
+    {
+      "part": "part-2",
+      "slug": "describe-a-tourist-attraction",
+      "topic": "Describe a Tourist Attraction",
+      "prompt_text": "Describe a tourist attraction",
+      "questions": [],
+      "cue_card": {
+        "topic": "Describe a Tourist Attraction",
+        "bullets": [
+          "what the attraction is",
+          "where it is located",
+          "what visitors can do there",
+          "and explain why it is worth visiting"
+        ],
+        "time_limit_seconds": 120
+      }
+    },
+    {
+      "part": "part-2",
+      "slug": "describe-a-tv-programme-you-like",
+      "topic": "Describe a TV Programme You Like",
+      "prompt_text": "Describe a tv programme you like",
+      "questions": [],
+      "cue_card": {
+        "topic": "Describe a TV Programme You Like",
+        "bullets": [
+          "what the programme is",
+          "what it is about",
+          "when and how often you watch it",
+          "and explain why you like it so much"
+        ],
+        "time_limit_seconds": 120
+      }
+    },
+    {
+      "part": "part-2",
+      "slug": "describe-a-plan-you-have-for-the-future",
+      "topic": "Describe a Plan You Have for the Future",
+      "prompt_text": "Describe a plan you have for the future",
+      "questions": [],
+      "cue_card": {
+        "topic": "Describe a Plan You Have for the Future",
+        "bullets": [
+          "what the plan is",
+          "when you hope to achieve it",
+          "how you intend to make it happen",
+          "and explain why it is important to you"
+        ],
+        "time_limit_seconds": 120
+      }
+    },
+    {
+      "part": "part-2",
+      "slug": "describe-a-journey-you-remember",
+      "topic": "Describe a Journey You Remember",
+      "prompt_text": "Describe a journey you remember",
+      "questions": [],
+      "cue_card": {
+        "topic": "Describe a Journey You Remember",
+        "bullets": [
+          "where you went",
+          "who you travelled with",
+          "how you got there",
+          "and explain why the journey was so memorable"
+        ],
+        "time_limit_seconds": 120
+      }
+    },
+    {
+      "part": "part-2",
+      "slug": "describe-a-quiet-place-you-like",
+      "topic": "Describe a Quiet Place You Like",
+      "prompt_text": "Describe a quiet place you like",
+      "questions": [],
+      "cue_card": {
+        "topic": "Describe a Quiet Place You Like",
+        "bullets": [
+          "where the place is",
+          "how often you go there",
+          "what you do there",
+          "and explain why you like this quiet place"
+        ],
+        "time_limit_seconds": 120
+      }
+    },
+    {
+      "part": "part-3",
+      "slug": "technology-and-communication",
+      "topic": "Technology and Communication",
+      "prompt_text": "How has technology changed the way people communicate?",
+      "questions": [
+        "How has technology changed the way people communicate?",
+        "Do you think face-to-face communication will become less common?",
+        "What are the downsides of relying on technology to communicate?",
+        "Should there be limits on how much children use social media?"
+      ],
+      "cue_card": null
+    },
+    {
+      "part": "part-3",
+      "slug": "education-and-learning",
+      "topic": "Education and Learning",
+      "prompt_text": "What are the advantages of online learning compared to traditional classrooms?",
+      "questions": [
+        "What are the advantages of online learning compared to traditional classrooms?",
+        "Are there any drawbacks to studying online?",
+        "How do you think education will change in the next 20 years?",
+        "Do you think exams are the best way to measure a student's ability?"
+      ],
+      "cue_card": null
+    },
+    {
+      "part": "part-3",
+      "slug": "work-and-careers",
+      "topic": "Work and Careers",
+      "prompt_text": "Why do some jobs pay much more than others?",
+      "questions": [
+        "Why do some jobs pay much more than others?",
+        "Do you think salary is the most important factor when choosing a job?",
+        "How is the world of work likely to change in the future?",
+        "Should governments do more to reduce unemployment?"
+      ],
+      "cue_card": null
+    },
+    {
+      "part": "part-3",
+      "slug": "shopping-and-consumerism",
+      "topic": "Shopping and Consumerism",
+      "prompt_text": "How does advertising influence what people buy?",
+      "questions": [
+        "How does advertising influence what people buy?",
+        "Do you think people today buy more than they actually need?",
+        "What are the advantages of shopping online rather than in physical stores?",
+        "Should there be limits on advertising aimed at children?"
+      ],
+      "cue_card": null
+    },
+    {
+      "part": "part-3",
+      "slug": "travel-and-tourism",
+      "topic": "Travel and Tourism",
+      "prompt_text": "What can people learn from travelling to other countries?",
+      "questions": [
+        "What can people learn from travelling to other countries?",
+        "How does tourism benefit a country's economy?",
+        "Are there any downsides to mass tourism?",
+        "Do you think people will travel more or less in the future?"
+      ],
+      "cue_card": null
+    },
+    {
+      "part": "part-3",
+      "slug": "the-environment",
+      "topic": "The Environment",
+      "prompt_text": "What are the most serious environmental problems facing the world today?",
+      "questions": [
+        "What are the most serious environmental problems facing the world today?",
+        "Whose responsibility is it to protect the environment — individuals or governments?",
+        "Do you think people are willing to change their habits to help the environment?",
+        "How can technology help solve environmental problems?"
+      ],
+      "cue_card": null
+    },
+    {
+      "part": "part-3",
+      "slug": "health-and-lifestyle",
+      "topic": "Health and Lifestyle",
+      "prompt_text": "Why do you think many people today have unhealthy lifestyles?",
+      "questions": [
+        "Why do you think many people today have unhealthy lifestyles?",
+        "Whose responsibility is it to keep people healthy — individuals or the government?",
+        "Do you think mental health is taken as seriously as physical health?",
+        "How can people be encouraged to live healthier lives?"
+      ],
+      "cue_card": null
+    },
+    {
+      "part": "part-3",
+      "slug": "family-and-society",
+      "topic": "Family and Society",
+      "prompt_text": "How have families changed compared to the past?",
+      "questions": [
+        "How have families changed compared to the past?",
+        "Do you think the family is still the most important influence on children?",
+        "Who should be responsible for caring for elderly relatives?",
+        "What are the advantages of children growing up with grandparents nearby?"
+      ],
+      "cue_card": null
+    },
+    {
+      "part": "part-3",
+      "slug": "art-and-creativity",
+      "topic": "Art and Creativity",
+      "prompt_text": "Why do you think art is important in society?",
+      "questions": [
+        "Why do you think art is important in society?",
+        "Should governments fund the arts, or should they focus on other things?",
+        "Do you think creativity can be taught, or is it a natural talent?",
+        "How has technology changed the way art is made and shared?"
+      ],
+      "cue_card": null
+    },
+    {
+      "part": "part-3",
+      "slug": "cities-and-urban-life",
+      "topic": "Cities and Urban Life",
+      "prompt_text": "Why do so many people move to cities?",
+      "questions": [
+        "Why do so many people move to cities?",
+        "What are the main problems of living in a big city?",
+        "Do you think cities or the countryside offer a better quality of life?",
+        "How can cities be made better places to live?"
+      ],
+      "cue_card": null
+    },
+    {
+      "part": "part-3",
+      "slug": "crime-and-the-law",
+      "topic": "Crime and the Law",
+      "prompt_text": "What do you think are the main causes of crime?",
+      "questions": [
+        "What do you think are the main causes of crime?",
+        "Do you think prison is an effective way of dealing with criminals?",
+        "Should the punishment always fit the crime?",
+        "How can technology help to reduce crime?"
+      ],
+      "cue_card": null
+    },
+    {
+      "part": "part-3",
+      "slug": "money-and-finance",
+      "topic": "Money and Finance",
+      "prompt_text": "Do you think money can buy happiness?",
+      "questions": [
+        "Do you think money can buy happiness?",
+        "Do you think children should be taught how to manage money?",
+        "Why do you think some people spend more than they can afford?",
+        "Is it better to save money or to spend it and enjoy life?"
+      ],
+      "cue_card": null
+    },
+    {
+      "part": "part-3",
+      "slug": "success-and-ambition",
+      "topic": "Success and Ambition",
+      "prompt_text": "How do you think most people define success?",
+      "questions": [
+        "How do you think most people define success?",
+        "Is ambition a positive or a negative quality?",
+        "Do you think success is more about talent or hard work?",
+        "Do you think people are under more pressure to succeed nowadays?"
+      ],
+      "cue_card": null
+    },
+    {
+      "part": "part-3",
+      "slug": "science-and-society",
+      "topic": "Science and Society",
+      "prompt_text": "How has science improved people's lives?",
+      "questions": [
+        "How has science improved people's lives?",
+        "Are there any dangers associated with scientific progress?",
+        "Should governments fund all scientific research, or only useful projects?",
+        "Do you think people trust scientists as much as they used to?"
+      ],
+      "cue_card": null
+    },
+    {
+      "part": "part-3",
+      "slug": "the-media-and-news",
+      "topic": "The Media and News",
+      "prompt_text": "How do most people get their news these days?",
+      "questions": [
+        "How do most people get their news these days?",
+        "Do you think the news we see is always reliable?",
+        "Is it important for people to keep up with the news?",
+        "What responsibilities do the media have to society?"
+      ],
+      "cue_card": null
+    },
+    {
+      "part": "part-3",
+      "slug": "advertising-and-marketing",
+      "topic": "Advertising and Marketing",
+      "prompt_text": "Why is advertising so common nowadays?",
+      "questions": [
+        "Why is advertising so common nowadays?",
+        "Do you think advertising influences what people buy?",
+        "Should there be more control over advertising?",
+        "What makes an advertisement effective?"
+      ],
+      "cue_card": null
+    },
+    {
+      "part": "part-3",
+      "slug": "globalisation-and-culture",
+      "topic": "Globalisation and Culture",
+      "prompt_text": "How has globalisation affected your country?",
+      "questions": [
+        "How has globalisation affected your country?",
+        "Do you think globalisation is making cultures more similar?",
+        "What are the benefits of learning about other cultures?",
+        "Is it important to protect traditional cultures?"
+      ],
+      "cue_card": null
+    },
+    {
+      "part": "part-3",
+      "slug": "history-and-the-past",
+      "topic": "History and the Past",
+      "prompt_text": "Why is it important to learn about history?",
+      "questions": [
+        "Why is it important to learn about history?",
+        "Do you think young people are interested in history?",
+        "How can people learn about the past?",
+        "Should governments spend money preserving historical buildings?"
+      ],
+      "cue_card": null
+    },
+    {
+      "part": "part-3",
+      "slug": "happiness-and-well-being",
+      "topic": "Happiness and Well-being",
+      "prompt_text": "What makes people happy?",
+      "questions": [
+        "What makes people happy?",
+        "Do you think people today are happier than in the past?",
+        "Can money make people happy?",
+        "How can governments improve people’s well-being?"
+      ],
+      "cue_card": null
+    },
+    {
+      "part": "part-3",
+      "slug": "leadership-and-role-models",
+      "topic": "Leadership and Role Models",
+      "prompt_text": "What qualities make a good leader?",
+      "questions": [
+        "What qualities make a good leader?",
+        "Are leaders born or made?",
+        "Why are role models important for young people?",
+        "Do you think celebrities make good role models?"
+      ],
+      "cue_card": null
+    }
+  ]
+}
