@@ -1,0 +1,114 @@
+# Kế hoạch: Luyện nói trực tiếp (Live Speaking) — AI examiner hỏi, người học trả lời bằng mic
+
+Ngày: 2026-10-29 · Trạng thái: đã triển khai backend (Supabase), chưa deploy frontend (Vercel)
+
+## 1. Vấn đề & ràng buộc đã đo
+
+Module Speaking hiện có là mô hình **record → grade**: người học ghi âm từng turn, upload, rồi
+worker chấm. Có thay đổi để trở thành hội thoại trực tiếp như `toey.app` / `theieltsdictionary.com`.
+
+Những ràng buộc đã đo bằng request thật (không đoán):
+
+| Đường | Kết quả |
+|---|---|
+| Gemini Live API (`generativelanguage.googleapis.com`) | **Chỉ hỗ trợ WebSocket**, không có WebRTC native (Google xác nhận trên forum + docs: protocol = stateful WSS). WebRTC cần gateway bên thứ ba (Pipecat / Daily / LiveKit) — không chạy được trên Edge Functions. |
+| Key hiện tại (`AI_API_KEY` → proxy `api.apiz.vn`) | 38 model, **không có model `*-live-*`**; WebSocket handshake `v1beta`/`v1alpha` đều đóng `1006`; `/v1/realtime` → 404. → **Không làm được duplex realtime với key hiện tại.** |
+| TTS MiniMax (`/v1/audio/speech`) | Chạy được: 2.0–3.2 s/câu, `audio/mpeg`, 2 giọng hợp lệ (`English_expressive_narrator`, `English_Trustworthy_Man`). |
+| TTS Gemini (`gemini-3.1-flash-tts-preview`) | Chạy được nhưng **6.5–7.6 s**, không streaming → chỉ dùng làm nhánh dự phòng. |
+| STT Gemini (`gemini-3.8-flash`) | 5.8–6.6 s/clip → quá chậm cho lượt nói. |
+| "AI examiner" (`gemini-3.8-flash`, JSON) | 6.7–15.6 s (model có thinking) → giới hạn 8 s, quá hạn thì bỏ follow-up. |
+| `claude-haiku-5-5` cùng prompt | 3.6 s → nhanh gấp 2–4 lần, dùng được nếu đổi `AI_MODEL_LIVE`. |
+
+Kết luận kiến trúc: **giữ `gemini-3.8-flash` làm model chính** (theo yêu cầu), nhưng độ trễ được
+giấu bằng cách **tổng hợp trước giọng cho toàn bộ câu hỏi** của đề. Lượt hỏi chính phát ngay
+(0 ms), chỉ câu follow-up sinh động mới phải chờ.
+
+## 2. Kiến trúc
+
+```
+Trình duyệt                              Edge Function (Supabase)          Provider (apiz.vn)
+────────────                              ───────────────────────          ────────────────
+getUserMedia + AudioWorklet
+  ├─ VAD (client)  ── hết lượt ─┐
+  ├─ MediaRecorder (webm/opus)  │
+  └─ Web Speech (transcript)    │
+                                 ├── POST speaking-live action=start ──► tạo phiên + token
+                                 ├── POST speaking-live action=voice ──► MiniMax TTS → audio/mpeg
+                                 ├── POST speaking-live action=brain ──► gemini-3.8-flash (JSON)
+                                 ├── POST submit-speaking prepare ────► attempt + turn + signed URL
+                                 ├── PUT  storage (signed upload) ─────► bản ghi âm
+                                 └── POST submit-speaking commit ─────► enqueue job 'grade-speaking'
+                                                                              │
+                                             worker: Gemini đọc audio + Claude chấm rubric ETS
+```
+
+Quyết định tái dùng: **không** tạo bảng câu hỏi/turn mới cho live. Phiên live dùng chính
+`speaking_questions` (đề Cambridge 12–20) + `speaking_attempts` + `speaking_turns`, nên chấm điểm
+dùng lại nguyên pipeline `grade-speaking` đã có test (Gemini đọc audio → Claude chấm rubric ETS).
+
+## 3. Luật thi (theo IELTS)
+
+| Phần | Chuẩn bị | Trả lời | Ghi âm |
+|---|---|---|---|
+| Part 1 | 0 s | mỗi câu ≤ 45 s | 1 recording liên tục cho cả part |
+| Part 2 | **60 s** | ≤ **2 phút** | 1 recording (cue card đọc trước) |
+| Part 3 | 0 s | mỗi câu ≤ 90 s | 1 recording mỗi chủ đề |
+
+- Part 2 **không** kết thúc lượt nói chỉ vì người học dừng lại (VAD im lặng không cắt Part 2) —
+  chỉ dừng ở mốc 2 phút.
+- Trong lúc thi **không** chấm điểm, không nhận xét, không đưa band score.
+- Mỗi turn = 1 phần = 1 câu hỏi Cambridge tương ứng; giám khảo hỏi lần lượt các câu trong part.
+
+## 4. VAD (client, `src/lib/liveVad.ts`)
+
+- Giai đoạn hiệu chỉnh 700 ms đầu: lấy **giá trị nhỏ nhất** của RMS làm nền tiếng ồn (nhờ vậy tiếng
+  nói xen kẽ không làm nền bị đẩy lên).
+- Sau hiệu chỉnh: ngưỡng = `max(0.012, nền × 2)`, nền chỉ có thể **đi xuống**.
+- Bắt đầu lượt nói khi vượt ngưỡng liên tục ≥ 250 ms; kết thúc khi im lặng liên tục ≥ 900 ms;
+  có 400 ms cooldown để không bật/tắt liên hồi.
+- Có test riêng (`tests/speaking-live.test.ts`).
+
+## 5. Bảo mật & chi phí
+
+- API key của provider **không bao giờ** tới trình duyệt: mọi lời gọi AI đi qua Edge Function.
+- `action=start` cấp **token phiên ngắn hạn 2 giờ** ký HMAC-SHA256 bằng `WORKER_SECRET`
+  (`payload.base64(hmac)`), ràng buộc đúng `sessionId` + `userId`; các action sau phải kèm token.
+- Trần chi phí mỗi phiên: 30 phút, 40 lượt gọi "AI examiner", 60 lượt tổng hợp giọng,
+  10 phiên live/ngày/user (429 `rate_limited`).
+- Bộ đếm lưu trong `speaking_live_sessions` để kiểm soát và đối soát.
+
+## 6. File đã thêm/sửa
+
+| File | Vai trò |
+|---|---|
+| `supabase/migrations/029_speaking_live.sql` | Bảng `speaking_live_sessions` + RLS + index |
+| `supabase/functions/_shared/ai/liveSpeaking.ts` | Logic thuần: kế hoạch lượt hỏi, luật thời gian, token phiên, prompt + hợp đồng JSON của AI examiner |
+| `supabase/functions/_shared/ai/liveVoice.ts` | Tổng hợp giọng (MiniMax → dự phòng Gemini TTS), bọc PCM thành WAV |
+| `supabase/functions/speaking-live/index.ts` | Edge Function: `start` / `voice` / `brain` / `transcribe` / `finish` |
+| `supabase/functions/speaking-live/deno.json` | Import map cho `@supabase/supabase-js` (bắt buộc khi deploy) |
+| `src/lib/liveVad.ts` | Máy trạng thái VAD (thuần, test được) |
+| `src/lib/liveAudio.ts` | Mở mic, đo RMS, ghi âm, phát audio, Web Speech transcript |
+| `src/lib/speakingLive.ts` | Client API của phiên live |
+| `src/pages/SpeakingLive.tsx` | Trang luyện nói trực tiếp |
+| `src/pages/Speaking.tsx`, `src/App.tsx` | Nút "Luyện nói trực tiếp" + route `/app/speaking/live` |
+| `supabase/functions/_shared/tests/liveSpeaking.test.ts` | 13 test cho logic live |
+| `tests/speaking-live.test.ts` | 6 test cho VAD |
+
+Module **Reading** không bị đụng tới (mọi thay đổi là additive).
+
+## 7. Cách dùng
+
+1. `/app/speaking` → chọn đề Cambridge → **Luyện nói trực tiếp**.
+2. Chọn giọng giám khảo (`en-GB` / `en-US`), bật/tắt follow-up.
+3. Bấm **Bắt đầu** → cấp quyền mic → giám khảo hỏi, bạn trả lời; VAD tự chuyển câu.
+4. Hết bài → upload → chấm → hiện band trên 4 tiêu chí (dùng lại `SpeakingResult`).
+
+## 8. Giới hạn đã biết
+
+- Follow-up sinh động chậm (6–15 s với `gemini-3.8-flash`): mặc định **tắt**; bật thì cần chấp nhận
+  độ trễ, hoặc đổi `AI_MODEL_LIVE=claude-haiku-5-5` (3.6 s).
+- Web Speech (Chrome/Edge) chỉ dùng làm transcript phụ cho bộ não giám khảo; transcript chính thức
+  do Gemini đọc từ audio nên không phụ thuộc trình duyệt.
+- Provider chỉ có 2 giọng cố định → nhãn `en-GB`/`en-US` là lựa chọn giữa hai giọng có sẵn, chưa phải
+  accent tùy ý.
+- Chưa hỗ trợ WebRTC thật (cần gateway riêng) — xem mục 1.

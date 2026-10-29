@@ -31,11 +31,16 @@ const FUNCTIONS = [
   'admin-skills',
   'process-ai-jobs',
   'grade-skill',
+  'submit-speaking',
+  'speaking-live',
 ]
 
 const args = process.argv.slice(2)
 const secretsOnly = args.includes('--secrets-only')
 const skipWorker = args.includes('--skip-worker')
+/** Chỉ deploy giửi hạn được chỉ định: --only=submit-speaking,process-ai-jobs */
+const onlyArg = args.find((arg) => arg.startsWith('--only='))
+const onlyNames = onlyArg ? onlyArg.slice('--only='.length).split(',').map((name) => name.trim()).filter(Boolean) : []
 
 /** Đọc .env.local (không dùng --env-file vì file nằm ở thư mục cha của script). */
 function readEnvFile() {
@@ -85,7 +90,8 @@ function run(label, commandArgs) {
 }
 
 if (!secretsOnly) {
-  const targets = skipWorker ? FUNCTIONS.filter(name => name !== 'process-ai-jobs') : FUNCTIONS
+  const targets = (skipWorker ? FUNCTIONS.filter(name => name !== 'process-ai-jobs') : FUNCTIONS)
+    .filter((name) => !onlyNames.length || onlyNames.includes(name))
   for (const name of targets) {
     if (!run(`deploy ${name}`, ['functions', 'deploy', name, '--project-ref', projectRef])) {
       console.error(`\nDừng vì deploy ${name} thất bại.`)
@@ -106,6 +112,9 @@ const secretValues = [
   ['ADMIN_PASSWORD', env.ADMIN_PASSWORD],
   ['AI_MODEL_GRADING', env.AI_MODEL_GRADING],
   ['AI_MODEL_EXTRACTION', env.AI_MODEL_EXTRACTION],
+  ['AI_MODEL_AUDIO', env.AI_MODEL_AUDIO],
+  ['AI_MODEL_LIVE', env.AI_MODEL_LIVE],
+  ['AI_MODEL_VOICE', env.AI_MODEL_VOICE],
   ['ALLOWED_ORIGINS', env.ALLOWED_ORIGINS],
 ].filter(([, value]) => Boolean(value))
 

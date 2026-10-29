@@ -1,20 +1,18 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router'
-import { Layers, MessageSquare, Mic, Puzzle } from 'lucide-react'
+import { Clock3, FileText, GraduationCap, ListChecks, Mic, Play, Search, X } from 'lucide-react'
 
 import { Empty, PageHeader } from '../components/ui'
 import { useCopy } from '../i18n'
 import { loadSpeakingTests, type SpeakingQuestion } from '../lib/speaking.ts'
-import { groupSpeakingTests, type SpeakingTestGroup } from '../lib/speakingLogic.ts'
-
-const BOOKS = [12, 13, 14, 15, 16, 17, 18, 19, 20]
+import { groupSpeakingTests, speakingDisplayTestNumber, type SpeakingMode, type SpeakingTestGroup } from '../lib/speakingLogic.ts'
 
 export default function Speaking() {
   const { c } = useCopy()
   const [rows, setRows] = useState<SpeakingQuestion[]>([])
-  const [book, setBook] = useState<number>(BOOKS[0])
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
+  const [selected, setSelected] = useState<SpeakingTestGroup | null>(null)
 
   useEffect(() => {
     let alive = true
@@ -30,50 +28,35 @@ export default function Speaking() {
 
   const groups = useMemo(() => groupSpeakingTests(rows), [rows])
 
-  const books = useMemo(() => {
-    const found = [...new Set(groups.map((group) => group.bookNumber))].sort((a, b) => a - b)
-    return found.length ? found : BOOKS
-  }, [groups])
-
   const visible = useMemo(() => {
     const keyword = search.trim().toLowerCase()
-    return groups.filter((group) => {
-      if (group.bookNumber !== book) return false
-      if (!keyword) return true
-      return groupMatches(group, keyword)
-    })
-  }, [groups, book, search])
+    return keyword ? groups.filter((group) => groupMatches(group, keyword)) : groups
+  }, [groups, search])
 
   return (
-    <div className="page">
+    <div className="page speaking-page">
       <PageHeader
         eyebrow={c('LUYỆN NÓI', 'SPEAKING')}
         title={c('Luyện nói', 'Speaking practice')}
         description={c(
-          'Đề Speaking Cambridge 12–20. Chọn cuốn, chọn test, rồi luyện từng part hoặc luyện cả 3 phần.',
-          'Cambridge 12–20 Speaking tests. Pick a book and a test, then drill one part or all three.',
+          'Chọn đề Cambridge 12–20 để luyện cả bài hoặc từng phần.',
+          'Choose a Cambridge 12–20 test to practise all three parts or one at a time.',
         )}
       />
 
-      <div className="mt-6 flex flex-wrap items-center gap-3">
-        <input
-          type="search"
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder={c('Tìm chủ đề…', 'Search topics…')}
-          aria-label={c('Tìm chủ đề', 'Search topics')}
-        />
-        <div className="filter-row" role="group" aria-label={c('Chọn cuốn Cambridge', 'Choose a Cambridge book')}>
-          {books.map((number) => (
-            <button
-              key={number}
-              type="button"
-              className={`filter-chip ${book === number ? 'is-active' : ''}`}
-              onClick={() => setBook(number)}
-            >
-              {`C${number}`}
-            </button>
-          ))}
+      <div className="speaking-filters">
+        <div className="speaking-search">
+          <Search size={18} aria-hidden />
+          <input
+            type="search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder={c('Tìm đề hoặc chủ đề…', 'Search tests or topics…')}
+            aria-label={c('Tìm chủ đề', 'Search topics')}
+          />
+        </div>
+        <div className="filter-row">
+          <span className="filter-chip is-active">Cambridge</span>
         </div>
       </div>
 
@@ -87,19 +70,20 @@ export default function Speaking() {
         <Empty
           title={c('Chưa có đề', 'No tests yet')}
           description={c(
-            'Đề Speaking Cambridge 12–20 sẽ xuất hiện ở đây.',
-            'Cambridge 12–20 speaking tests will appear here.',
+            search ? 'Thử tìm đề hoặc chủ đề khác.' : 'Đề Speaking Cambridge 12–20 sẽ xuất hiện ở đây.',
+            search ? 'Try searching for another test or topic.' : 'Cambridge 12–20 speaking tests will appear here.',
           )}
         />
       )}
 
       {!loading && visible.length > 0 && (
-        <div className="flex flex-col gap-4 mt-6">
+        <div className="speaking-grid">
           {visible.map((group) => (
-            <TestCard key={`${group.bookNumber}-${group.testNumber}`} group={group} />
+            <TestCard key={`${group.bookNumber}-${group.testNumber}`} group={group} onChoose={() => setSelected(group)} />
           ))}
         </div>
       )}
+      {selected && <SpeakingTestDialog group={selected} onClose={() => setSelected(null)} />}
     </div>
   )
 }
@@ -116,87 +100,100 @@ function groupMatches(group: SpeakingTestGroup, keyword: string): boolean {
   return haystack.includes(keyword)
 }
 
-function TestCard({ group }: { group: SpeakingTestGroup }) {
+function TestCard({ group, onChoose }: { group: SpeakingTestGroup; onChoose: () => void }) {
   const { c } = useCopy()
-  const base = `/app/speaking`
-  const parts: Array<{
-    key: string
-    icon: typeof MessageSquare
-    label: string
-    topic: string
-    to: string | null
-  }> = []
-
-  if (group.part1) {
-    parts.push({
-      key: 'part-1',
-      icon: MessageSquare,
-      label: 'Part 1',
-      topic: group.part1.topic,
-      to: `${base}/part-1/${group.bookNumber}/${group.testNumber}`,
-    })
-  }
-  if (group.part2) {
-    parts.push({
-      key: 'part-2',
-      icon: Layers,
-      label: 'Part 2',
-      topic: group.part2.topic,
-      to: `${base}/part-2/${group.bookNumber}/${group.testNumber}`,
-    })
-  }
-  group.part3.forEach((row, index) => {
-    parts.push({
-      key: `part-3-${index}`,
-      icon: Puzzle,
-      label: c('Part 3', 'Part 3'),
-      topic: row.topic,
-      to: `${base}/part-3/${group.bookNumber}/${group.testNumber}?question=${row.id}`,
-    })
-  })
+  const partCount = Number(Boolean(group.part1)) + Number(Boolean(group.part2)) + Number(group.part3.length > 0)
 
   return (
-    <section className="panel">
-      <div className="panel-heading">
-        <div>
-          <p className="eyebrow">{group.label}</p>
-          <h2>{c('Test', 'Test')} {group.testNumber}</h2>
-        </div>
-        <Link
-          className="button primary small"
-          to={`${base}/mock/${group.bookNumber}/${group.testNumber}`}
-        >
-          <Mic size={15} aria-hidden /> {c('Luyện cả 3 phần', 'All three parts')}
-        </Link>
+    <article className="speaking-card" aria-label={group.label}>
+      <div className="speaking-card-badges">
+        <span className="speaking-badge"><Mic size={12} aria-hidden /> SPEAKING</span>
+        <span className="speaking-card-kind">{c('Đề luyện', 'Practice')}</span>
       </div>
 
-      {group.sourceLabel && (
-        <p className="muted text-[12px] mb-3">
-          {c('Nguồn', 'Source')}: {group.sourceLabel}
-        </p>
-      )}
-
-      <ul className="flex flex-col gap-2">
-        {parts.map((part) => (
-          <li
-            key={part.key}
-            className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border)] pb-2 last:border-0"
-          >
-            <span className="flex items-center gap-2 text-[14px]">
-              <part.icon size={16} aria-hidden className="text-[var(--text-subtle)]" />
-              <strong>{part.label}</strong>
-              <span className="muted">{part.topic ?? c('(chưa có)', '(missing)')}</span>
-            </span>
-            {part.to ? (
-              <Link className="button small" to={part.to}>
-                {c('Luyện', 'Practice')}
-              </Link>
-            ) : (
-              <span className="muted text-[12px]">{c('Thiếu dữ liệu', 'Missing data')}</span>
-            )}
-          </li>
-        ))}
+      <p className="speaking-card-book">CAMBRIDGE {group.bookNumber}</p>
+      <h2>Test {speakingDisplayTestNumber(group.bookNumber, group.testNumber)}</h2>
+      <ul className="speaking-card-meta" aria-label={c('Thông tin đề', 'Test details')}>
+        <li><ListChecks size={14} aria-hidden /> {partCount} {c('phần', 'parts')}</li>
+        {partCount === 3 && <li><Clock3 size={14} aria-hidden /> {c('14 phút', '14 min')}</li>}
+        <li><GraduationCap size={14} aria-hidden /> IELTS</li>
       </ul>
-    </section>
+
+      <button
+        type="button"
+        className="speaking-start"
+        onClick={onChoose}
+        aria-haspopup="dialog"
+        aria-label={`${c('Bắt đầu', 'Start')} ${group.label}`}
+      >
+        <Play size={15} aria-hidden /> {c('Bắt đầu', 'Start')}
+      </button>
+    </article>
+  )
+}
+
+function SpeakingTestDialog({ group, onClose }: { group: SpeakingTestGroup; onClose: () => void }) {
+  const { c } = useCopy()
+  const dialog = useRef<HTMLDialogElement>(null)
+  const [mode, setMode] = useState<SpeakingMode>(group.part1 && group.part2 && group.part3.length ? 'mock' : group.part1 ? 'part-1' : group.part2 ? 'part-2' : 'part-3')
+  const [questionId, setQuestionId] = useState(group.part3[0]?.id ?? '')
+  const parts = [
+    { mode: 'part-1' as const, name: 'Part 1', title: c('Phỏng vấn', 'Interview'), topic: group.part1?.topic, available: Boolean(group.part1) },
+    { mode: 'part-2' as const, name: 'Part 2', title: c('Nói dài theo chủ đề', 'Long turn'), topic: group.part2?.topic, available: Boolean(group.part2) },
+    { mode: 'part-3' as const, name: 'Part 3', title: c('Thảo luận', 'Discussion'), topic: group.part3.map(row => row.topic).join(' · '), available: group.part3.length > 0 },
+  ]
+  const complete = parts.every(part => part.available)
+  const query = mode === 'part-3' && questionId ? `&question=${encodeURIComponent(questionId)}` : ''
+  const to = `/app/speaking/${mode}/${group.bookNumber}/${group.testNumber}${query}`
+  const liveTo = `/app/speaking/live?mode=${mode}&book=${group.bookNumber}&test=${group.testNumber}${query}`
+
+  useEffect(() => {
+    const element = dialog.current
+    if (element && !element.open) element.showModal()
+  }, [])
+
+  return (
+    <dialog ref={dialog} className="modal speaking-dialog" aria-labelledby="speaking-test-title" aria-describedby="speaking-test-help" onClose={onClose} onClick={event => {
+      if (event.target === event.currentTarget) event.currentTarget.close()
+    }}>
+      <header className="speaking-dialog-header">
+        <div>
+          <p className="speaking-dialog-badges"><span className="speaking-badge"><Mic size={12} aria-hidden /> SPEAKING</span><span>IELTS</span></p>
+          <h2 id="speaking-test-title">{group.label}</h2>
+        </div>
+        <button type="button" className="icon-button" aria-label={c('Đóng', 'Close')} onClick={() => dialog.current?.close()}><X size={20} aria-hidden /></button>
+      </header>
+      <div className="speaking-dialog-body">
+        <p id="speaking-test-help" className="speaking-dialog-help">{c('Chọn luyện từng Part hoặc luyện đầy đủ cả 3 Part.', 'Practise one part or take the full three-part test.')}</p>
+        <fieldset className="speaking-mode-options">
+          <legend className="sr-only">{c('Chọn chế độ luyện', 'Choose practice mode')}</legend>
+          <label className="speaking-option speaking-full-option">
+            <input className="sr-only" type="radio" name="speaking-mode" value="mock" checked={mode === 'mock'} disabled={!complete} onChange={() => setMode('mock')} />
+            <span className="speaking-full-icon"><FileText size={20} aria-hidden /></span>
+            <span><strong>{c('Đề đầy đủ', 'Full test')}</strong><small>{complete ? c('Luyện liên tục Part 1, Part 2 và Part 3', 'Practise Part 1, Part 2 and Part 3 in order') : c('Đề chưa đủ 3 Part', 'This test is missing a part')}</small></span>
+          </label>
+          <p className="speaking-mode-divider">{c('Hoặc luyện theo từng phần', 'Or practise by part')}</p>
+          {parts.map(part => (
+            <label key={part.mode} className="speaking-option">
+              <input type="radio" name="speaking-mode" value={part.mode} checked={mode === part.mode} disabled={!part.available} onChange={() => setMode(part.mode)} />
+              <span className="speaking-part-badge">{part.name}</span>
+              <span><strong>{part.title}</strong><small>{part.topic || c('Chưa có câu hỏi', 'No questions available')}</small></span>
+            </label>
+          ))}
+        </fieldset>
+        {mode === 'part-3' && group.part3.length > 1 && (
+          <label className="speaking-topic-select">{c('Chủ đề Part 3', 'Part 3 topic')}
+            <select value={questionId} onChange={event => setQuestionId(event.target.value)}>
+              {group.part3.map(row => <option key={row.id} value={row.id}>{row.topic}</option>)}
+            </select>
+          </label>
+        )}
+        {group.sourceLabel && <details className="speaking-dialog-source"><summary>{c('Nguồn đề', 'Test source')}</summary><p>{group.sourceLabel}</p></details>}
+      </div>
+      <footer className="speaking-dialog-footer">
+        <Link className="speaking-start" to={to} onClick={() => dialog.current?.close()}><Play size={16} aria-hidden />{mode === 'mock' ? c('Bắt đầu đề đầy đủ', 'Start full test') : c(`Bắt đầu Part ${mode.slice(-1)}`, `Start Part ${mode.slice(-1)}`)}</Link>
+        <Link className="button outline" to={liveTo} onClick={() => dialog.current?.close()}><Mic size={16} aria-hidden />{c('Luyện nói trực tiếp', 'Practise live')}</Link>
+      </footer>
+    </dialog>
   )
 }
