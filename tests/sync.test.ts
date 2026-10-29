@@ -1,5 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { isSupportedWritingTask } from '../src/data/prompts.ts'
 import {
   cardKindToDb,
   dbCardKindToCard,
@@ -27,6 +28,16 @@ const row: EssayRow = {
   draft_version: 3,
   updated_at: '2026-10-24T10:00:00Z',
 }
+
+test('only Academic Task 1 and Task 2 can start new writing; legacy drafts keep their task', () => {
+  assert.equal(isSupportedWritingTask('task2'), true)
+  assert.equal(isSupportedWritingTask('academic_task1'), true)
+  for (const task of ['general_task1', 'task1_general', 'unknown', '', null, undefined]) {
+    assert.equal(isSupportedWritingTask(task), false)
+  }
+  assert.equal(essayRowToDraft({ ...row, task_type: 'general_task1', body_text: 'Saved letter' }).task, 'general_task1')
+  assert.equal(essayRowToDraft({ ...row, task_type: 'general_task1', body_text: 'Saved letter' }).text, 'Saved letter')
+})
 
 test('essay rows keep the client id stored in the draft jsonb', () => {
   assert.equal(draftClientId(row), 'local-1')

@@ -10,6 +10,7 @@ export type GradingQuestion = {
   order: number;
   answerKey: string;
   acceptedAnswers: string[];
+  answerGroup?: string;
 };
 
 export type GradingResultItem = {
@@ -185,14 +186,23 @@ export function gradeQuestions(
   questions: GradingQuestion[],
   answers: Record<string, string>,
 ): GradingResultItem[] {
+  const usedAnswers = new Map<string, Set<string>>();
   return questions.map((question) => {
     const userAnswer = (answers[String(question.order)] ?? "").trim();
     const key = question.answerKey ?? "";
     const accepted = question.acceptedAnswers ?? [];
-    const isCorrect = Boolean(key) && (
+    let isCorrect = Boolean(key) && (
       matchesAnswerKey(userAnswer, key) ||
       accepted.some((alternative) => matchesAnswerKey(userAnswer, alternative))
     );
+    if (isCorrect && question.answerGroup) {
+      const matched = [key, ...accepted].find(answer => matchesAnswerKey(userAnswer, answer))!;
+      const canonical = normalize(matched);
+      const used = usedAnswers.get(question.answerGroup) ?? new Set<string>();
+      isCorrect = !used.has(canonical);
+      if (isCorrect) used.add(canonical);
+      usedAnswers.set(question.answerGroup, used);
+    }
     return {
       order: question.order,
       isCorrect,

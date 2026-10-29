@@ -51,27 +51,26 @@ await page.getByLabel('Password').fill(password)
 await page.getByRole('button', { name: 'Create account', exact: true }).click()
 await page.waitForURL((url) => !url.pathname.startsWith('/auth'), { timeout: 30000 })
 
-// 2. Hub Speaking: chọn cuốn Cambridge.
+// 2. Hub Speaking: toàn bộ đề trong mục Cambridge.
 await page.goto(`${base}/app/speaking`)
 await page.locator('.page').waitFor()
-const chips = page.locator('.filter-chip')
-await chips.first().waitFor()
-const chipCount = await chips.count()
-check('hub có chip cho 9 cuốn Cambridge', chipCount === 9)
-check('chip đầu tiên là Cambridge 12', (await chips.first().innerText()).trim() === 'C12')
+await page.locator('.speaking-card').first().waitFor()
+check('hub gộp vào một mục Cambridge', (await page.locator('.speaking-filters .filter-row').innerText()).trim() === 'Cambridge')
+const search = page.getByRole('searchbox')
+await search.fill('Cambridge 12')
 
-// 3. Mỗi test có 4 dòng part + nút luyện cả 3 phần.
-const testHeading = page.getByRole('heading', { name: /Test 5/ }).first()
+// 3. Chọn đề → chọn đề đầy đủ hoặc một trong 3 Part.
+const testHeading = page.getByRole('heading', { name: 'Test 1', exact: true }).first()
 await testHeading.waitFor()
-const allParts = page.getByRole('link', { name: 'Practice', exact: true })
-check('4 test × 4 nút Luyện (P1, P2, P3A, P3B)', (await allParts.count()) === 16)
-const fullButtons = page.getByRole('link', { name: /All three parts/i })
+const fullButtons = page.locator('.speaking-card .speaking-start')
 check('mỗi test có nút luyện cả 3 phần', (await fullButtons.count()) === 4)
+await fullButtons.first().click()
+check('hộp chọn có đủ đề đầy đủ và 3 Part', (await page.getByRole('dialog').getByRole('radio').count()) === 4)
+await page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }).click()
 
-// 4. Đổi cuốn → danh sách test đổi theo.
-await chips.nth(2).click()
-await page.waitForTimeout(400)
-check('đổi cuốn vẫn hiện 4 test', (await page.getByRole('link', { name: 'Practice', exact: true }).count()) === 16)
+// 4. Tìm cuốn khác → danh sách test đổi theo.
+await search.fill('Cambridge 14')
+check('đổi cuốn vẫn hiện 4 test', (await page.locator('.speaking-start').count()) === 4)
 
 // 5. Mở phòng luyện Part 2 → bắt đầu → nhận cue card.
 await page.goto(`${base}/app/speaking/part-2/14/1`)
@@ -89,10 +88,11 @@ check('lượt đầu là Part 1', await page.getByText('PART-1', { exact: false
 
 // 7. Part 3 chủ đề B đi vào đúng chủ đề.
 await page.goto(`${base}/app/speaking`)
-await page.getByRole('button', { name: 'C14', exact: true }).click()
-await page.waitForTimeout(400)
-const part3Links = page.getByRole('link', { name: 'Practice', exact: true })
-await part3Links.nth(2).click()
+await search.fill('Cambridge 14')
+await page.locator('.speaking-card .speaking-start').first().click()
+await page.getByRole('dialog').locator('input[value=part-3]').check()
+await page.getByRole('dialog').getByLabel('Part 3 topic').selectOption({ index: 1 })
+await page.getByRole('dialog').getByRole('link', { name: 'Start Part 3', exact: true }).click()
 await page.getByRole('button', { name: 'Start', exact: true }).click()
 await page.getByText(/Turn 1 \/ 1/).waitFor({ timeout: 30000 })
 check('Part 3 chủ đề B mở đúng lượt', true)

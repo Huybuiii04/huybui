@@ -32,6 +32,8 @@ export const spaRoutes = [
 // Chỉ liệt kê file public thật sự tồn tại trong thư mục public/.
 export const staticFiles = [
   '/favicon.svg',
+  '/favicon.png',
+  '/brand/ielts-studio-mark.webp',
   '/donate-qr.png',
   '/og-image.png',
   '/robots.txt',

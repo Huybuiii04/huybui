@@ -79,6 +79,7 @@ test('groupSpeakingTests gom dòng theo cuốn và test', () => {
   assert.equal(groups.length, 2)
   assert.equal(groups[0].bookNumber, 12)
   assert.equal(groups[0].testNumber, 5)
+  assert.equal(groups[0].label, 'Cambridge 12 · Test 1')
   assert.equal(groups[0].part1?.topic, 'Health')
   assert.equal(groups[0].part2?.topic, 'Waiting')
   assert.deepEqual(groups[0].part3.map((row) => row.topic), ['Arriving early', 'Being patient'])
@@ -87,7 +88,11 @@ test('groupSpeakingTests gom dòng theo cuốn và test', () => {
 })
 
 test('speakingTestLabel đặt nhãn cuốn và test', () => {
-  assert.equal(speakingTestLabel(12, 5), 'Cambridge 12 · Test 5')
+  for (const [source, display] of [[5, 1], [6, 2], [7, 3], [8, 4]]) {
+    assert.equal(speakingTestLabel(12, source), `Cambridge 12 · Test ${display}`)
+  }
+  for (const number of [1, 4, 9]) assert.equal(speakingTestLabel(12, number), `Cambridge 12 · Test ${number}`)
+  assert.equal(speakingTestLabel(13, 5), 'Cambridge 13 · Test 5')
 })
 
 test('formatBand hiển thị 1 chữ số', () => {

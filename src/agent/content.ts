@@ -7,10 +7,10 @@ export type ContentPage = { id: string; path: string; title: Copy; summary: Copy
 export const home: ContentPage = {
   id: 'home',
   path: '/',
-  title: ['IELTS Writing Studio — luyện IELTS Writing miễn phí', 'IELTS Writing Studio — free IELTS Writing practice'],
+  title: ['IELTS Studio — luyện IELTS miễn phí', 'IELTS Studio — free IELTS practice'],
   summary: [
-    'Không gian luyện IELTS Writing Task 1 và Task 2: chọn đề, viết bài, nhận chấm theo band và lưu lại từ vựng của riêng bạn.',
-    'A free practice space for IELTS Writing Task 1 and Task 2: pick a prompt, write an essay, get band-style feedback and keep your own vocabulary.',
+    'Không gian luyện IELTS miễn phí: Reading, Writing, nhận xét theo band và sổ từ vựng. Listening và Speaking đang phát triển.',
+    'A free IELTS studio for Reading, Writing, band-style feedback and your own vocabulary. Listening and Speaking are in development.',
   ],
   sections: [
     {
@@ -27,7 +27,7 @@ export const home: ContentPage = {
         ],
       ],
       list: [
-        ['Task 1 (Academic & General) và Task 2', 'Task 1 (Academic & General) and Task 2'],
+        ['Task 1 Academic và Task 2', 'Task 1 Academic and Task 2'],
         ['Chấm bài theo band, có sổ lỗi sai lặp lại', 'Band scoring with a repeatable error logbook'],
         ['Từ vựng ôn theo lịch, không mất trình độ', 'Vocabulary reviewed on a schedule, so progress sticks'],
         ['Không paywall, không quảng cáo', 'No paywalls and no advertising'],
@@ -77,7 +77,7 @@ export const home: ContentPage = {
 export const about: ContentPage = {
   id: 'about',
   path: '/about',
-  title: ['Về IELTS Writing Studio', 'About IELTS Writing Studio'],
+  title: ['Về IELTS Studio', 'About IELTS Studio'],
   summary: [
     'Một dự án cá nhân xây dựng để việc luyện IELTS Writing trở nên công khai, có phản hồi thật và không tốn tiền.',
     'A one-person project built to make IELTS Writing practice open, genuinely feedback-driven and free to use.',
@@ -88,8 +88,8 @@ export const about: ContentPage = {
       heading: ['Mục tiêu', 'What this project is for'],
       body: [
         [
-          'IELTS Writing Studio là không gian luyện viết dành riêng cho IELTS Writing Task 1 và Task 2. Học viên chọn một đề trong thư viện, viết trong không gian viết có lưu nháp tự động, rồi nhận chấm bài theo đúng tiêu chí band của IELTS kèm nhận xét chi tiết và các lỗi thường gặp được gom vào sổ lỗi sai.',
-          'IELTS Writing Studio is a practice space built only for IELTS Writing Task 1 and Task 2. Learners pick a prompt from the library, write in an editor that saves drafts automatically, then receive band-style grading against the real IELTS criteria together with detailed notes and the recurring mistakes collected into an error logbook.',
+          'IELTS Studio là không gian luyện viết dành riêng cho IELTS Writing Task 1 và Task 2. Học viên chọn một đề trong thư viện, viết trong không gian viết có lưu nháp tự động, rồi nhận chấm bài theo đúng tiêu chí band của IELTS kèm nhận xét chi tiết và các lỗi thường gặp được gom vào sổ lỗi sai.',
+          'IELTS Studio is a practice space built only for IELTS Writing Task 1 and Task 2. Learners pick a prompt from the library, write in an editor that saves drafts automatically, then receive band-style grading against the real IELTS criteria together with detailed notes and the recurring mistakes collected into an error logbook.',
         ],
         [
           'Mọi nội dung học tập — kho đề, khung bài, mẫu bài và thẻ từ vựng — đều mở cho mọi người, không có bậc trả phí và không có quảng cáo. Đóng góp tự nguyện giúp duy trì hạ tầng và phát triển thêm tài liệu.',
@@ -120,8 +120,8 @@ export const about: ContentPage = {
           'The project is maintained by a single developer based in Vietnam, with the source code published on GitHub. Feedback on content, translations or the learning experience is welcome through the contact page.',
         ],
         [
-          'IELTS Writing Studio là công cụ luyện tập độc lập, không phải sản phẩm của IELTS, IDP hoặc British Council, và không được các tổ chức này bảo trợ hay chứng nhận. Điểm trong ứng dụng là ước lượng theo tiêu chí band công khai, không phải điểm chính thức.',
-          'IELTS Writing Studio is an independent practice tool. It is not a product of IELTS, IDP or the British Council and is not endorsed or sponsored by them. The scores shown in the app are estimates based on the public band descriptors, not official results.',
+          'IELTS Studio là công cụ luyện tập độc lập, không phải sản phẩm của IELTS, IDP hoặc British Council, và không được các tổ chức này bảo trợ hay chứng nhận. Điểm trong ứng dụng là ước lượng theo tiêu chí band công khai, không phải điểm chính thức.',
+          'IELTS Studio is an independent practice tool. It is not a product of IELTS, IDP or the British Council and is not endorsed or sponsored by them. The scores shown in the app are estimates based on the public band descriptors, not official results.',
         ],
       ],
     },

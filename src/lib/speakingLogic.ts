@@ -127,9 +127,14 @@ export type SpeakingTestGroup = {
   part3: SpeakingTestRow[]
 }
 
+/** Số hiển thị; giữ nguyên số gốc để truy vấn đề và bài làm cũ. */
+export function speakingDisplayTestNumber(bookNumber: number, testNumber: number): number {
+  return bookNumber === 12 && testNumber >= 5 && testNumber <= 8 ? testNumber - 4 : testNumber
+}
+
 /** Nhãn hiển thị của một test Cambridge. */
 export function speakingTestLabel(bookNumber: number, testNumber: number): string {
-  return `Cambridge ${bookNumber} · Test ${testNumber}`
+  return `Cambridge ${bookNumber} · Test ${speakingDisplayTestNumber(bookNumber, testNumber)}`
 }
 
 /**

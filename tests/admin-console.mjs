@@ -34,7 +34,7 @@ try {
     const guestContext = await browser.newContext({ viewport: { width: 1440, height: 1000 } })
     const guest = await signIn(guestContext, userEmail, userPassword)
     await guest.goto(`${base}/app`)
-    await guest.locator('.dashboard-hero').waitFor({ timeout: 30000 })
+    await guest.locator('.dashboard-page').waitFor({ timeout: 30000 })
     // Không có mục quản trị trong menu, cũng không có thẻ quản trị trên dashboard.
     assert.equal(await guest.getByRole('link', { name: /Bảng quản trị|Administration/ }).count(), 0, 'Người thường không được thấy mục quản trị')
     assert.equal(await guest.locator('.admin-quick-panel').count(), 0, 'Người thường không được thấy thẻ quản trị trên dashboard')
@@ -50,7 +50,7 @@ try {
 
   // Menu bên có mục "Bảng quản trị" và dashboard có thẻ số liệu quản trị.
   await page.goto(`${base}/app`)
-  await page.locator('.dashboard-hero').waitFor({ timeout: 30000 })
+  await page.locator('.dashboard-page').waitFor({ timeout: 30000 })
   await page.locator('.admin-quick-panel').waitFor({ timeout: 30000 })
   const miniStats = await page.locator('.admin-mini-stat').count()
   assert.ok(miniStats >= 4, `Thẻ quản trị trên dashboard phải có ít nhất 4 số liệu, thấy ${miniStats}`)

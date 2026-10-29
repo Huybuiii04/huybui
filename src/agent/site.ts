@@ -2,10 +2,10 @@
 import { escapeHtml } from './html.ts'
 
 export const site = {
-  name: 'IELTS Writing Studio',
+  name: 'IELTS Studio',
   url: 'https://huybui.vercel.app',
   description:
-    'IELTS Writing Studio is a free practice space for IELTS Writing Task 1 and Task 2: ready-made prompts, AI grading with band feedback, a personal vocabulary and a review loop that keeps your progress visible.',
+    'IELTS Studio is a free practice space for Reading, Writing, band feedback, personal vocabulary and review. Listening and Speaking are in development.',
 } as const
 
 export const ogImage = `${site.url}/og-image.png`
@@ -61,6 +61,6 @@ export function buildHeadTags(input: { path: string; title: string; description:
     `<meta name="twitter:title" content="${title}">`,
     `<meta name="twitter:description" content="${description}">`,
     `<meta name="twitter:image" content="${ogImage}">`,
-    `<link rel="icon" href="/favicon.svg" type="image/svg+xml">`,
+    `<link rel="icon" href="/favicon.png" type="image/png">`,
   ].join('\n    ')
 }

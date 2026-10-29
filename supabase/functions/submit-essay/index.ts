@@ -54,6 +54,9 @@ Deno.serve(async (request) => {
       .maybeSingle();
     if (essayResult.error) throw databaseError("load the essay");
     const essay = essayResult.data;
+    if (essay && essay.task_type !== "task2" && essay.task_type !== "academic_task1") {
+      throw new AppError(400, "task_not_supported", "This writing task is no longer supported");
+    }
     if (!essay) throw new AppError(404, "essay_not_found", "Essay not found");
     if (essay.status !== "active") {
       throw new AppError(409, "essay_not_active", "The essay is being deleted and cannot be submitted");

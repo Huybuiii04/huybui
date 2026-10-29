@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
 import { ArrowRight, Mail, PenLine } from 'lucide-react'
-import { Brand, LanguageSwitch } from '../components/Layout'
+import { Brand, LanguageSwitch, ThemeToggle } from '../components/Layout'
 import { Notice } from '../components/ui'
 import { useCopy } from '../i18n'
 import { useAuth } from '../lib/auth'
@@ -86,7 +86,7 @@ export function Auth() {
   const title = mode === 'login' ? c('Chào mừng trở lại.', 'Welcome back.') : mode === 'signup' ? c('Một hành trình mới.', 'A new chapter.') : mode === 'forgot' ? c('Quên mật khẩu?', 'Forgot your password?') : c('Đặt lại mật khẩu', 'Reset your password')
   const subtitle = mode === 'login' ? c('Đăng nhập để đồng bộ bài viết của bạn.', 'Sign in to sync your essays across devices.') : mode === 'signup' ? c('Đăng ký xong là dùng được ngay, không cần xác nhận email.', 'Register and you are in — no email confirmation needed.') : mode === 'forgot' ? c('Chúng tôi sẽ gửi link đặt lại mật khẩu tới email của bạn.', 'We will email you a link to reset your password.') : c('Chọn mật khẩu mới cho tài khoản.', 'Choose a new password for your account.')
 
-  return <div className="auth-page"><div className="auth-top"><Brand /><LanguageSwitch /></div><div className="auth-card panel"><span className="task-icon teal"><PenLine size={25} /></span><h1>{title}</h1><p>{subtitle}</p>
+  return <div className="auth-page"><div className="auth-top"><Brand /><div className="auth-controls"><ThemeToggle /><LanguageSwitch /></div></div><div className="auth-card panel"><span className="task-icon teal"><PenLine size={25} /></span><h1>{title}</h1><p>{subtitle}</p>
     {!configured && <Notice>{c('Chưa cấu hình kết nối máy chủ. Đăng nhập tạm thời không khả dụng.', 'The server connection is not configured. Signing in is unavailable for now.')}</Notice>}
     {error && <Notice error>{c(...AUTH_ERROR_MESSAGES[error])}</Notice>}
     {notice && <Notice>{notice}</Notice>}

@@ -17,7 +17,7 @@ const assetPrefix = 'assets/'
 // tests/middleware.test.ts kiểm tra đúng điều đó.
 export const config = {
   runtime: 'nodejs',
-  matcher: ['/((?!assets/|favicon\\.svg|donate-qr\\.png|og-image\\.png|robots\\.txt|sitemap\\.xml|llms\\.txt).*)'],
+  matcher: ['/((?!assets/|favicon\\.svg|favicon\\.png|brand/ielts-studio-mark\\.webp|donate-qr\\.png|og-image\\.png|robots\\.txt|sitemap\\.xml|llms\\.txt).*)'],
 }
 
 // Đuôi file của tài nguyên kỹ thuật: thiếu file thì trả 404 HTML, không bao giờ Markdown,

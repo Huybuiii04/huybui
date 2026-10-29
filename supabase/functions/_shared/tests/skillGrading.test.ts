@@ -1,6 +1,21 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { bandFromRaw, matchesAnswerKey } from '../skillGrading.ts'
+import { bandFromRaw, gradeQuestions, matchesAnswerKey } from '../skillGrading.ts'
+
+test('two answer slots award partial credit, accept either order and reject duplicate choices', () => {
+  const questions = [
+    { order: 11, answerKey: 'A', acceptedAnswers: ['C'], answerGroup: '11-12' },
+    { order: 12, answerKey: 'C', acceptedAnswers: ['A'], answerGroup: '11-12' },
+  ]
+  const score = answers => gradeQuestions(questions, answers).filter(item => item.isCorrect).length
+  assert.equal(score({ 11: 'A', 12: 'C' }), 2)
+  assert.equal(score({ 11: 'C', 12: 'A' }), 2)
+  assert.equal(score({ 11: 'A' }), 1)
+  assert.equal(score({ 11: 'B', 12: 'C' }), 1)
+  assert.equal(score({ 11: 'A', 12: 'a' }), 1)
+  assert.equal(score({ 11: 'C', 12: 'c' }), 1)
+  assert.equal(score({ 11: 'B', 12: 'F' }), 0)
+})
 
 test('bandFromRaw follows the Cambridge academic table', () => {
   assert.equal(bandFromRaw(40, 40), 9)

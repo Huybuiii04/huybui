@@ -305,7 +305,7 @@ function optionalUuidArray(record: Record<string, unknown>, field: string, maxIt
 
 function parseTaskType(value: unknown, field: string): TaskType | null {
   if (value === undefined || value === null) return null;
-  if (value !== "task2" && value !== "academic_task1" && value !== "general_task1") {
+  if (value !== "task2" && value !== "academic_task1") {
     fail(field, "Unknown task type");
   }
   return value;

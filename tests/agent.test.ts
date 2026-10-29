@@ -84,6 +84,8 @@ test('removed api, docs and developer resources are not routable', () => {
 test('static file list contains only files that really exist', () => {
   assert.deepEqual(staticFiles, [
     '/favicon.svg',
+    '/favicon.png',
+    '/brand/ielts-studio-mark.webp',
     '/donate-qr.png',
     '/og-image.png',
     '/robots.txt',
@@ -415,21 +417,13 @@ function collectCopyPairs(
   return found
 }
 
-test('the shared landing copy keeps the wording the React landing shows today', () => {
-  assert.deepEqual(landingCopy.heroTitle, ['Ý tưởng của bạn.', 'Your ideas.'])
-  assert.deepEqual(landingCopy.heroAccent, ['Diễn đạt ', 'Beautifully '])
-  assert.deepEqual(landingCopy.heroEmphasis, ['tốt hơn.', 'expressed.'])
-  assert.deepEqual(landingCopy.primaryCta, ['Bắt đầu viết', 'Start writing'])
-  assert.deepEqual(landingCopy.secondaryCta, ['Xem bài mẫu', 'Explore sample feedback'])
-  assert.deepEqual(landingCopy.explore, ['Khám phá cách học', 'Find your learning flow'])
-  assert.deepEqual(landingCopy.learningTitle, ['Một nơi. Trọn vẹn hành trình.', 'Your whole journey, in one place.'])
-  assert.deepEqual(landingCopy.ctaTitle, ['Tri thức tốt hơn khi được sẻ chia.', 'Learning is better when it is shared.'])
-  assert.deepEqual(landingCopy.features.map(feature => feature.href), ['/app/write', '/app/prompts', '/app/vocabulary'])
-  assert.deepEqual(landingCopy.features.map(feature => feature.title[1]), [
-    'Write with purpose',
-    'Pick a prompt',
-    'Make new words yours',
-  ])
+test('the shared landing copy follows the four-skill reference and marks upcoming modules', () => {
+  assert.deepEqual(landingCopy.heroTitle, ['Bốn kỹ năng.', 'Four skills.'])
+  assert.deepEqual(landingCopy.primaryCta, ['Bắt đầu học', 'Start learning'])
+  assert.deepEqual(landingCopy.features.map(feature => feature.id), ['listening', 'reading', 'writing', 'speaking', 'vocabulary'])
+  assert.deepEqual(landingCopy.features.filter(feature => feature.comingSoon).map(feature => feature.id), ['listening', 'speaking'])
+  assert.equal(landingCopy.features.find(feature => feature.id === 'reading')?.href, '/app/reading')
+  assert.equal(landingCopy.features.find(feature => feature.id === 'writing')?.href, '/app/write')
 })
 
 test('the static landing html ships both language variants of every shared string', () => {
@@ -452,24 +446,8 @@ test('the static landing html ships both language variants of every shared strin
 
 test('the static landing mirrors the React landing structure and links', () => {
   const html = renderLandingHtml()
-  for (const className of [
-    'landing',
-    'landing-nav',
-    'landing-stage',
-    'landing-intro',
-    'landing-perks',
-    'landing-explore',
-    'studio-preview',
-    'studio-body',
-    'studio-meta',
-    'studio-insight',
-    'landing-learning',
-    'landing-features',
-    'landing-feature',
-    'landing-cta',
-    'landing-footer',
-  ]) {
-    assert.ok(html.includes(`class="${className}"`), `static landing is missing .${className}`)
+  for (const className of ['landing', 'landing-nav', 'landing-stage', 'landing-intro', 'skill-art', 'landing-learning', 'landing-features', 'landing-feature', 'landing-rhythm', 'learning-steps', 'landing-feedback', 'sample-score', 'landing-cta', 'landing-footer']) {
+    assert.ok(new RegExp(`class="[^"\\n]*\\b${className}\\b`).test(html), `static landing is missing .${className}`)
   }
   assert.equal((html.match(/<h1[\s>]/g) ?? []).length, 1, 'static landing needs exactly one h1')
   for (const href of [
@@ -551,22 +529,23 @@ function runThemeBootstrap(storage: { getItem(key: string): string | null }, sys
 
 test('the shared theme bootstrap applies the app theme to every static page', () => {
   assert.equal(themeStorageKey, 'ielts-theme')
-  assert.equal(defaultTheme, 'dark')
+  assert.equal(defaultTheme, 'light')
 
   const readKeys: string[] = []
   const withoutStoredTheme = runThemeBootstrap({
     getItem: key => { readKeys.push(key); return null },
   })
-  assert.equal(withoutStoredTheme.theme, 'dark', 'a page without a stored theme must use the dark default')
-  assert.equal(withoutStoredTheme.colorScheme, 'dark')
+  assert.equal(withoutStoredTheme.theme, 'light', 'a page without a stored theme must use the light default')
+  assert.equal(withoutStoredTheme.colorScheme, 'light')
   assert.deepEqual(readKeys, [themeStorageKey], 'the bootstrap must read the app theme key')
+  assert.equal(runThemeBootstrap({ getItem: () => null }, true).theme, 'light', 'dark OS settings must not override the default')
 
   assert.equal(runThemeBootstrap({ getItem: () => 'light' }).theme, 'light', 'a stored light theme must win')
   assert.equal(runThemeBootstrap({ getItem: () => 'dark' }).theme, 'dark')
   assert.equal(
     runThemeBootstrap({ getItem: () => { throw new Error('storage is blocked') } }).theme,
-    'dark',
-    'unreadable storage must fall back to the dark default',
+    'light',
+    'unreadable storage must fall back to the light default',
   )
   assert.equal(
     runThemeBootstrap({ getItem: () => 'system' }).theme,
@@ -603,7 +582,7 @@ function runLanguageScript(storage: { getItem(key: string): string | null }, sto
       attributes,
       getAttribute: (name: string) => attributes[name] ?? null,
       setAttribute: (name: string, value: string) => { attributes[name] = value },
-      closest: () => button,
+      closest: (selector: string) => selector.includes('data-lang-switch') ? button : null,
     }
     return button
   }
@@ -681,50 +660,12 @@ test('the static landing keeps single-language footer labels readable in the raw
 
 // ---------- Drift giữa bản React và bản HTML tĩnh ----------
 
-// Trích mọi href của component Landing trong React: giá trị ghi cứng trong
-// source, các href động lấy từ copy dùng chung, và link của Brand dùng chung.
-function reactLandingHrefs() {
+test('React renders the same escaped HTML used by the static landing', () => {
   const source = readFileSync(join(process.cwd(), 'src', 'pages', 'Other.tsx'), 'utf8')
-  const start = source.indexOf('export function Landing()')
-  const end = source.indexOf('export function Donate()')
-  assert.ok(start > 0 && end > start, 'could not locate the Landing component')
-  const body = source.slice(start, end)
-  const hrefs = new Set<string>()
-  for (const match of body.matchAll(/(?:href|to)=(?:"([^"]+)"|\{([^}]+)\})/g)) {
-    const literal = match[1]
-    if (literal) {
-      hrefs.add(literal)
-      continue
-    }
-    const expression = (match[2] ?? '').trim()
-    // Link động của component: danh sách tính năng và link footer.
-    if (/^(item|feature)\.href$/.test(expression)) {
-      for (const feature of landingCopy.features) hrefs.add(feature.href)
-      continue
-    }
-    if (/^(link|footerLink)\.href$/.test(expression)) {
-      for (const link of landingCopy.footerLinks) hrefs.add(link.href)
-      continue
-    }
-    hrefs.add(`<unresolved:${expression}>`)
-  }
-  // Brand dùng chung render link tới không gian học tập.
-  const layout = readFileSync(join(process.cwd(), 'src', 'components', 'Layout.tsx'), 'utf8')
-  const brand = layout.slice(layout.indexOf('export function Brand()'), layout.indexOf('export function LanguageSwitch()'))
-  for (const match of brand.matchAll(/(?:href|to)="([^"]+)"/g)) hrefs.add(match[1])
-  return hrefs
-}
-
-test('the React landing and the static landing expose exactly the same links', () => {
-  const reactHrefs = reactLandingHrefs()
-  const staticHrefs = new Set([...renderLandingHtml().matchAll(/href="([^"]+)"/g)].map(match => match[1]))
-  assert.ok(reactHrefs.size > 0, 'no links found in the React landing')
-  assert.deepEqual(
-    [...reactHrefs].filter(value => value.startsWith('<')).sort(),
-    [],
-    'every dynamic href of the React landing must be resolvable',
-  )
-  assert.deepEqual([...reactHrefs].sort(), [...staticHrefs].sort())
+  assert.match(source, /const landingMarkup = renderLandingHtml\(\)/)
+  assert.match(source, /dangerouslySetInnerHTML=\{\{ __html: landingMarkup \}\}/)
+  const hrefs = [...renderLandingHtml().matchAll(/href="([^"]+)"/g)].map(match => match[1])
+  for (const href of ['/app', '/app/reading', '/app/write', '/app/vocabulary', '/app/essays/demo', '/donate']) assert.ok(hrefs.includes(href), href)
 })
 
 // ---------- Plugin build: phải fail loudly khi marker đổi ----------
@@ -760,5 +701,6 @@ test('the page plugin injects the landing content and the language script', () =
   assert.ok(output.includes(`localStorage.setItem("${languageStorageKey}"`), 'the language script must persist the choice')
   const trust = transformPage(validEntry, '/pages/about.html')
   assert.ok(trust.includes('class="doc-shell"'), 'the trust page markup must be injected')
-  assert.ok(!trust.includes('data-lang-switch'), 'the trust pages are English only and need no language switch')
+  assert.ok(trust.includes('data-lang-switch'), 'trust pages share the language switch')
+  assert.ok(trust.includes('data-theme-switch'), 'trust pages share the theme switch')
 })

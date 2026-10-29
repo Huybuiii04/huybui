@@ -132,6 +132,8 @@ export function parseOptions(raw: unknown): SkillOption[] {
  * Kiểu `matching` (không rõ) thử lần lượt từng nguồn.
  */
 const MATCHING_OPTION_SOURCES: Record<string, readonly string[]> = {
+  'summary-completion': ['phraseOptions'],
+  'sentence-ending': ['sentenceEndings'],
   'matching-heading': ['headings'],
   'matching-feature': ['featureOptions'],
   'matching-info': ['sectionLabels'],
@@ -147,6 +149,8 @@ const MATCHING_OPTION_SOURCES: Record<string, readonly string[]> = {
 type MatchingLabelStyle = 'roman' | 'letter' | 'own'
 
 const MATCHING_LABEL_STYLE: Record<string, MatchingLabelStyle | undefined> = {
+  phraseOptions: 'letter',
+  sentenceEndings: 'letter',
   headings: 'roman',
   featureOptions: 'letter',
   sectionLabels: 'own',
@@ -257,7 +261,9 @@ export function matchingOptionsFor(group: SkillQuestionGroup): SkillOption[] {
  * matching bị ghi nhầm kiểu `fill` nên sẽ rơi về ô nhập chữ thay vì danh sách.
  */
 export function isMatchingDisplayType(displayType: SkillDisplayType): boolean {
-  return displayType === 'matching-heading'
+  return displayType === 'summary-completion'
+    || displayType === 'sentence-ending'
+    || displayType === 'matching-heading'
     || displayType === 'matching-info'
     || displayType === 'matching-feature'
     || displayType === 'matching'

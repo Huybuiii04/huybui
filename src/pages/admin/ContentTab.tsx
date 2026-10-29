@@ -5,6 +5,7 @@ import { Empty } from '../../components/ui'
 import { AI_ERROR_MESSAGES } from '../../lib/aiLogic'
 import { adminContentAction } from '../../lib/ai'
 import { supabase } from '../../lib/supabase'
+import { isSupportedWritingTask } from '../../data/prompts'
 
 type ContentRow = { id: string; slug: string; kind: string; status: string; sort_order: number; task_type: string | null }
 
@@ -16,7 +17,7 @@ export function ContentTab({ onError, onBusy, busy }: { onError: (value: string)
   const load = useCallback(async () => {
     setLoading(true)
     const { data } = await supabase.from('content_entries').select('id,slug,kind,status,sort_order,task_type').order('sort_order', { ascending: true }).limit(200)
-    setRows((data ?? []) as ContentRow[])
+    setRows(((data ?? []) as ContentRow[]).filter(row => row.task_type === null || isSupportedWritingTask(row.task_type)))
     setLoading(false)
   }, [])
 

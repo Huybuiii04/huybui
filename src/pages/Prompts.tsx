@@ -2,8 +2,8 @@
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import { ArrowRight, CloudOff, FileText, FileUp, PenLine, Plus, Search, Sparkles, Timer, Trash2, Upload, X } from 'lucide-react'
 import { useCopy } from '../i18n'
-import { useStore, type CustomPrompt, type Task } from '../lib/store'
-import { chartTypes, topicLibrary, type PromptItem, type TaskKind } from '../data/prompts'
+import { useStore, type CustomPrompt } from '../lib/store'
+import { chartTypes, isSupportedWritingTask, topicLibrary, type PromptItem, type TaskKind } from '../data/prompts'
 import { backendConfigured, loadChartTypes, loadPrompts, loadTopics, type PromptChartType, type PromptTopic } from '../lib/promptRepository'
 import { ChartPreview } from '../components/ChartPreview'
 import { Empty, Notice, PageHeader } from '../components/ui'
@@ -14,7 +14,8 @@ export default function Prompts() {
   const { state, addPrompt, removePrompt } = useStore()
   const [params, setParams] = useSearchParams()
   const navigate = useNavigate()
-  const task = (params.get('task') ?? 'task2') as TaskKind
+  const requestedTask = params.get('task')
+  const task = isSupportedWritingTask(requestedTask) ? requestedTask : 'task2'
   const tab = params.get('tab') ?? 'ready'
   const [query, setQuery] = useState('')
   const [customOpen, setCustomOpen] = useState(false)
@@ -24,13 +25,12 @@ export default function Prompts() {
   const taskOptions: { id: TaskKind; label: string; minutes: number }[] = [
     { id: 'task2', label: 'Task 2', minutes: 40 },
     { id: 'academic_task1', label: 'Task 1 Academic', minutes: 20 },
-    { id: 'general_task1', label: 'Task 1 General', minutes: 20 },
   ]
   const ownAsPrompts: (PromptItem & { file?: CustomPrompt['file'] })[] = state.prompts.filter(item => item.task === task).map(item => ({
     slug: item.id,
-    task: item.task,
+    task,
     subtype: 'own',
-    typeLabel: item.task === 'general_task1' ? 'LETTER' : 'ESSAY',
+    typeLabel: item.task === 'academic_task1' ? 'REPORT' : 'ESSAY',
     source: 'recalled',
     difficulty: 'MEDIUM',
     topics: [],
@@ -91,7 +91,7 @@ export default function Prompts() {
   return <>
     <PageHeader eyebrow={c('KHO ĐỀ BÀI', 'PROMPT LIBRARY')} title={c('Luyện đề thi thử IELTS Writing', 'IELTS Writing practice tests')} description={c('Chọn chủ đề, xem các đề bên trong rồi thi thử có tính giờ hoặc luyện tập có hướng dẫn từ AI.', 'Pick a topic, browse the questions inside it, then run a timed mock or practise with AI guidance.')} />
 
-    <section className="library-banner prompt-banner"><div><span className="eyebrow">{c('LOẠI BÀI', 'TASK TYPE')}</span><h2>{c('Chọn loại bài bạn muốn luyện', 'Choose the task you want to practise')}</h2><p>{c('Task 2 là bài luận 40 phút. Task 1 Academic là báo cáo biểu đồ, Task 1 General là bài thư — cả hai 20 phút.', 'Task 2 is a 40-minute essay. Task 1 Academic is a chart report and Task 1 General is a letter — both 20 minutes.')}</p></div></section>
+    <section className="library-banner prompt-banner"><div><span className="eyebrow">{c('LOẠI BÀI', 'TASK TYPE')}</span><h2>{c('Chọn loại bài bạn muốn luyện', 'Choose the task you want to practise')}</h2><p>{c('Task 2 là bài luận 40 phút. Task 1 Academic là báo cáo biểu đồ trong 20 phút.', 'Task 2 is a 40-minute essay. Task 1 Academic is a 20-minute chart report.')}</p></div></section>
     <div className="task-type-cards" role="radiogroup" aria-label={c('Loại bài', 'Task type')}>{taskOptions.map(option => <button role="radio" aria-checked={task === option.id} key={option.id} className={`task-type-card ${task === option.id ? 'active' : ''}`} onClick={() => setParam('task', option.id)}><span className="task-type-radio" /><div><strong>{option.label}</strong><small>{option.minutes} {c('phút', 'min')}</small></div></button>)}</div>
 
     <div className="tabs"><button className={tab === 'ready' ? 'active' : ''} aria-pressed={tab === 'ready'} onClick={() => setParam('tab', 'ready')}>{c('Đề chứa làm', 'Ready prompts')}</button><button className={tab === 'history' ? 'active' : ''} aria-pressed={tab === 'history'} onClick={() => setParam('tab', 'history')}>{c('Lịch sử bài làm', 'Your attempts')}</button></div>
@@ -222,7 +222,7 @@ function HistoryTab({ task }: { task: TaskKind }) {
   const { state } = useStore()
   const rows = state.drafts.filter(draft => draft.task === task).sort((a, b) => b.updatedAt - a.updatedAt)
   if (!rows.length) return <div className="panel"><Empty title={c('Chưa có bài nào', 'Nothing here yet')} description={c('Bài bạn viết từ kho đề sẽ xuất hiện tại đây.', 'Essays you write from this library will appear here.')} action={<Link className="button primary" to="/app/prompts"><PenLine size={17} />{c('Chọn một đề', 'Pick a prompt')}</Link>} /></div>
-  return <div className="panel prompt-history">{rows.map(draft => <Link className="prompt-history-row" to={`/app/write?id=${draft.id}`} key={draft.id}><span className="file-icon"><FileText size={20} /></span><div><strong>{draft.title || draft.prompt.slice(0, 60) || c('Bài viết chưa đặt tên', 'Untitled draft')}</strong><small>{draft.task === 'task2' ? 'Task 2' : draft.task === 'academic_task1' ? 'Task 1 Academic' : 'Task 1 General'} · {countWords(draft.text)} {c('từ', 'words')} · {new Date(draft.updatedAt).toLocaleDateString(language === 'vi' ? 'vi-VN' : 'en-GB')}</small></div><ArrowRight size={17} /></Link>)}</div>
+  return <div className="panel prompt-history">{rows.map(draft => <Link className="prompt-history-row" to={`/app/write?id=${draft.id}`} key={draft.id}><span className="file-icon"><FileText size={20} /></span><div><strong>{draft.title || draft.prompt.slice(0, 60) || c('Bài viết chưa đặt tên', 'Untitled draft')}</strong><small>{draft.task === 'task2' ? 'Task 2' : draft.task === 'academic_task1' ? 'Task 1 Academic' : c('Bài viết đã lưu', 'Saved essay')} · {countWords(draft.text)} {c('từ', 'words')} · {new Date(draft.updatedAt).toLocaleDateString(language === 'vi' ? 'vi-VN' : 'en-GB')}</small></div><ArrowRight size={17} /></Link>)}</div>
 }
 
 function CustomPromptDialog({ open, onClose, onSave }: { open: boolean; onClose: () => void; onSave: (values: Omit<CustomPrompt, 'id' | 'createdAt'>) => Promise<void> }) {
@@ -253,9 +253,11 @@ function CustomPromptDialog({ open, onClose, onSave }: { open: boolean; onClose:
     event.preventDefault()
     const form = event.currentTarget
     const data = new FormData(form)
+    const task = data.get('task')
+    if (!isSupportedWritingTask(task)) return
     setBusy(true)
     void onSave({
-      task: (data.get('task') as Task) ?? 'task2',
+      task,
       title: String(data.get('title')).trim() || c('Đề của tôi', 'My question'),
       text: String(data.get('text')).trim(),
       reference: String(data.get('reference')).trim(),
@@ -266,7 +268,7 @@ function CustomPromptDialog({ open, onClose, onSave }: { open: boolean; onClose:
   }
   return <dialog ref={dialog} className="modal" onClose={onClose}><form onSubmit={submit}>
     <div className="section-heading"><h2>{c('Thêm đề bài của bạn', 'Add your own question')}</h2><button type="button" className="icon-button" onClick={onClose} aria-label={c('Đóng', 'Close')}><X size={20} /></button></div>
-    <div className="field"><label htmlFor="custom-task">{c('Loại bài', 'Task type')}</label><select id="custom-task" name="task" defaultValue="task2"><option value="task2">Task 2</option><option value="academic_task1">Task 1 Academic</option><option value="general_task1">Task 1 General</option></select></div>
+    <div className="field"><label htmlFor="custom-task">{c('Loại bài', 'Task type')}</label><select id="custom-task" name="task" defaultValue="task2"><option value="task2">Task 2</option><option value="academic_task1">Task 1 Academic</option></select></div>
     <div className="field"><label htmlFor="custom-title">{c('Tiêu đề', 'Title')}</label><input id="custom-title" name="title" maxLength={120} placeholder={c('Ví dụ: Bài thi tháng 3', 'e.g. Mock exam, March')} /></div>
     <div className="field"><label htmlFor="custom-text">{c('Nội dung đề bài (tiếng Anh)', 'Prompt text (English)')}</label><textarea id="custom-text" name="text" required rows={5} maxLength={6000} placeholder={c('Dán nội dung đề bài vào đây…', 'Paste the question here…')} /></div>
     <div className="field"><label htmlFor="custom-reference">{c('Dữ liệu / mô tả tham chiếu (nếu có)', 'Reference data (optional)')}</label><textarea id="custom-reference" name="reference" rows={3} maxLength={20000} placeholder={c('Số liệu, nhãn, đơn vị hoặc các bước của quy trình…', 'Figures, labels, units or process steps…')} /></div>

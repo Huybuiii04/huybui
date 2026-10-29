@@ -1,7 +1,7 @@
 /**
  * Siêu dữ liệu chủ đề cho kho đề bài.
  * Nạp vào public.prompt_topics (migration 007, 009) — key khớp với prompts.topics.
- * `task` null nghĩa là chủ đề dùng cho cả ba loại bài.
+ * `task` null nghĩa là chủ đề dùng cho cả hai loại bài.
  */
 
 export type SeedTopic = {
@@ -11,7 +11,7 @@ export type SeedTopic = {
   descriptionVi: string
   descriptionEn: string
   subtopics: string[]
-  task?: 'task2' | 'academic_task1' | 'general_task1'
+  task?: 'task2' | 'academic_task1'
   sortOrder: number
 }
 

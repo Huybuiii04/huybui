@@ -1418,15 +1418,15 @@ export function SpeakingRecorder({ part, disabled, onRecorded, onError }: Props)
       <input ref={fileRef} type="file" accept="audio/*" className="hidden" onChange={onFileChange} />
       <div className="flex items-center gap-3">
         {recording ? (
-          <button type="button" className="btn btn-primary" onClick={stop}>
+          <button type="button" className="button primary" onClick={stop}>
             <Square size={16} /> {c('Dừng', 'Stop')} {Math.floor(elapsed / 1000)}s
           </button>
         ) : (
-          <button type="button" className="btn btn-primary" disabled={disabled} onClick={() => void start()}>
+          <button type="button" className="button primary" disabled={disabled} onClick={() => void start()}>
             <Mic size={16} /> {c('Ghi âm', 'Record')}
           </button>
         )}
-        <button type="button" className="btn" disabled={disabled || recording} onClick={pickFile}>
+        <button type="button" className="button outline" disabled={disabled || recording} onClick={pickFile}>
           <Upload size={16} /> {c('Tải file lên', 'Upload a file')}
         </button>
         <span className="muted text-[12px]">{Math.floor(limit / 1000)}s {c('tối đa', 'max')} · 4 MB</span>
@@ -1473,7 +1473,7 @@ import type { SpeakingTurnPlan } from '../../lib/speaking.ts'
 export function SpeakingTurnPrompt({ turn }: { turn: SpeakingTurnPlan }) {
   const { c } = useCopy()
   return (
-    <div className="card flex flex-col gap-3">
+    <div className="panel">
       <div className="eyebrow">{turn.part.toUpperCase()} · {turn.orderIndex + 1}</div>
       {turn.cueCard ? (
         <>
@@ -1517,7 +1517,7 @@ export function SpeakingResult({ result }: { result: SpeakingResultView }) {
   const turns = result.feedback.turns ?? []
   return (
     <div className="flex flex-col gap-6">
-      <div className="card flex items-center gap-6">
+      <div className="panel flex items-center gap-6">
         <div>
           <p className="eyebrow">{c('Band ước tính', 'Estimated band')}</p>
           <p className="text-5xl font-black">{formatBand(result.overallDisplay)}</p>
@@ -1533,7 +1533,7 @@ export function SpeakingResult({ result }: { result: SpeakingResultView }) {
       </div>
 
       {result.feedback.overall?.summary && (
-        <section className="card">
+        <section className="panel">
           <h3 className="mb-2">{c('Tổng quan', 'Overview')}</h3>
           <p className="text-[14px] leading-relaxed">{result.feedback.overall.summary}</p>
           {result.feedback.overall.priority_actions.length > 0 && (
@@ -1545,7 +1545,7 @@ export function SpeakingResult({ result }: { result: SpeakingResultView }) {
       )}
 
       {turns.map((turn, index) => (
-        <section key={turn.turnId} className="card flex flex-col gap-3">
+        <section key={turn.turnId} className="panel">
           <h3>{c(`Lần trả lời ${index + 1}`, `Turn ${index + 1}`)}</h3>
           <p className="text-[14px] leading-relaxed">{turn.summary}</p>
           {turn.criteria.map((criterion) => (
@@ -1564,7 +1564,7 @@ export function SpeakingResult({ result }: { result: SpeakingResultView }) {
       ))}
 
       {result.transcript && (
-        <section className="card">
+        <section className="panel">
           <h3 className="mb-2">{c('Lời bạn đã nói', 'What you said')}</h3>
           <p className="whitespace-pre-wrap text-[14px] leading-relaxed">{result.transcript}</p>
         </section>
@@ -1650,7 +1650,7 @@ export default function Speaking() {
       </div>
 
       <div className="mt-8 flex flex-wrap items-center gap-2">
-        <input className="input" placeholder={c('Tìm chủ đề…', 'Search topics…')} value={search} onChange={(event) => setSearch(event.target.value)} />
+        <input className="filter-input" placeholder={c('Tìm chủ đề…', 'Search topics…')} value={search} onChange={(event) => setSearch(event.target.value)} />
         <div className="filter-row">
           <button type="button" className={`filter-chip ${filter === '' ? 'is-active' : ''}`} onClick={() => setFilter('')}>{c('Tất cả', 'All')}</button>
           {(['part-1', 'part-2', 'part-3'] as SpeakingPart[]).map((part) => (
@@ -1763,9 +1763,9 @@ export default function SpeakingRoom() {
       />
       {error && <Notice error><div><strong>{c('Có lỗi xảy ra', 'Something went wrong')}</strong><p>{error}</p></div></Notice>}
       {!attempt && (
-        <div className="card">
+        <div className="panel">
           <p>{c('Bắt đầu để nhận câu hỏi.', 'Start to get your question.')}</p>
-          <button type="button" className="btn btn-primary" onClick={() => void start()}>{c('Bắt đầu', 'Start')}</button>
+          <button type="button" className="button primary" onClick={() => void start()}>{c('Bắt đầu', 'Start')}</button>
         </div>
       )}
       {attempt && turn && (

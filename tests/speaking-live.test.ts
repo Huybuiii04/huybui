@@ -2,6 +2,31 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
 import { createVad, rms } from '../src/lib/liveVad.ts'
+import { cachedVoice } from '../src/lib/liveAudio.ts'
+
+test('phát giọng dùng chung request đang tải trước, rồi dùng lại audio đã tải', async () => {
+  const cache = new Map<string, Promise<Blob>>()
+  let resolve!: (audio: Blob) => void
+  let calls = 0
+  const load = () => { calls += 1; return new Promise<Blob>(done => { resolve = done }) }
+  const prefetch = cachedVoice(cache, '0:1', load)
+  const playback = cachedVoice(cache, '0:1', load)
+  assert.equal(playback, prefetch)
+  assert.equal(calls, 1)
+  const audio = new Blob(['audio'], { type: 'audio/mpeg' })
+  resolve(audio)
+  assert.equal(await playback, audio)
+  assert.equal(await cachedVoice(cache, '0:1', load), audio)
+  assert.equal(calls, 1)
+})
+
+test('tải giọng lỗi không giữ request lỗi trong cache', async () => {
+  const cache = new Map<string, Promise<Blob>>()
+  await assert.rejects(cachedVoice(cache, '0:1', () => Promise.reject(new Error('voice_failed'))), /voice_failed/)
+  assert.equal(cache.size, 0)
+  const audio = new Blob(['retry'])
+  assert.equal(await cachedVoice(cache, '0:1', () => Promise.resolve(audio)), audio)
+})
 
 const QUIET = { calibrationMs: 0, minThreshold: 0.01, noiseFactor: 2 }
 

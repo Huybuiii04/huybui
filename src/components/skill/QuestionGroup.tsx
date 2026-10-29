@@ -1,7 +1,7 @@
-import { useMemo } from 'react'
+import { createElement, Fragment, useMemo, type ReactNode } from 'react'
 import { Flag } from 'lucide-react'
 import { useCopy } from '../../i18n'
-import { groupAnswerCount, sanitizeHtml, splitGroupHeading, splitHtmlByBlanks, type SkillQuestionGroup } from '../../lib/skillLogic.ts'
+import { groupAnswerCount, matchingOptionsFor, sanitizeHtml, splitGroupHeading, splitHtmlByBlanks, type SkillQuestionGroup } from '../../lib/skillLogic.ts'
 import { QuestionCard } from './QuestionCard.tsx'
 
 /**
@@ -13,6 +13,25 @@ const INLINE_TYPES = new Set([
   'note-completion', 'table-completion', 'summary-completion', 'sentence-completion', 'sentence-ending',
   'fill-blank',
 ])
+
+// Parse complete markup so inputs stay inside their original paragraphs and table cells.
+function completionContent(html: string, blank: (sourceNumber: number, key: string) => ReactNode): ReactNode {
+  const document = new DOMParser().parseFromString(html, 'text/html')
+  const render = (node: Node, key: string): ReactNode => {
+    if (node.nodeType === Node.TEXT_NODE) return splitHtmlByBlanks(node.textContent ?? '').map((segment, index) =>
+      segment.kind === 'blank' ? blank(segment.sourceNumber, `${key}-${index}`) : segment.html)
+    if (!(node instanceof Element)) return null
+    const props: Record<string, string> = { key }
+    for (const attribute of Array.from(node.attributes)) {
+      if (attribute.name === 'style') continue
+      const name = ({ class: 'className', colspan: 'colSpan', rowspan: 'rowSpan' } as Record<string, string>)[attribute.name] ?? attribute.name
+      props[name] = attribute.value
+    }
+    const children = Array.from(node.childNodes).map((child, index) => render(child, `${key}-${index}`))
+    return createElement(node.tagName.toLowerCase(), props, ...(children.length ? children : []))
+  }
+  return <Fragment>{Array.from(document.body.childNodes).map((node, index) => render(node, String(index)))}</Fragment>
+}
 
 /**
  * Một nhóm câu hỏi dùng chung một hướng dẫn.
@@ -50,6 +69,8 @@ export function QuestionGroup({
   const instruction = useMemo(() => sanitizeHtml(split.body), [split.body])
   // Số đáp án của nhóm ("Choose TWO correct answers") để câu mất đề bài mượn dùng.
   const answerCount = useMemo(() => groupAnswerCount(group), [group])
+  const sharedSlots = group.displayType === 'multiple-choice-2' && Number(group.config.answerSlots) > 1 && group.questions.length === group.config.answerSlots
+  const inlineOptions = matchingOptionsFor(group)
   const html = useMemo(() => {
     const first = group.questions.find(question => question.questionHtml.trim())
     return sanitizeHtml(first?.questionHtml ?? '')
@@ -77,31 +98,39 @@ export function QuestionGroup({
   // số trùng với một chỗ trống trong HTML, nếu không câu đó sẽ biến mất khỏi giao diện.
   const cardQuestions = useInline
     ? group.questions.filter(question => !blankIds.has(question.id))
-    : group.questions
+    : sharedSlots ? group.questions.slice(0, 1) : group.questions
 
   return <section className="skill-group">
     {split.heading && <h3 className="skill-group-title">{split.heading}</h3>}
     {instruction && <div className="skill-group-instruction" dangerouslySetInnerHTML={{ __html: instruction }} />}
 
     {useInline && <div className="skill-completion">
-      {segments.map((segment, index) => {
-        if (segment.kind === 'html') return <span key={index} dangerouslySetInnerHTML={{ __html: segment.html }} />
-        const id = blankIdByNumber[segment.sourceNumber] ?? ''
+      {completionContent(html, (sourceNumber, key) => {
+        const id = blankIdByNumber[sourceNumber] ?? ''
         // Chỗ trống không thuộc nhóm này (số câu trùng với nhóm khác của passage)
         // thì để nguyên dạng chữ, nhóm sở hữu câu đó sẽ vẽ ô nhập.
-        if (!id) return <span key={index} className="skill-inline-input">{segment.sourceNumber}</span>
+        if (!id) return <span key={key} className="skill-inline-input">{sourceNumber}</span>
         const isFlagged = flagged.has(id)
         // Ô nhập và nút cờ nằm cạnh nhau trong một span: nút cờ KHÔNG nằm trong
         // <label>/<form> nên bấm cờ không kích hoạt nhầm ô nhập.
-        return <span key={index} className="skill-inline-answer">
-          <input
+        const label = c(`Đáp án câu ${sourceNumber}`, `Answer for question ${sourceNumber}`)
+        return <span key={key} className="skill-inline-answer">
+          {inlineOptions.length ? <select
+            className="skill-inline-input"
+            value={answers[id] ?? ''}
+            onChange={event => onAnswer(id, event.target.value)}
+            aria-label={label}
+          >
+            <option value="">{sourceNumber}</option>
+            {inlineOptions.map(option => <option key={option.key} value={option.key}>{option.key}. {option.text}</option>)}
+          </select> : <input
             className="skill-inline-input"
             type="text"
             value={answers[id] ?? ''}
             onChange={event => onAnswer(id, event.target.value)}
-            aria-label={c(`Đáp án câu ${segment.sourceNumber}`, `Answer for question ${segment.sourceNumber}`)}
-            placeholder="________"
-          />
+            aria-label={label}
+            placeholder={`${sourceNumber} ________`}
+          />}
           <button
             type="button"
             className={`skill-flag skill-flag-inline ${isFlagged ? 'is-active' : ''}`}
@@ -119,11 +148,15 @@ export function QuestionGroup({
       key={question.id}
       question={question}
       number={numbers[question.id] ?? 0}
-      value={answers[question.id] ?? ''}
+      value={sharedSlots ? group.questions.map(item => answers[item.id]).filter(Boolean).join(',') : answers[question.id] ?? ''}
       flagged={flagged.has(question.id)}
       instructionHtml={group.instructionHtml}
       groupAnswerCount={answerCount}
-      onAnswer={value => onAnswer(question.id, value)}
+      onAnswer={value => {
+        if (!sharedSlots) { onAnswer(question.id, value); return }
+        const values = value.split(',').filter(Boolean)
+        group.questions.forEach((item, index) => onAnswer(item.id, values[index] ?? ''))
+      }}
       onToggleFlag={() => onToggleFlag(question.id)}
     />)}
   </section>

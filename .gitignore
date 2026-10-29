@@ -29,3 +29,8 @@ docs/research/_pdf/
 
 .vercel
 .env*
+
+# Tai lieu nguon (PDF) va artifact cua tool - khong commit
+Cambridge IELTS 12/
+debai/
+.playwright-mcp/

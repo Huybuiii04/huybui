@@ -15,12 +15,22 @@ if (!url || !secret) {
 
 const PRICING_VERSION = 'anthropic-pricing-v1'
 
+// Bang gia rieng cho model Gemini (doc audio trong module Speaking).
+// Bang `ai_pricing` co PK (pricing_version, model) nen 2 version khong dung nhau.
+const GEMINI_PRICING_VERSION = 'gemini-pricing-v1'
+
 /** input/output/cache-write/cache-read theo USD trên 1 triệu token. */
 const pricing = [
   { model: 'claude-sonnet-4-6', input: 3, output: 15, cacheWrite: 3.75, cacheRead: 0.3 },
   { model: 'claude-haiku-4-5', input: 1, output: 5, cacheWrite: 1.25, cacheRead: 0.1 },
   // Model đang dùng hiện tại (bên thứ 3) — cùng bậc giá Haiku.
   { model: 'claude-haiku-5-5', input: 1, output: 5, cacheWrite: 1.25, cacheRead: 0.1 },
+]
+
+// Gia audio cua gemini-3.8-flash CHUA duoc xac minh tu nguon chinh thuc.
+// Gia 0 se lam `estimate_ai_cost` tra null => estimated_cost_usd = null (khong ghi gia sai).
+const geminiPricing = [
+  { model: 'gemini-3.8-flash', input: 0, output: 0, cacheWrite: 0, cacheRead: 0 },
 ]
 
 const headers = {
@@ -51,10 +61,35 @@ if (!response.ok) {
   process.exit(1)
 }
 
+const geminiRows = geminiPricing.map(item => ({
+  pricing_version: GEMINI_PRICING_VERSION,
+  model: item.model,
+  input_per_million: item.input,
+  output_per_million: item.output,
+  cache_write_per_million: item.cacheWrite,
+  cache_read_per_million: item.cacheRead,
+  currency: 'USD',
+}))
+
+const geminiResponse = await fetch(`${url}/rest/v1/ai_pricing?on_conflict=pricing_version,model`, {
+  method: 'POST',
+  headers,
+  body: JSON.stringify(geminiRows),
+})
+if (!geminiResponse.ok) {
+  console.error('Loi nap ai_pricing (gemini):', geminiResponse.status, await geminiResponse.text())
+  process.exit(1)
+}
+
 const saved = await response.json()
 console.log(`Đã nạp ${saved.length} dòng giá cho ${PRICING_VERSION}:`)
 for (const row of saved) {
   console.log(`  ${row.model}: vào ${row.input_per_million}$ / ra ${row.output_per_million}$ / 1M token`)
 }
+console.log(`Da nap ${geminiRows.length} dong gia cho ${GEMINI_PRICING_VERSION}:`)
+for (const row of geminiRows) {
+  console.log(`  ${row.model}: chua xac minh gia audio => estimated_cost_usd = null`)
+}
+
 // Không gọi process.exit: để vòng lặp sự kiện tự kết thúc, tránh lỗi uv_close trên Windows.
 

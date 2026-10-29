@@ -1,6 +1,9 @@
 ﻿import type { ChartSpec } from '../components/ChartPreview'
 
-export type TaskKind = 'task2' | 'academic_task1' | 'general_task1'
+export type TaskKind = 'task2' | 'academic_task1'
+export function isSupportedWritingTask(task: unknown): task is TaskKind {
+  return task === 'task2' || task === 'academic_task1'
+}
 export type Difficulty = 'EASY' | 'MEDIUM' | 'HARD'
 export type Source = 'practice' | 'recalled' | 'predicted'
 
@@ -22,7 +25,6 @@ export type PromptItem = {
 }
 
 export type EssayType = { key: string; label: string; description: [string, string] }
-export type LetterType = { key: string; label: string; description: [string, string] }
 export type ChartType = { key: string; labelVi: string; labelEn: string; descriptionVi: string; descriptionEn: string; sortOrder: number }
 export type TopicType = { key: string; labelVi: string; labelEn: string; descriptionVi: string; descriptionEn: string; subtopics: string[]; sortOrder: number }
 
@@ -32,17 +34,6 @@ export const essayTypes: EssayType[] = [
   { key: 'problem', label: 'Problem-Solution', description: ['Phân tích nguyên nhân, hậu quả hoặc đề xuất cách giải quyết cụ thể.', 'Explore the causes, effects, or propose specific solutions.'] },
   { key: 'advantage', label: 'Advantage-Disadvantage', description: ['Thảo luận lợi ích và bất lợi của một vấn đề cụ thể.', 'Discuss the advantages and disadvantages of a specific issue.'] },
   { key: 'two-part', label: 'Two-part / Double Questions', description: ['Phân tích và viết bài luận trả lời hai câu hỏi cùng chủ đề.', 'Analyze and write an essay to answer two questions on the same topic.'] },
-]
-
-export const letterTypes: LetterType[] = [
-  { key: 'request', label: 'Request', description: ['Gửi yêu cầu hoặc hỏi thông tin về một vấn đề cụ thể.', 'Make a request or inquire about details related to a particular issue.'] },
-  { key: 'complaint', label: 'Complaint', description: ['Khiếu nại về một sự cố, dịch vụ kém hoặc trải nghiệm không tốt.', 'Complain about an incident, poor service, or unsatisfactory experience.'] },
-  { key: 'apology', label: 'Apology', description: ['Bày tỏ lời xin lỗi về một hành động hoặc sự cố cụ thể.', 'Express an apology for a specific action or event that occurred.'] },
-  { key: 'thanks', label: 'Thank-you', description: ['Cảm ơn sự giúp đỡ, lời mời hoặc một cử chỉ tốt đẹp.', 'Express gratitude for help, an invitation, or a kind gesture.'] },
-  { key: 'invitation', label: 'Invitation', description: ['Gửi lời mời đến một sự kiện, buổi gặp gỡ hoặc dịp đặc biệt.', 'Send an invitation to an event, gathering, or special occasion.'] },
-  { key: 'advice', label: 'Advice', description: ['Xin hoặc đưa ra lời khuyên về một tình huống cụ thể.', 'Request or provide advice related to a specific real-life circumstance.'] },
-  { key: 'explanation', label: 'Explanation', description: ['Giải thích lý do đứng sau một hành động, quyết định hoặc sự cố.', 'Explain the reason behind an action, decision, or incident.'] },
-  { key: 'recommendation', label: 'Recommendation', description: ['Giới thiệu một ứng viên, khóa học hoặc gợi ý một điều hữu ích.', 'Recommend someone for a job, course, or suggest something helpful.'] },
 ]
 
 /** 7 dạng biểu đồ của Task 1 Academic — fallback khi DB chưa có `prompt_chart_types`. */

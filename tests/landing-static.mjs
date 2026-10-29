@@ -28,7 +28,7 @@ const trustPaths = (process.env.TEST_TRUST_PATHS ?? '/about,/contact,/privacy')
   .map(path => path.trim())
   .filter(Boolean)
 
-const LANDING_SELECTORS = ['h1', '.landing-intro', '.studio-preview', '.landing-learning', '.landing-cta', '.landing-footer']
+const LANDING_SELECTORS = ['h1', '.landing-intro', '.skill-art', '.landing-learning', '.landing-cta', '.landing-footer']
 const VIEWPORTS = [
   { width: 1440, height: 1000 },
   { width: 390, height: 844 },
@@ -85,26 +85,11 @@ async function readBoxes(page) {
   }, LANDING_SELECTORS)
 }
 
-// React đã thay bản HTML tĩnh khi h1 không còn span data-copy và nav có
-// language-switch (chỉ React mới render).
+// React marks the enhanced copy of the exact same server-rendered markup.
 async function waitForReact(page, url, pageErrors = []) {
-  try {
-    await page.waitForFunction(
-      () => {
-        const heading = document.querySelector('h1')
-        if (!heading || heading.querySelectorAll('[data-copy]').length > 0) return false
-        return document.querySelector('.language-switch') !== null
-      },
-      undefined,
-      { timeout: 20000 },
-    )
-  } catch (error) {
-    const details = pageErrors.length ? ` — lỗi runtime: ${pageErrors.join(' | ')}` : ''
-    throw new Error(
-      `React không mount tại ${url} — bản HTML tĩnh chưa bị app thay thế ` +
-        `(${error instanceof Error ? error.message : String(error)})${details}`,
-    )
-  }
+  await page.locator('[data-landing-react]').waitFor({ timeout: 20000 }).catch(error => {
+    throw new Error(`React failed to mount at ${url}: ${error.message}; ${pageErrors.join(' | ')}`)
+  })
 }
 
 // Trang phải hiển thị đúng ngôn ngữ: bản tĩnh dùng data-lang, React dùng lang.
@@ -185,7 +170,7 @@ try {
   assert.ok(await rawPage.locator('a[href="/app/prompts"]').count() > 0, 'Landing tĩnh phải có link tới /app/prompts')
   assert.ok(await rawPage.locator('a[href="/app/write"]').count() > 0, 'Landing tĩnh phải có link tới /app/write')
   const heroText = (await rawPage.locator('.landing-intro > p').first().innerText()).replace(/\s+/g, ' ').trim()
-  assert.match(heroText, /IELTS Writing/, 'Landing tĩnh phải có nội dung hero')
+  assert.match(heroText, /Listening, Reading, Writing/, 'Landing tĩnh phải có nội dung hero')
   assert.ok(/data-copy=["']vi["']/.test(rawHtml), 'Bản HTML tĩnh phải chứa bản tiếng Việt (data-copy="vi")')
   assert.ok(/data-copy=["']en["']/.test(rawHtml), 'Bản HTML tĩnh phải chứa bản tiếng Anh (data-copy="en")')
   const note = (await rawPage.locator('.landing-note').innerText()).replace(/\s+/g, ' ').trim()
@@ -198,7 +183,7 @@ try {
   })
   const fallbackH1 = (await rawPage.locator('h1').first().innerText()).replace(/\s+/g, ' ').trim()
   assert.ok(
-    fallbackH1.includes('Your ideas'),
+    fallbackH1.includes('Four skills'),
     `Thiếu data-lang thì phải hiện tiếng Anh (h1: "${fallbackH1.slice(0, 60)}")`,
   )
   assert.equal(
@@ -271,7 +256,7 @@ try {
       if (language === 'vi') {
         const heading = (await reactPage.locator('h1').first().innerText()).replace(/\s+/g, ' ').trim()
         assert.ok(vietnameseChars.test(heading), `React phải hiện tiếng Việt (h1: ${heading.slice(0, 60)})`)
-        assert.ok(!heading.includes('Your ideas'), 'React không được ghi đè tiếng Việt đã lưu')
+        assert.ok(!heading.includes('Four skills'), 'React không được ghi đè tiếng Việt đã lưu')
       }
       await reactContext.close()
 

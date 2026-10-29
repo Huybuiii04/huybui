@@ -4,6 +4,7 @@ import { useCopy } from '../../i18n'
 import { Empty } from '../../components/ui'
 import { fetchPrompts, setPromptStatus, type AdminPrompt } from '../../lib/adminRepository'
 import { promptLabel, shortPrompt } from '../../lib/adminLogic'
+import { isSupportedWritingTask } from '../../data/prompts'
 
 export function PromptsTab({ onError, onBusy, busy }: { onError: (value: string) => void; onBusy: (value: boolean) => void; busy: boolean }) {
   const { c, language } = useCopy()
@@ -14,7 +15,7 @@ export function PromptsTab({ onError, onBusy, busy }: { onError: (value: string)
 
   const load = useCallback(async () => {
     setLoading(true)
-    setPrompts(await fetchPrompts())
+    setPrompts((await fetchPrompts()).filter(prompt => isSupportedWritingTask(prompt.task)))
     setLoading(false)
   }, [])
 

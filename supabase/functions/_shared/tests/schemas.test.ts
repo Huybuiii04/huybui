@@ -17,6 +17,16 @@ const jobId = "22222222-2222-4222-8222-222222222222";
 const idempotencyKey = "request-0001";
 
 describe("request schemas", () => {
+  it("rejects retired General Task 1 for new admin content", () => {
+    assert.throws(
+      () => parseAdminContent({ action: "upsert", entry: { kind: "prompt", slug: "legacy-letter", taskType: "general_task1" } }),
+      (error: unknown) => error instanceof SchemaError && error.field === "entry.taskType",
+    );
+    for (const taskType of ["task2", "academic_task1"]) {
+      const parsed = parseAdminContent({ action: "upsert", entry: { kind: "prompt", slug: "supported-task", taskType } });
+      assert.equal(parsed.entry.taskType, taskType);
+    }
+  });
   it("accepts a valid submit-essay request", () => {
     const parsed = parseSubmitEssay({
       essayId,

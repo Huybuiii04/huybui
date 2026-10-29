@@ -407,6 +407,7 @@ test('isPlaceholderPrompt detects a question whose stem is missing', () => {
 })
 
 test('isMatchingDisplayType covers every matching group', () => {
+  assert.equal(isMatchingDisplayType('sentence-ending'), true)
   assert.equal(isMatchingDisplayType('matching-heading'), true)
   assert.equal(isMatchingDisplayType('matching-info'), true)
   assert.equal(isMatchingDisplayType('matching-feature'), true)

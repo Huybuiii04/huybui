@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useBlocker, useSearchParams } from 'react-router'
+import { Link, Navigate, useBlocker, useSearchParams } from 'react-router'
 import { ArrowLeft, Check, ChevronRight, ImagePlus, Maximize2, PenLine, RefreshCw, Save, Sparkles, Timer, X, ZoomIn } from 'lucide-react'
 import { useCopy } from '../i18n'
 import { useStore, type Draft, type Task } from '../lib/store'
 import { countWords, validateImages } from '../lib/learning'
 import { loadPromptBySlug } from '../lib/promptRepository'
+import { isSupportedWritingTask } from '../data/prompts'
 import { Notice, PageHeader } from '../components/ui'
 import { GradingResult } from '../components/GradingResult'
 import { ChartPreview, type ChartSpec } from '../components/ChartPreview'
@@ -30,21 +31,33 @@ type TaskSeed = {
   image?: string
 }
 
-const TASK_LABELS: Record<Task, string> = {
+const TASK_LABELS: Partial<Record<Task, string>> = {
   task2: 'Task 2',
   academic_task1: 'Task 1 Academic',
-  general_task1: 'Task 1 General',
 }
 
 export default function Writing() {
+  const { c } = useCopy()
   const [params, setParams] = useSearchParams()
-  const { state } = useStore()
+  const { state, ready } = useStore()
   const newId = useRef(crypto.randomUUID())
   useEffect(() => {
     if (!params.get('id')) { const next = new URLSearchParams(params); next.set('id', newId.current); setParams(next, { replace: true }) }
   }, [params, setParams])
   const existing = state.drafts.find(draft => draft.id === params.get('id'))
-  if (!params.get('id')) return null
+  if (!ready || !params.get('id')) return null
+  if (existing && !isSupportedWritingTask(existing.task)) return <>
+    <PageHeader title={existing.title || c('Bài viết đã lưu', 'Saved essay')} description={c('Loại bài này đã ngừng hỗ trợ. Nội dung đã lưu vẫn được giữ để bạn xem lại.', 'This task is no longer supported. Your saved writing remains available to read.')} action={<Link className="button outline" to="/app/prompts">{c('Kho đề bài', 'Prompt library')}</Link>} />
+    <article className="panel prose">
+      <h2>{c('Đề bài', 'Task prompt')}</h2><p style={{ whiteSpace: 'pre-wrap' }}>{existing.prompt}</p>
+      {existing.reference && <p style={{ whiteSpace: 'pre-wrap' }}>{existing.reference}</p>}
+      {existing.images.map((image, index) => image.url && <img key={index} src={image.url} alt={image.name} style={{ maxWidth: '100%' }} />)}
+      <h2>{c('Bài viết của bạn', 'Your writing')}</h2><p style={{ whiteSpace: 'pre-wrap' }}>{existing.text || c('Bài viết còn trống.', 'This essay is still empty.')}</p>
+      <Link className="text-link" to={`/app/essays/${existing.id}`}>{c('Xem kết quả', 'View feedback')}</Link>
+    </article>
+  </>
+  const own = state.prompts.find(item => item.id === params.get('custom'))
+  if (!existing && ((params.has('task') && !isSupportedWritingTask(params.get('task'))) || (own && !isSupportedWritingTask(own.task)))) return <Navigate to="/app/prompts" replace />
   return <Editor key={params.get('id')} id={params.get('id')!} existing={existing} task={params.get('task')} promptSlug={params.get('prompt')} customId={params.get('custom')} mode={params.get('mode') === 'mock' ? 'mock' : 'practice'} />
 }
 
@@ -53,11 +66,14 @@ function Editor({ id, existing, task, promptSlug, customId, mode }: { id: string
   const { saveDraft, state, ready, signedIn, remoteRef, addCard } = useStore()
   const own = state.prompts.find(item => item.id === customId)
   const [seed, setSeed] = useState<TaskSeed | null>(null)
+  const [loadingSeed, setLoadingSeed] = useState(Boolean(promptSlug))
   useEffect(() => {
     let active = true
     if (!promptSlug) return
     void loadPromptBySlug(promptSlug).then(item => {
-      if (!active || !item) return
+      if (!active) return
+      setLoadingSeed(false)
+      if (!item) return
       setSeed({ task: item.task, text: item.text, reference: item.reference ?? '', title: item.title, chart: item.chart, subtype: item.subtype, typeLabel: item.typeLabel })
     })
     return () => { active = false }
@@ -72,7 +88,7 @@ function Editor({ id, existing, task, promptSlug, customId, mode }: { id: string
   const activeSeed = seed ?? ownSeed
   const seedTitle = activeSeed?.title ? (language === 'en' ? activeSeed.title[1] : activeSeed.title[0]) : ''
   const chosenTask = (activeSeed?.task ?? own?.task ?? task) as Task
-  const [draft, setDraft] = useState<Draft>(() => existing ?? { id, title: own?.title ?? '', task: ['task2', 'academic_task1', 'general_task1'].includes(chosenTask) ? chosenTask : 'task2', subtype: chosenTask === 'general_task1' ? 'formal' : 'line', prompt: own?.text ?? '', text: '', reference: own?.reference ?? '', images: own?.file?.kind === 'image' ? [{ name: own.file.name, url: own.file.url }] : [], target: state.profile.target, updatedAt: 0 })
+  const [draft, setDraft] = useState<Draft>(() => existing ?? { id, title: own?.title ?? '', task: isSupportedWritingTask(chosenTask) ? chosenTask : 'task2', subtype: 'line', prompt: own?.text ?? '', text: '', reference: own?.reference ?? '', images: own?.file?.kind === 'image' ? [{ name: own.file.name, url: own.file.url }] : [], target: state.profile.target, updatedAt: 0 })
   const [status, setStatus] = useState<'saved' | 'saving' | 'dirty' | 'error' | 'conflict'>('saved')
   const [mobileTab, setMobileTab] = useState('essay')
   const [imageError, setImageError] = useState('')
@@ -205,7 +221,7 @@ function Editor({ id, existing, task, promptSlug, customId, mode }: { id: string
       prompt: activeSeed.text,
       reference: activeSeed.reference,
       title: current.title || seedTitle || own?.title || '',
-      subtype: activeSeed.subtype ?? (activeSeed.task === 'general_task1' ? 'formal' : 'line'),
+      subtype: activeSeed.subtype ?? 'line',
       images: own?.file?.kind === 'image' ? [{ name: own.file.name, url: own.file.url }] : current.images,
     })
   }, [activeSeed, existing, seedTitle, own])
@@ -339,6 +355,7 @@ function Editor({ id, existing, task, promptSlug, customId, mode }: { id: string
   const taskImage = activeSeed?.chart?.kind === 'image' ? activeSeed.chart.url : activeSeed?.image
   const chartSpec = activeSeed?.chart && activeSeed.chart.kind !== 'image' ? activeSeed.chart : undefined
   const visibleImages = draft.images.filter(image => image.url)
+  if (promptSlug && !existing && !seed) return loadingSeed ? <div className="loading-state" role="status">{c('Đang tải đề bài…', 'Loading prompts…')}</div> : <Navigate to="/app/prompts" replace />
   return <div className={focus ? 'writing-focus' : ''}>
     <PageHeader eyebrow={c('ĐỂ Ý TƯỞNG THÀNH CÂU CHỮ', 'GIVE YOUR IDEAS A VOICE')} title={c('Không gian viết', 'Your writing space')} description={c('Không cần hoàn hảo ngay từ đầu. Bắt đầu bằng một câu.', 'It does not have to be perfect. Start with a sentence.')} action={<Link className="button outline" to="/app/essays"><ArrowLeft size={16} />{c('Bài viết của tôi', 'My writing')}</Link>} />
     <div className="editor-toolbar"><div className="editor-task"><span className="badge neutral">{taskLabel}</span>{activeSeed?.typeLabel && <span className="badge neutral">{activeSeed.typeLabel}</span>}</div><div className="editor-status">{mode === 'mock' && <span className={`mock-timer ${expired ? 'expired' : ''}`} role="timer" aria-live="off"><Timer size={15} />{expired ? c('Hết thời gian', 'Time is up') : `${String(Math.floor(remaining / 60)).padStart(2, '0')}:${String(remaining % 60).padStart(2, '0')}`}</span>}<span className={`save-status ${status === 'error' || status === 'conflict' ? 'danger-text' : ''}`} aria-live="polite">{status === 'saved' ? <Check size={15} /> : <Save size={15} />}{status === 'saved' ? c('Đã lưu trên trình duyệt', 'Saved in this browser') : status === 'saving' ? c('Đang lưu…', 'Saving…') : status === 'dirty' ? c('Chưa lưu', 'Unsaved changes') : status === 'conflict' ? c('Xung đột phiên bản', 'Version conflict') : c('Lưu thất bại', 'Save failed')}</span></div></div>

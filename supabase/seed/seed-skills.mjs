@@ -102,7 +102,7 @@ async function seedReading() {
             question_html: question.questionHtml,
             options: question.options,
             answer_key: question.answerKey,
-            accepted_answers: [],
+            accepted_answers: question.acceptedAnswers ?? [],
             explanation: question.explanation,
           })
         }

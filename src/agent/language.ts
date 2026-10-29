@@ -31,7 +31,15 @@ export function renderLanguageScript() {
   applyLanguage(readStoredLanguage())
   document.addEventListener("click", function (event) {
     var target = event.target && event.target.closest ? event.target.closest(".language-switch button[data-lang-switch]") : null
-    if (!target) return
+    var themeButton = event.target && event.target.closest ? event.target.closest("[data-theme-switch]") : null
+    if (themeButton && !themeButton.closest("[data-landing-react]")) {
+      var theme = root.dataset.theme === "dark" ? "light" : "dark"
+      root.dataset.theme = theme
+      root.style.colorScheme = theme
+      try { localStorage.setItem("ielts-theme", theme) } catch (error) {}
+      return
+    }
+    if (!target || target.closest("[data-landing-react]")) return
     var language = target.getAttribute("data-lang-switch")
     if (language !== "vi" && language !== "en") return
     applyLanguage(language)

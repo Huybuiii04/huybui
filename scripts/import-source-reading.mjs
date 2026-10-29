@@ -12,6 +12,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { correctReading } from './reading-corrections.mjs'
 
 const source = process.argv[2]
 if (!source) {
@@ -398,7 +399,7 @@ if (vietnameseLabels.length) {
 
 const target = join(dirname(fileURLToPath(import.meta.url)), '..', 'supabase', 'seed', 'skill-reading-data.json')
 mkdirSync(dirname(target), { recursive: true })
-writeFileSync(target, JSON.stringify(dataset), 'utf8')
+writeFileSync(target, JSON.stringify(correctReading(dataset)), 'utf8')
 
 console.log(`Đã ghi ${target}`)
 console.log(`  file: ${dataset.stats.filesScanned} | stub bỏ qua: ${skippedStubs} | passage không có câu hỏi: ${skippedWithoutQuestions}`)

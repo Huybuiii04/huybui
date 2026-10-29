@@ -1,4 +1,4 @@
-import type { PromptItem, Source, TaskKind } from '../data/prompts'
+import { isSupportedWritingTask, type PromptItem, type Source, type TaskKind } from '../data/prompts'
 
 const url = import.meta.env.VITE_SUPABASE_URL as string | undefined
 const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined
@@ -86,8 +86,9 @@ async function request(path: string, params: URLSearchParams): Promise<unknown[]
 }
 
 export async function loadPrompts(query: PromptQuery) {
+  if (query.task && !isSupportedWritingTask(query.task)) return []
   try {
-    const params = new URLSearchParams({ select: '*', order: 'title_en.asc' })
+    const params = new URLSearchParams({ select: '*', order: 'title_en.asc', task: 'in.(task2,academic_task1)' })
     if (query.task) params.set('task', `eq.${query.task}`)
     if (query.source) params.set('source', `eq.${query.source}`)
     if (query.set) params.set('set_name', `like.${query.set}*`)
@@ -95,7 +96,7 @@ export async function loadPrompts(query: PromptQuery) {
     if (query.subtype) params.set('subtype', `eq.${query.subtype}`)
     if (query.search) params.set('or', `(title_vi.ilike.*${query.search}*,title_en.ilike.*${query.search}*,text.ilike.*${query.search}*)`)
     const rows = await request('prompts', params)
-    return (rows as PromptRow[]).map(toItem)
+    return (rows as PromptRow[]).filter(row => isSupportedWritingTask(row.task)).map(toItem)
   } catch {
     return []
   }
@@ -104,7 +105,7 @@ export async function loadPrompts(query: PromptQuery) {
 export async function loadTopics() {
   try {
     const rows = await request('prompt_topics', new URLSearchParams({ select: '*', order: 'sort_order.asc' }))
-    return (rows as TopicRow[]).map(toTopic)
+    return (rows as TopicRow[]).filter(row => row.task === null || isSupportedWritingTask(row.task)).map(toTopic)
   } catch {
     return []
   }
@@ -124,7 +125,7 @@ export async function loadPromptBySlug(slug: string) {
   try {
     const rows = await request('prompts', new URLSearchParams({ slug: `eq.${slug}`, select: '*' }))
     const row = (rows as PromptRow[])[0]
-    return row ? toItem(row) : undefined
+    return row && isSupportedWritingTask(row.task) ? toItem(row) : undefined
   } catch {
     return undefined
   }

@@ -1,174 +1,61 @@
-// Copy song ngữ của landing: một nguồn duy nhất cho React (src/pages/Other.tsx)
-// và bản HTML tĩnh (src/agent/html.ts). Mỗi chuỗi hiển thị là một cặp
-// [tiếng Việt, tiếng Anh] - cùng kiểu Copy với content.ts.
-// Chuỗi không phụ thuộc ngôn ngữ (nhãn thương hiệu, đoạn trích tiếng Anh)
-// được giữ dạng string thường và hiển thị một lần ở cả hai bản.
 import type { Copy } from './content.ts'
+const pair = (vi: string, en: string): Copy => [vi, en]
 
-export type LandingFeatureIcon = 'pen' | 'clipboard' | 'lightbulb'
-
-export type LandingFeature = {
-  href: string
-  icon: LandingFeatureIcon
-  title: Copy
-  body: Copy
-  action: Copy
-}
-
-export type LandingLink = { href: string; label: string }
-
-export type LandingLanguageButton = { code: 'vi' | 'en'; label: string }
-
-export type LandingCopy = {
-  skipToContent: Copy
-  navLabel: Copy
-  navPromptLibrary: Copy
-  navOpenStudio: Copy
-  languageSwitchLabel: Copy
-  languageButtons: readonly LandingLanguageButton[]
-  heroKicker: Copy
-  heroTitle: Copy
-  heroAccent: Copy
-  heroEmphasis: Copy
-  heroBody: Copy
-  primaryCta: Copy
-  secondaryCta: Copy
-  perks: readonly Copy[]
-  signInNote: Copy
-  explore: Copy
-  studioLabel: Copy
-  studioMeta: Copy
-  studioTitle: Copy
-  studioTitleAccent: Copy
-  studioPrompt: Copy
-  studioInsightTitle: Copy
-  studioInsightBody: Copy
-  studioAction: Copy
-  studioBottom: Copy
-  learningKicker: Copy
-  learningTitle: Copy
-  learningBody: Copy
-  features: readonly LandingFeature[]
-  ctaKicker: Copy
-  ctaTitle: Copy
-  ctaBody: Copy
-  donateCta: Copy
-  footerStart: Copy
-  footerLinks: readonly LandingLink[]
-  brandName: string
-  brandSub: string
-  studioToolbar: string
-  studioMetaLabel: string
-  studioBottomLabel: string
-  studioExcerptBefore: string
-  studioExcerptHighlight: string
-  studioExcerptAfter: string
-  footerCopyright: string
-}
-
-export const landingCopy: LandingCopy = {
-  skipToContent: ['Đến nội dung', 'Skip to content'],
-  navLabel: ['Điều hướng chính', 'Main navigation'],
-  navPromptLibrary: ['Kho đề bài', 'Prompt library'],
-  navOpenStudio: ['Vào học ngay', 'Open studio'],
-  languageSwitchLabel: ['Ngôn ngữ', 'Language'],
-  languageButtons: [
-    { code: 'vi', label: 'VI' },
-    { code: 'en', label: 'EN' },
-  ],
-  heroKicker: ['KHÔNG GIAN CHO BƯỚC TIẾN MỚI', 'A LITTLE BETTER. EVERY DAY.'],
-  heroTitle: ['Ý tưởng của bạn.', 'Your ideas.'],
-  heroAccent: ['Diễn đạt ', 'Beautifully '],
-  heroEmphasis: ['tốt hơn.', 'expressed.'],
-  heroBody: [
-    'Từ ý tưởng đầu tiên đến bài viết bạn tự hào. Luyện IELTS Writing, khám phá cách viết hay và xây dựng vốn từ của riêng bạn.',
-    'From your first idea to an essay you are proud of. Practise IELTS Writing, discover great writing and build a vocabulary of your own.',
-  ],
-  primaryCta: ['Bắt đầu viết', 'Start writing'],
-  secondaryCta: ['Xem bài mẫu', 'Explore sample feedback'],
-  perks: [
-    ['Miễn phí học tập', 'Free to learn'],
-    ['Task 1 & Task 2', 'Task 1 & Task 2'],
-    ['VI / EN', 'VI / EN'],
-  ],
-  // Điều kiện đăng nhập: nói rõ để HTML và Markdown của trang chủ mô tả giống nhau.
-  signInNote: [
-    'Các tính năng luyện viết cần tài khoản — đăng nhập miễn phí bằng email.',
-    'The interactive writing features need an account — sign in free with email.',
-  ],
-  explore: ['Khám phá cách học', 'Find your learning flow'],
-  studioLabel: ['Xem trước không gian viết', 'Writing studio preview'],
-  studioMeta: ['Bài viết minh họa', 'Sample essay'],
-  studioTitle: ['Một trang trắng.', 'A blank page.'],
-  studioTitleAccent: ['Vô vàn khả năng.', 'Endless possibilities.'],
-  studioPrompt: [
-    'Giáo dục trực tuyến có thể thay thế lớp học truyền thống?',
-    'Can online education replace the traditional classroom?',
-  ],
-  studioInsightTitle: ['Mỗi câu viết, một bước tiến.', 'One sentence. One step forward.'],
-  studioInsightBody: [
-    'Luyện cách nối ý, chọn từ và diễn đạt rõ ràng hơn.',
-    'Practise connecting ideas, choosing words and writing with clarity.',
-  ],
-  studioAction: ['Viết câu đầu tiên của bạn', 'Write your first sentence'],
-  studioBottom: ['Học theo nhịp của bạn', 'Learn at your own pace'],
-  learningKicker: ['TỪNG BƯỚC, MỖI NGÀY', 'BUILD YOUR WRITING RITUAL'],
-  learningTitle: ['Một nơi. Trọn vẹn hành trình.', 'Your whole journey, in one place.'],
-  learningBody: ['Viết, khám phá, ghi nhớ. Chọn bước tiếp theo của bạn.', 'Write, explore, remember. Choose your next step.'],
+// One content source for React, static HTML and language switching.
+export const landingCopy = {
+  skipToContent: pair('Đến nội dung', 'Skip to content'),
+  navLabel: pair('Điều hướng chính', 'Main navigation'),
+  navSkills: pair('Kỹ năng', 'Skills'),
+  navPromptLibrary: pair('Kho đề bài', 'Prompt library'),
+  navVocabulary: pair('Từ vựng', 'Vocabulary'),
+  navOpenStudio: pair('Vào học ngay', 'Open studio'),
+  languageSwitchLabel: pair('Ngôn ngữ', 'Language'),
+  languageButtons: [{ code: 'vi', label: 'VI' }, { code: 'en', label: 'EN' }] as const,
+  themeLabel: pair('Đổi giao diện sáng / tối', 'Toggle light / dark theme'),
+  heroKicker: pair('Mỗi ngày tiến một chút', 'A little better. Every day.'),
+  heroTitle: pair('Bốn kỹ năng.', 'Four skills.'),
+  heroAccent: pair('Một nơi để ', 'One place to '),
+  heroEmphasis: pair('tiến bộ', 'get better'),
+  heroEnd: pair(' mỗi ngày.', ', every day.'),
+  heroBody: pair('Luyện Listening, Reading, Writing, Speaking và xây vốn từ của riêng bạn. Miễn phí, song ngữ Việt – Anh.', 'Practise Listening, Reading, Writing and Speaking, and build a vocabulary of your own. Free, in Vietnamese and English.'),
+  primaryCta: pair('Bắt đầu học', 'Start learning'),
+  secondaryCta: pair('Xem bài mẫu', 'See sample feedback'),
+  signInNote: pair('Một số tính năng cần tài khoản — đăng nhập miễn phí bằng email.', 'Some features need an account — sign in free with email.'),
+  learningKicker: pair('Mọi thứ trong một không gian', 'Everything in one studio'),
+  learningTitle: pair('Chọn kỹ năng bạn muốn luyện hôm nay.', 'Pick the skill you want to train today.'),
+  comingSoon: pair('Sắp có', 'Coming soon'),
   features: [
-    {
-      href: '/app/write',
-      icon: 'pen',
-      title: ['Viết với mục đích', 'Write with purpose'],
-      body: [
-        'Luyện biểu đồ, thư và luận. Giữ dòng ý tưởng với nháp tự lưu.',
-        'Practise charts, letters and essays. Keep your ideas flowing with autosaved drafts.',
-      ],
-      action: ['Mở không gian viết', 'Open your writing space'],
-    },
-    {
-      href: '/app/prompts',
-      icon: 'clipboard',
-      title: ['Chọn đề ngay', 'Pick a prompt'],
-      body: [
-        'Kho đề bài sẵn có đề Task 1 và Task 2 kèm hình ảnh và đề bài đầy đủ.',
-        'The prompt library holds ready Task 1 and Task 2 questions with charts and full task text.',
-      ],
-      action: ['Mở kho đề bài', 'Open the prompt library'],
-    },
-    {
-      href: '/app/vocabulary',
-      icon: 'lightbulb',
-      title: ['Biến từ mới thành vốn riêng', 'Make new words yours'],
-      body: [
-        'Lưu cụm từ, cấu trúc và ôn tập theo lịch để ghi nhớ lâu hơn.',
-        'Save phrases and structures, then revisit them over time to remember more.',
-      ],
-      action: ['Mở sổ từ vựng', 'Build your vocabulary'],
-    },
+    { id: 'listening', number: '01', href: '/app', title: pair('Listening', 'Listening'), body: pair('Luyện nghe theo từng phần, quen dần tốc độ và giọng của đề thi thật.', 'Train section by section and get used to the pace and accents of the real exam.'), action: pair('Section 1–4', 'Section 1–4'), comingSoon: true },
+    { id: 'reading', number: '02', href: '/app/reading', title: pair('Reading', 'Reading'), body: pair('Đọc hiểu theo từng dạng câu hỏi, nâng tốc độ đọc và vốn từ học thuật.', 'Work through each question type while building reading speed and academic vocabulary.'), action: pair('Passage 1–3', 'Passage 1–3'), comingSoon: false },
+    { id: 'writing', number: '03', href: '/app/write', title: pair('Writing', 'Writing'), body: pair('Biểu đồ và bài luận với nháp tự lưu, nhận xét theo band cho từng bài.', 'Charts and essays with autosaved drafts and band-style feedback on each piece.'), action: pair('Task 1 · Task 2', 'Task 1 · Task 2'), comingSoon: false },
+    { id: 'speaking', number: '04', href: '/app', title: pair('Speaking', 'Speaking'), body: pair('Rèn phản xạ qua câu hỏi theo chủ đề, từ trả lời ngắn đến nói dài.', 'Build fluency with topic-based questions, from short answers to long turns.'), action: pair('Part 1 · 2 · 3', 'Part 1 · 2 · 3'), comingSoon: true },
+    { id: 'vocabulary', number: '+', href: '/app/vocabulary', title: pair('Từ vựng', 'Vocabulary'), body: pair('Lưu cụm từ và cấu trúc hay, rồi ôn lại theo lịch để nhớ lâu hơn.', 'Save phrases and structures, then revisit them over time to remember more.'), action: pair('Sổ từ của riêng bạn', 'Your own word book'), comingSoon: false },
   ],
-  ctaKicker: ['CÙNG NHAU TIẾN XA', 'ROOM FOR EVERYONE'],
-  ctaTitle: ['Tri thức tốt hơn khi được sẻ chia.', 'Learning is better when it is shared.'],
-  ctaBody: [
-    'Không gói Premium. Không rào cản học tập. Một không gian để bạn tiến bộ mỗi ngày.',
-    'No premium tiers. No learning paywalls. A space to grow a little every day.',
+  rhythmKicker: pair('Nhịp học mỗi ngày', 'Your daily rhythm'),
+  rhythmTitle: pair('Ba bước nhỏ, lặp lại mỗi ngày.', 'Three small steps, repeated daily.'),
+  steps: [
+    { title: pair('Chọn đề', 'Pick a prompt'), body: pair('Kho đề bài có sẵn đề đầy đủ kèm hình ảnh. Mở là luyện được ngay.', 'The prompt library has full tasks with charts. Open one and start.') },
+    { title: pair('Luyện tập', 'Practise'), body: pair('Làm bài theo từng kỹ năng, nháp được tự lưu để ý tưởng không bị đứt.', 'Work skill by skill, with drafts autosaved so your ideas keep flowing.') },
+    { title: pair('Nhận xét & ghi nhớ', 'Review & remember'), body: pair('Xem nhận xét, lưu từ mới vào sổ riêng và ôn lại khi đến hạn.', 'Read the feedback, save new words to your book and revisit them when due.') },
   ],
-  donateCta: ['Ủng hộ dự án', 'Support the project'],
-  footerStart: ['Bắt đầu học', 'Start learning'],
-  // Nhãn footer là tên trang công khai, không phải nội dung song ngữ: dùng
-  // chuỗi đơn để raw HTML không lặp "AboutAbout".
-  footerLinks: [
-    { href: '/about', label: 'About' },
-    { href: '/contact', label: 'Contact' },
-    { href: '/privacy', label: 'Privacy' },
-  ],
-  brandName: 'IELTS',
-  brandSub: 'WRITING STUDIO',
-  studioToolbar: 'WRITING STUDIO',
-  studioMetaLabel: 'ACADEMIC · TASK 2',
-  studioBottomLabel: 'IELTS Writing',
-  studioExcerptBefore: 'Education is no longer confined to the classroom. ',
-  studioExcerptHighlight: 'As technology continues to evolve,',
-  studioExcerptAfter: ' learners have more opportunities to shape their own journey.',
-  footerCopyright: '© 2026 IELTS Writing Studio',
+  feedbackKicker: pair('Nhận xét theo band', 'Band-style feedback'),
+  feedbackTitle: pair('Viết xong, biết ngay mình đứng đâu.', 'Write it. Know where you stand.'),
+  feedbackBody: pair('Mỗi bài Writing được nhìn qua 4 tiêu chí chấm của IELTS, kèm gợi ý sửa cụ thể.', 'Every Writing essay is read against the four IELTS criteria, with concrete fixes.'),
+  feedbackAction: pair('Xem bài mẫu', 'See a sample'),
+  sampleLabel: pair('Bài minh họa', 'Sample essay'),
+  criteria: [{ title: 'Task Response', score: '7.0' }, { title: 'Coherence & Cohesion', score: '7.5' }, { title: 'Lexical Resource', score: '6.5' }, { title: 'Grammar', score: '7.0' }],
+  ctaTitle: pair('Tri thức tốt hơn khi được sẻ chia.', 'Learning is better when it is shared.'),
+  ctaBody: pair('Không gói Premium. Không rào cản học tập. Một không gian để bạn tiến bộ mỗi ngày.', 'No premium tiers. No paywalls. A space to grow a little every day.'),
+  donateCta: pair('Ủng hộ dự án', 'Support the project'),
+  footerLinks: [{ href: '/about', label: 'About' }, { href: '/contact', label: 'Contact' }, { href: '/privacy', label: 'Privacy' }],
+  brandName: 'IELTS Studio',
+  footerCopyright: '© 2026 IELTS Studio',
+}
+
+// Decorative artwork uses deterministic markup to avoid layout shifts on mount.
+export function skillArtwork() {
+  return `<div class="skill-tile listening"><span class="tile-number">01</span><div class="tile-visual"><div class="sound-wave">${[0, 3, 1, 5, 2, 4, 1].map(n => `<i style="--i:${n}"></i>`).join('')}</div></div><b>Listening</b></div>
+<div class="skill-tile reading"><span class="tile-number">02</span><div class="tile-visual"><div class="reading-lines"><i></i><i></i><i></i></div></div><b>Reading</b></div>
+<div class="skill-tile writing"><span class="tile-number">03</span><div class="tile-visual"><svg class="writing-stroke" viewBox="0 0 160 40"><path pathLength="1" d="M4 24c14-22 24 18 38 0s24-20 38 0 24 16 38 0 22-10 36-4"/></svg></div><b>Writing</b></div>
+<div class="skill-tile speaking"><span class="tile-number">04</span><div class="tile-visual"><div class="speech-dots"><i style="--i:0"></i><i style="--i:1"></i><i style="--i:2"></i></div></div><b>Speaking</b></div>`
 }

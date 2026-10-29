@@ -1,11 +1,14 @@
 /**
- * Bật cron gọi worker `process-ai-jobs` mỗi 10 giây.
+ * Bật cron gọi worker `process-ai-jobs` mỗi 30 giây.
  *
  *   node --env-file-if-exists=.env.local supabase/scripts/setup-cron.mjs
  *
  * - Secret worker được lưu trong Vault (không ghi plaintext vào lịch cron).
  * - Cần `SUPABASE_ACCESS_TOKEN` (quyền database_write) hoặc `DATABASE_URL`.
  * - Cần `WORKER_SECRET` trong .env.local — phải khớp secret đã set cho Edge Function.
+ * - 30 giây thay vì 10 giây: mỗi lần cron kích hoạt là 1 Edge Function invocation,
+ *   nên 10s tốn ~259.000 invocation/tháng (~52% quota free tier). 30s còn ~86.000 (~17%).
+ *   Đổi lại: Writing và Speaking chờ thêm tối đa 30 giây (trung bình ~15 giây).
  */
 import { spawnSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
@@ -60,7 +63,7 @@ const statements = [
   `select cron.unschedule(jobid) from cron.job where jobname = 'process-ai-jobs';`,
   `select cron.schedule(
      'process-ai-jobs',
-     '10 seconds',
+     '30 seconds',
      $cron$
      select net.http_post(
        url := '${functionUrl}',
@@ -126,5 +129,5 @@ for (const statement of statements) {
   }
 }
 
-console.log('\nĐã bật cron process-ai-jobs (mỗi 10 giây).')
+console.log('\nĐã bật cron process-ai-jobs (mỗi 30 giây).')
 console.log('Worker sẽ báo lỗi cấu hình cho tới khi ANTHROPIC_API_KEY được set trong Supabase.')

@@ -17,7 +17,6 @@ type RevisionRow = { id: string; essay_id: string; created_at: string; grading_r
 const TASKS: { key: string; labelVi: string; labelEn: string }[] = [
   { key: 'task2', labelVi: 'Task 2', labelEn: 'Task 2' },
   { key: 'academic_task1', labelVi: 'Task 1 Academic', labelEn: 'Task 1 Academic' },
-  { key: 'general_task1', labelVi: 'Task 1 General', labelEn: 'Task 1 General' },
 ]
 
 export function UserDetail({ userId, displayName, onBack, onError, onBusy, busy }: { userId: string; displayName: string; onBack: () => void; onError: (value: string) => void; onBusy: (value: boolean) => void; busy: boolean }) {

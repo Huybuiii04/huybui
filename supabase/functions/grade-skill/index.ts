@@ -21,9 +21,10 @@ type QuestionRow = {
   answer_key: string | null;
   accepted_answers: string[] | null;
   explanation: string | null;
+  answerGroup?: string;
 };
 
-type GroupRow = { id: string; section_id: string; order_index: number };
+type GroupRow = { id: string; section_id: string; order_index: number; config: { answerSlots?: number } | null };
 
 /** Kết quả có kèm giải thích: cột `explanation` không mở cho client đọc. */
 type GradedResultItem = GradingResultItem & { explanation: string };
@@ -41,7 +42,7 @@ async function loadQuestions(service: SupabaseClient, testId: string): Promise<Q
 
   const groupResult = await service
     .from("skill_question_groups")
-    .select("id,section_id,order_index")
+    .select("id,section_id,order_index,config")
     .in("section_id", sections.map(section => section.id))
     .order("order_index", { ascending: true });
   if (groupResult.error) throw databaseError("load the question groups");
@@ -57,7 +58,10 @@ async function loadQuestions(service: SupabaseClient, testId: string): Promise<Q
 
   const sectionNo = new Map(sections.map(section => [section.id, section.section_no]));
   const groupOrder = new Map(groups.map(group => [group.id, group.order_index]));
-  return ((questionResult.data ?? []) as QuestionRow[]).slice().sort((left, right) => {
+  return ((questionResult.data ?? []) as QuestionRow[]).map(row => ({
+    ...row,
+    answerGroup: (groups.find(group => group.id === row.group_id)?.config?.answerSlots ?? 0) > 1 ? row.group_id : undefined,
+  })).sort((left, right) => {
     const leftGroup = groups.find(group => group.id === left.group_id);
     const rightGroup = groups.find(group => group.id === right.group_id);
     const bySection = (sectionNo.get(leftGroup?.section_id ?? "") ?? 0) - (sectionNo.get(rightGroup?.section_id ?? "") ?? 0);
@@ -75,6 +79,7 @@ function buildResults(rows: QuestionRow[], answers: Record<string, string>): Gra
       order: index + 1,
       answerKey: row.answer_key ?? "",
       acceptedAnswers: row.accepted_answers ?? [],
+      answerGroup: row.answerGroup,
     })),
     answers,
   );

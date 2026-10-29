@@ -26,6 +26,19 @@ const rootMarker = /<div id="root"[^>]*>\s*<\/div>/
 export function agentPages(): Plugin {
   return {
     name: 'agent-pages',
+    // Match public URLs locally too, including production-preview verification.
+    configureServer(server) {
+      server.middlewares.use((request, _response, next) => {
+        if (request.url && /^\/(about|contact|privacy)(?:\?|$)/.test(request.url)) request.url = request.url.replace(/^\/(about|contact|privacy)/, '/pages/$1.html')
+        next()
+      })
+    },
+    configurePreviewServer(server) {
+      server.middlewares.use((request, _response, next) => {
+        if (request.url && /^\/(about|contact|privacy)(?:\?|$)/.test(request.url)) request.url = request.url.replace(/^\/(about|contact|privacy)/, '/pages/$1.html')
+        next()
+      })
+    },
     transformIndexHtml(html, context) {
       const entry = pageEntries.find(item => context.path?.endsWith(item.input))
       if (!entry) return html
@@ -44,7 +57,7 @@ export function agentPages(): Plugin {
       if (!output.includes('</head>')) {
         throw new Error(`[agent-pages] ${entry.input}: không tìm thấy </head> để chèn head tags.`)
       }
-      const scripts = `<script>${themeBootstrapScript()}</script>\n    ${isLanding ? `<script>${renderLanguageScript()}</script>\n    ` : ''}`
+      const scripts = `<script>${themeBootstrapScript()}</script>\n    <script>${renderLanguageScript()}</script>\n    `
       output = output.replace(
         '</head>',
         `    ${scripts}${head.replace(/<title>[\s\S]*?<\/title>\s*/, '')}\n    <script type="application/ld+json">${jsonLd}</script>\n  </head>`,

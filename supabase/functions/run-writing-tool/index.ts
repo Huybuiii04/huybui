@@ -119,6 +119,9 @@ Deno.serve(async (request) => {
       targetBand = Number(profile.data?.target_band ?? 7);
     }
 
+    if (task !== "generic" && task !== "task2" && task !== "academic_task1") {
+      throw new AppError(400, "task_not_supported", "This writing task is no longer supported");
+    }
     const model = getEnv(modelEnvironmentFor(input.operation));
     if (!model) throw new AppError(503, "server_misconfigured", "The AI model is not configured");
     const imageHashes = selectedAssets.map((asset) => asset.content_hash.toLowerCase());

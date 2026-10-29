@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
-import { ArrowLeft, Clock, Maximize2, Minimize2, Send } from 'lucide-react'
+import { ArrowLeft, Clock, Send } from 'lucide-react'
 import { Notice, PageHeader } from '../components/ui'
 import { PassagePanel } from '../components/skill/PassagePanel.tsx'
 import { QuestionGroup } from '../components/skill/QuestionGroup.tsx'
@@ -17,7 +17,7 @@ const SPLIT_MAX = 76
 /**
  * Phòng làm bài Reading — bố cục hai cột: passage bên trái, câu hỏi bên phải,
  * có thanh kéo giữa để đổi tỉ lệ. Thanh bên (sidebar) của ứng dụng có thể
- * thu gọn, và chế độ "Focus" ẩn hẳn khung ứng dụng để đọc thoải mái.
+ * ẩn cùng khung ứng dụng trong suốt quá trình làm bài.
  */
 export default function ReadingTest() {
   const { c } = useCopy()
@@ -32,7 +32,6 @@ export default function ReadingTest() {
   const [remaining, setRemaining] = useState(0)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
-  const [focus, setFocus] = useState(false)
   const [reviewOpen, setReviewOpen] = useState(false)
   const [split, setSplit] = useState(50)
   const splitRef = useRef<HTMLDivElement>(null)
@@ -59,10 +58,9 @@ export default function ReadingTest() {
 
   // Chế độ Focus ẩn khung ứng dụng (sidebar + thanh trên) để passage chiếm hết màn hình.
   useEffect(() => {
-    if (!focus) return
     document.documentElement.dataset.readingFocus = 'on'
     return () => { delete document.documentElement.dataset.readingFocus }
-  }, [focus])
+  }, [])
 
   const allQuestions = useMemo<SkillQuestion[]>(() => (test?.sections ?? []).flatMap(section => section.groups.flatMap(group => group.questions)), [test])
   const numbers = useMemo(() => {
@@ -191,7 +189,7 @@ export default function ReadingTest() {
     <Notice error><div><strong>{c('Đề này không tồn tại hoặc đã bị ẩn.', 'This test does not exist or has been hidden.')}</strong></div></Notice>
   </div>
 
-  return <div className={`skill-room ${focus ? 'is-focus' : ''}`}>
+  return <div className="skill-room">
     <header className="skill-room-header">
       <div className="skill-room-header-side">
         <button type="button" className="icon-button" onClick={() => navigate('/app/reading')} aria-label={c('Quay lại kho đề', 'Back to the library')}><ArrowLeft size={19} /></button>
@@ -207,15 +205,6 @@ export default function ReadingTest() {
 
     <div className="skill-room-toolbar">
       <div className="skill-room-toolbar-side">
-        <button
-          type="button"
-          className={`skill-room-focus ${focus ? 'is-active' : ''}`}
-          onClick={() => setFocus(value => !value)}
-          aria-pressed={focus}
-        >
-          {focus ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
-          {c('Tập trung', 'Focus')}
-        </button>
         <nav className="skill-room-parts" aria-label={c('Các passage của bài', 'Test passages')}>
           {test.sections.map((item, index) => <button
             key={item.id}
@@ -258,7 +247,7 @@ export default function ReadingTest() {
     {error && <Notice error><div><strong>{c('Không nộp được bài.', 'The attempt could not be submitted.')}</strong><p>{c('Thử lại sau ít phút.', 'Please try again in a moment.')}</p></div></Notice>}
 
     <div className="skill-room-split" ref={splitRef} style={{ '--split': `${split}%` } as React.CSSProperties}>
-      <section className="skill-room-pane skill-room-pane-passage">
+      <section className="skill-room-pane skill-room-pane-passage" tabIndex={0} aria-label={c('Bài đọc', 'Reading passage')}>
         {section && <PassagePanel section={section} />}
       </section>
       <div

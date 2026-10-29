@@ -11,7 +11,7 @@ let preference: ThemePreference = defaultTheme
 try {
   const stored = localStorage.getItem(storageKey)
   if (stored === 'light' || stored === 'dark' || stored === 'system') preference = stored
-} catch { /* Browser storage may be disabled; use the default dark theme. */ }
+} catch { /* Browser storage may be disabled; use the default theme. */ }
 
 function systemTheme(): ResolvedTheme {
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'

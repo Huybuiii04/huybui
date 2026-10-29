@@ -65,7 +65,7 @@ try {
     await page.waitForURL(url => !url.pathname.startsWith('/auth'), { timeout: 30000 })
 
     await page.goto(`${base}/app`)
-    await page.locator('.dashboard-hero').waitFor()
+    await page.locator('.dashboard-page').waitFor()
     // Theme mặc định có thể là sáng hoặc tối — toggle phải đảo trạng thái hiện tại.
     const themeBefore = await page.evaluate(() => document.documentElement.dataset.theme)
     const themeAfter = themeBefore === 'dark' ? 'light' : 'dark'
@@ -73,13 +73,13 @@ try {
     await page.waitForFunction(value => document.documentElement.dataset.theme === value, themeAfter)
     assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), themeAfter)
     await page.reload()
-    await page.locator('.dashboard-hero').waitFor()
+    await page.locator('.dashboard-page').waitFor()
     assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), themeAfter, 'Theme choice must persist across reloads')
     await page.locator('.theme-toggle').click()
     await page.waitForFunction(value => document.documentElement.dataset.theme === value, themeBefore)
     await page.screenshot({ path: 'test-results/dashboard-desktop.png', fullPage: true })
     await page.getByRole('button', { name: 'EN', exact: true }).click()
-    await page.getByRole('heading', { name: /^Hello .*, let’s write better\.$/ }).waitFor()
+    await page.getByRole('heading', { name: 'Your learning overview' }).waitFor()
     assert.equal(await page.locator('html').getAttribute('lang'), 'en')
 
     // Hồ sơ học tập phải lưu được vào database (bảng profiles), không chỉ localStorage.

@@ -4,12 +4,12 @@
 
 export const themeStorageKey = 'ielts-theme'
 
-// App mặc định giao diện tối, nên bản HTML tĩnh cũng phải tối khi người dùng
+// App mặc định giao diện sáng, nên bản HTML tĩnh cũng phải sáng khi người dùng
 // chưa lưu lựa chọn nào.
-export const defaultTheme = 'dark'
+export const defaultTheme = 'light'
 
 // Script inline chèn vào <head> của mọi trang: đặt data-theme trước lần vẽ đầu
-// tiên để trang tĩnh khớp với app (tôn trọng lựa chọn đã lưu, mặc định là tối).
+// tiên để trang tĩnh khớp với app (tôn trọng lựa chọn đã lưu, mặc định là sáng).
 export function themeBootstrapScript() {
   return `try {
   const stored = localStorage.getItem("${themeStorageKey}")

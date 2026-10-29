@@ -1,0 +1,1567 @@
+{
+ "url": "docs/demos/writing-studio-playful/index.html",
+ "at": "2026-10-28T03:54:20.710Z",
+ "allow": [],
+ "viewports": [
+  {
+   "width": 1440,
+   "height": 900,
+   "load": "load",
+   "screens": 4,
+   "filled": [
+    0.47,
+    0.74,
+    0.84,
+    0.63
+   ],
+   "motion": {
+    "elements": 19,
+    "css": 19,
+    "transitions": 0,
+    "scripted": 0,
+    "videos": 0,
+    "playingVideos": 0
+   },
+   "metrics": {
+    "viewport": {
+     "w": 1440,
+     "h": 900
+    },
+    "page": {
+     "height": 3129,
+     "screens": 3.5,
+     "words": 428,
+     "img": 0,
+     "video": 0,
+     "canvas": 0,
+     "svg": 21,
+     "sections": 3,
+     "horizontalOverflow": 0,
+     "overflowCulprits": [],
+     "uiFragments": 4,
+     "uiAbuse": false,
+     "realPictures": 0,
+     "videoCount": 0,
+     "uiPictures": 4,
+     "pictureSamples": [],
+     "blendText": 0,
+     "sideScrollers": 0,
+     "brokenImages": [],
+     "emoji": [],
+     "videosNoPoster": 0
+    },
+    "hero": {
+     "text": "Viết một chút. Tiến một bước.",
+     "words": 6,
+     "chars": 29,
+     "lines": 2,
+     "size": 64.8,
+     "vw": 4.5,
+     "font": "Be Vietnam Pro",
+     "weight": 600,
+     "tracking": -0.055,
+     "leading": 1.15,
+     "upper": false,
+     "italic": false,
+     "mono": false,
+     "align": "left",
+     "position": "left",
+     "widthRatio": 0.35,
+     "top": 210,
+     "tag": "h1",
+     "kind": "heading"
+    },
+    "h1": {
+     "text": "Viết một chút. Tiến một bước.",
+     "words": 6,
+     "lines": 2,
+     "size": 64.8,
+     "font": "Be Vietnam Pro"
+    },
+    "headings": [
+     {
+      "text": "Viết một chút. Tiến một bước.",
+      "words": 6,
+      "chars": 29,
+      "lines": 2,
+      "size": 64.8,
+      "vw": 4.5,
+      "font": "Be Vietnam Pro",
+      "weight": 600,
+      "tracking": -0.055,
+      "leading": 1.15,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "left",
+      "widthRatio": 0.35,
+      "top": 210,
+      "tag": "h1",
+      "kind": "heading"
+     },
+     {
+      "text": "Chọn một đề vừa sức, viết ý của bạn. Giữ lại một cụm từ thật hay. Ngày mai, viết thêm một chút.",
+      "words": 22,
+      "chars": 95,
+      "lines": 2,
+      "size": 34,
+      "vw": 2.4,
+      "font": "Be Vietnam Pro",
+      "weight": 500,
+      "tracking": -0.04,
+      "leading": 1.55,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.76,
+      "top": 900,
+      "tag": "p",
+      "kind": "statement"
+     },
+     {
+      "text": "at your own pace",
+      "words": 4,
+      "chars": 16,
+      "lines": 1,
+      "size": 30,
+      "vw": 2.1,
+      "font": "Be Vietnam Pro",
+      "weight": 500,
+      "tracking": -0.05,
+      "leading": 1.25,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "right",
+      "widthRatio": 0.32,
+      "top": 1176,
+      "tag": "p",
+      "kind": "statement"
+     },
+     {
+      "text": "Hiểu chỗ vấp. Viết tự tin hơn.",
+      "words": 7,
+      "chars": 30,
+      "lines": 2,
+      "size": 46,
+      "vw": 3.2,
+      "font": "Be Vietnam Pro",
+      "weight": 600,
+      "tracking": -0.055,
+      "leading": 1.15,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "left",
+      "widthRatio": 0.42,
+      "top": 1706,
+      "tag": "h2",
+      "kind": "heading"
+     },
+     {
+      "text": "Viết.",
+      "words": 1,
+      "chars": 5,
+      "lines": 1,
+      "size": 300,
+      "vw": 20.8,
+      "font": "Be Vietnam Pro",
+      "weight": 600,
+      "tracking": -0.08,
+      "leading": 1.15,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.83,
+      "top": 2543,
+      "tag": "h2",
+      "kind": "heading"
+     }
+    ],
+    "headingSummary": {
+     "count": 5,
+     "maxLines": 2,
+     "over2Lines": 0,
+     "statements": 2,
+     "centered": 0,
+     "medianWords": 7,
+     "mixedFontHeadings": 0
+    },
+    "type": {
+     "families": [
+      {
+       "family": "Be Vietnam Pro",
+       "share": 1,
+       "mono": false
+      }
+     ],
+     "familyCount": 1,
+     "sizes": [
+      13,
+      16,
+      24,
+      34,
+      46,
+      65,
+      300
+     ],
+     "sizeCount": 7,
+     "notLoaded": [],
+     "body": {
+      "font": "Be Vietnam Pro",
+      "size": 16,
+      "leading": 1.65,
+      "weight": 400,
+      "tracking": 0,
+      "contrast": 10.8
+     },
+     "measureChars": 53,
+     "max": {
+      "size": 300,
+      "vw": 20.8,
+      "font": "Be Vietnam Pro",
+      "text": "Viết."
+     },
+     "monoShare": 0,
+     "monoProseShare": 0,
+     "monoFamilies": [],
+     "monoSamples": [],
+     "microLabels": 0,
+     "microLabelShare": 0,
+     "microSamples": [],
+     "upperShare": 0,
+     "centerShare": 0.05,
+     "smallText": 0
+    },
+    "eyebrows": [],
+    "numbered": [],
+    "color": {
+     "bodyBg": "#f6f7f2",
+     "bodyBgHsl": {
+      "h": 72,
+      "s": 0.24,
+      "l": 0.96
+     },
+     "dark": false,
+     "sectionBgs": [
+      {
+       "color": "#dce8dd",
+       "top": 141,
+       "hsl": {
+        "h": 125,
+        "s": 0.21,
+        "l": 0.89
+       }
+      },
+      {
+       "color": "#eef1eb",
+       "top": 1586,
+       "hsl": {
+        "h": 90,
+        "s": 0.18,
+        "l": 0.93
+       }
+      }
+     ],
+     "textColors": [
+      {
+       "color": "#223e35",
+       "share": 0.65
+      },
+      {
+       "color": "#52665c",
+       "share": 0.34
+      },
+      {
+       "color": "#ffffff",
+       "share": 0.01
+      },
+      {
+       "color": "#f6f7f2",
+       "share": 0
+      }
+     ],
+     "button": {
+      "bg": "#ffffff",
+      "hsl": {
+       "h": 0,
+       "s": 0,
+       "l": 1
+      },
+      "fg": "#223e35"
+     },
+     "lowContrast": []
+    },
+    "buttons": {
+     "count": 6,
+     "inHero": 2,
+     "radius": 4,
+     "height": 44,
+     "withShadow": 0,
+     "withGradient": 0,
+     "mono": 0,
+     "upper": 0,
+     "heroLabels": [
+      "Đến nội dung",
+      "Bắt đầu viết"
+     ]
+    },
+    "surfaces": {
+     "shadowStatic": 0,
+     "shadowOverlay": 0,
+     "shadowSamples": [],
+     "gradients": 0,
+     "scrims": 0,
+     "gradientSamples": [],
+     "gradientText": 0,
+     "hairlines": 0,
+     "hairlineSamples": [],
+     "outlinedBoxes": 0,
+     "dashed": 0,
+     "blurred": 0,
+     "roundedBoxes": 0,
+     "boxRadius": 0,
+     "squareMedia": 0,
+     "roundedMedia": 0,
+     "mediaRadius": 0,
+     "textShadow": 0,
+     "cardRows": []
+    },
+    "heroMedia": [],
+    "nav": {
+     "links": 5,
+     "fixed": false,
+     "height": 106,
+     "floatingPill": false,
+     "blur": false
+    },
+    "fontsLoaded": [
+     "be vietnam pro"
+    ]
+   },
+   "layout": {
+    "viewport": {
+     "w": 1440,
+     "h": 900
+    },
+    "pageH": 3129,
+    "margins": {
+     "left": 80,
+     "right": 80
+    },
+    "sections": [
+     {
+      "sel": "section.hero.wrap",
+      "tag": "section",
+      "top": 106,
+      "height": 694,
+      "words": 135,
+      "media": 0,
+      "middle": 141,
+      "heading": {
+       "text": "Viết một chút.",
+       "size": 65,
+       "tag": "h1"
+      },
+      "left": 80,
+      "right": 135,
+      "textLeft": 80,
+      "textRight": 136,
+      "fullBleed": false,
+      "footer": false,
+      "hero": true,
+      "continues": true,
+      "pinned": false
+     },
+     {
+      "sel": "section.capabilities.wrap",
+      "tag": "section",
+      "top": 800,
+      "height": 786,
+      "words": 107,
+      "media": 0,
+      "middle": 0,
+      "heading": {
+       "text": "Chọn một đề",
+       "size": 34,
+       "tag": "p"
+      },
+      "left": 80,
+      "right": 80,
+      "textLeft": 80,
+      "textRight": 80,
+      "fullBleed": false,
+      "footer": false,
+      "hero": false,
+      "continues": true,
+      "pinned": false
+     },
+     {
+      "sel": "section#feedback.process",
+      "tag": "section",
+      "top": 1586,
+      "height": 752,
+      "words": 119,
+      "media": 0,
+      "middle": 0,
+      "heading": {
+       "text": "Hiểu chỗ vấp.",
+       "size": 46,
+       "tag": "h2"
+      },
+      "left": 80,
+      "right": 78,
+      "textLeft": 80,
+      "textRight": 110,
+      "fullBleed": false,
+      "footer": false,
+      "hero": false,
+      "continues": true,
+      "pinned": false
+     },
+     {
+      "sel": "a.write-cta.wrap",
+      "tag": "a",
+      "top": 2438,
+      "height": 470,
+      "words": 12,
+      "media": 0,
+      "middle": 0,
+      "heading": {
+       "text": "Viết.",
+       "size": 300,
+       "tag": "h2"
+      },
+      "left": 120,
+      "right": 725,
+      "textLeft": 120,
+      "textRight": 725,
+      "fullBleed": false,
+      "footer": false,
+      "hero": false,
+      "continues": true,
+      "pinned": false
+     },
+     {
+      "sel": "footer.footer.wrap",
+      "tag": "footer",
+      "top": 2908,
+      "height": 221,
+      "words": 25,
+      "media": 0,
+      "middle": 791,
+      "heading": {
+       "text": "IELTS Writing",
+       "size": 24,
+       "tag": "span"
+      },
+      "left": 80,
+      "right": 80,
+      "textLeft": 80,
+      "textRight": 80,
+      "fullBleed": false,
+      "footer": true,
+      "hero": false,
+      "continues": false,
+      "pinned": false
+     }
+    ],
+    "gaps": [],
+    "h1s": [
+     {
+      "text": "Viết một chút. Tiến một bước.",
+      "size": 65,
+      "top": 210,
+      "firstScreen": true
+     }
+    ],
+    "edgeText": [],
+    "edges": [
+     {
+      "x": 80,
+      "n": 6
+     },
+     {
+      "x": 120,
+      "n": 1
+     }
+    ],
+    "leftBlocks": 7,
+    "bodySize": 16,
+    "stage": false,
+    "explains": false,
+    "slivers": [],
+    "voidShare": 0.16,
+    "voidBox": {
+     "x": 300,
+     "y": 720,
+     "w": 1140,
+     "h": 180
+    }
+   },
+   "app": null,
+   "consoleErrors": []
+  },
+  {
+   "width": 768,
+   "height": 1024,
+   "load": "load",
+   "screens": 4,
+   "filled": [
+    0.45,
+    0.75,
+    0.75,
+    0.75
+   ],
+   "motion": {
+    "elements": 19,
+    "css": 19,
+    "transitions": 0,
+    "scripted": 0,
+    "videos": 0,
+    "playingVideos": 0
+   },
+   "metrics": {
+    "viewport": {
+     "w": 768,
+     "h": 1024
+    },
+    "page": {
+     "height": 3077,
+     "screens": 3,
+     "words": 424,
+     "img": 0,
+     "video": 0,
+     "canvas": 0,
+     "svg": 21,
+     "sections": 3,
+     "horizontalOverflow": 0,
+     "overflowCulprits": [],
+     "uiFragments": 4,
+     "uiAbuse": false,
+     "realPictures": 0,
+     "videoCount": 0,
+     "uiPictures": 4,
+     "pictureSamples": [],
+     "blendText": 0,
+     "sideScrollers": 0,
+     "brokenImages": [],
+     "emoji": [],
+     "videosNoPoster": 0
+    },
+    "hero": {
+     "text": "Viết một chút. Tiến một bước.",
+     "words": 6,
+     "chars": 29,
+     "lines": 2,
+     "size": 39,
+     "vw": 5.1,
+     "font": "Be Vietnam Pro",
+     "weight": 600,
+     "tracking": -0.055,
+     "leading": 1.15,
+     "upper": false,
+     "italic": false,
+     "mono": false,
+     "align": "left",
+     "position": "left",
+     "widthRatio": 0.45,
+     "top": 304,
+     "tag": "h1",
+     "kind": "heading"
+    },
+    "h1": {
+     "text": "Viết một chút. Tiến một bước.",
+     "words": 6,
+     "lines": 2,
+     "size": 39,
+     "font": "Be Vietnam Pro"
+    },
+    "headings": [
+     {
+      "text": "Viết một chút. Tiến một bước.",
+      "words": 6,
+      "chars": 29,
+      "lines": 2,
+      "size": 39,
+      "vw": 5.1,
+      "font": "Be Vietnam Pro",
+      "weight": 600,
+      "tracking": -0.055,
+      "leading": 1.15,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "left",
+      "widthRatio": 0.45,
+      "top": 304,
+      "tag": "h1",
+      "kind": "heading"
+     },
+     {
+      "text": "at your own pace",
+      "words": 4,
+      "chars": 16,
+      "lines": 1,
+      "size": 30,
+      "vw": 3.9,
+      "font": "Be Vietnam Pro",
+      "weight": 500,
+      "tracking": -0.05,
+      "leading": 1.25,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "right",
+      "widthRatio": 0.35,
+      "top": 1261,
+      "tag": "p",
+      "kind": "statement"
+     },
+     {
+      "text": "Hiểu chỗ vấp. Viết tự tin hơn.",
+      "words": 7,
+      "chars": 30,
+      "lines": 2,
+      "size": 30,
+      "vw": 3.9,
+      "font": "Be Vietnam Pro",
+      "weight": 600,
+      "tracking": -0.055,
+      "leading": 1.15,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "left",
+      "widthRatio": 0.45,
+      "top": 1805,
+      "tag": "h2",
+      "kind": "heading"
+     },
+     {
+      "text": "Viết.",
+      "words": 1,
+      "chars": 5,
+      "lines": 1,
+      "size": 161.3,
+      "vw": 21,
+      "font": "Be Vietnam Pro",
+      "weight": 600,
+      "tracking": -0.08,
+      "leading": 1.15,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.83,
+      "top": 2651,
+      "tag": "h2",
+      "kind": "heading"
+     }
+    ],
+    "headingSummary": {
+     "count": 4,
+     "maxLines": 2,
+     "over2Lines": 0,
+     "statements": 1,
+     "centered": 0,
+     "medianWords": 4,
+     "mixedFontHeadings": 0
+    },
+    "type": {
+     "families": [
+      {
+       "family": "Be Vietnam Pro",
+       "share": 1,
+       "mono": false
+      }
+     ],
+     "familyCount": 1,
+     "sizes": [
+      13,
+      14,
+      16,
+      23,
+      24,
+      30,
+      39,
+      161
+     ],
+     "sizeCount": 8,
+     "notLoaded": [],
+     "body": {
+      "font": "Be Vietnam Pro",
+      "size": 16,
+      "leading": 1.65,
+      "weight": 400,
+      "tracking": 0,
+      "contrast": 10.8
+     },
+     "measureChars": 43,
+     "max": {
+      "size": 161.3,
+      "vw": 21,
+      "font": "Be Vietnam Pro",
+      "text": "Viết."
+     },
+     "monoShare": 0,
+     "monoProseShare": 0,
+     "monoFamilies": [],
+     "monoSamples": [],
+     "microLabels": 0,
+     "microLabelShare": 0,
+     "microSamples": [],
+     "upperShare": 0,
+     "centerShare": 0.05,
+     "smallText": 0
+    },
+    "eyebrows": [],
+    "numbered": [],
+    "color": {
+     "bodyBg": "#f6f7f2",
+     "bodyBgHsl": {
+      "h": 72,
+      "s": 0.24,
+      "l": 0.96
+     },
+     "dark": false,
+     "sectionBgs": [
+      {
+       "color": "#dce8dd",
+       "top": 142,
+       "hsl": {
+        "h": 125,
+        "s": 0.21,
+        "l": 0.89
+       }
+      },
+      {
+       "color": "#eef1eb",
+       "top": 1666,
+       "hsl": {
+        "h": 90,
+        "s": 0.18,
+        "l": 0.93
+       }
+      }
+     ],
+     "textColors": [
+      {
+       "color": "#223e35",
+       "share": 0.64
+      },
+      {
+       "color": "#52665c",
+       "share": 0.35
+      },
+      {
+       "color": "#ffffff",
+       "share": 0.01
+      },
+      {
+       "color": "#f6f7f2",
+       "share": 0
+      }
+     ],
+     "button": {
+      "bg": "#ffffff",
+      "hsl": {
+       "h": 0,
+       "s": 0,
+       "l": 1
+      },
+      "fg": "#223e35"
+     },
+     "lowContrast": []
+    },
+    "buttons": {
+     "count": 6,
+     "inHero": 2,
+     "radius": 4,
+     "height": 44,
+     "withShadow": 0,
+     "withGradient": 0,
+     "mono": 0,
+     "upper": 0,
+     "heroLabels": [
+      "Đến nội dung",
+      "Bắt đầu viết"
+     ]
+    },
+    "surfaces": {
+     "shadowStatic": 0,
+     "shadowOverlay": 0,
+     "shadowSamples": [],
+     "gradients": 0,
+     "scrims": 0,
+     "gradientSamples": [],
+     "gradientText": 0,
+     "hairlines": 0,
+     "hairlineSamples": [],
+     "outlinedBoxes": 0,
+     "dashed": 0,
+     "blurred": 0,
+     "roundedBoxes": 0,
+     "boxRadius": 0,
+     "squareMedia": 0,
+     "roundedMedia": 0,
+     "mediaRadius": 0,
+     "textShadow": 0,
+     "cardRows": []
+    },
+    "heroMedia": [],
+    "nav": {
+     "links": 5,
+     "fixed": false,
+     "height": 106,
+     "floatingPill": false,
+     "blur": false
+    },
+    "fontsLoaded": [
+     "be vietnam pro"
+    ]
+   },
+   "layout": {
+    "viewport": {
+     "w": 768,
+     "h": 1024
+    },
+    "pageH": 3077,
+    "margins": {
+     "left": 24,
+     "right": 24
+    },
+    "sections": [
+     {
+      "sel": "section.hero.wrap",
+      "tag": "section",
+      "top": 106,
+      "height": 807,
+      "words": 131,
+      "media": 0,
+      "middle": 49,
+      "heading": {
+       "text": "Viết một chút.",
+       "size": 39,
+       "tag": "h1"
+      },
+      "left": 24,
+      "right": 57,
+      "textLeft": 24,
+      "textRight": 58,
+      "fullBleed": false,
+      "footer": false,
+      "hero": true,
+      "continues": true,
+      "pinned": false
+     },
+     {
+      "sel": "section.capabilities.wrap",
+      "tag": "section",
+      "top": 913,
+      "height": 753,
+      "words": 107,
+      "media": 0,
+      "middle": 0,
+      "heading": {
+       "text": "at your own pace",
+       "size": 30,
+       "tag": "p"
+      },
+      "left": 24,
+      "right": 24,
+      "textLeft": 24,
+      "textRight": 24,
+      "fullBleed": false,
+      "footer": false,
+      "hero": false,
+      "continues": true,
+      "pinned": false
+     },
+     {
+      "sel": "section#feedback.process",
+      "tag": "section",
+      "top": 1666,
+      "height": 780,
+      "words": 119,
+      "media": 0,
+      "middle": 0,
+      "heading": {
+       "text": "Hiểu chỗ vấp.",
+       "size": 30,
+       "tag": "h2"
+      },
+      "left": 24,
+      "right": 22,
+      "textLeft": 24,
+      "textRight": 54,
+      "fullBleed": false,
+      "footer": false,
+      "hero": false,
+      "continues": true,
+      "pinned": false
+     },
+     {
+      "sel": "a.write-cta.wrap",
+      "tag": "a",
+      "top": 2546,
+      "height": 310,
+      "words": 12,
+      "media": 0,
+      "middle": 0,
+      "heading": {
+       "text": "Viết.",
+       "size": 161,
+       "tag": "h2"
+      },
+      "left": 64,
+      "right": 384,
+      "textLeft": 64,
+      "textRight": 384,
+      "fullBleed": false,
+      "footer": false,
+      "hero": false,
+      "continues": true,
+      "pinned": false
+     },
+     {
+      "sel": "footer.footer.wrap",
+      "tag": "footer",
+      "top": 2856,
+      "height": 221,
+      "words": 25,
+      "media": 0,
+      "middle": 231,
+      "heading": {
+       "text": "IELTS Writing",
+       "size": 24,
+       "tag": "span"
+      },
+      "left": 24,
+      "right": 24,
+      "textLeft": 24,
+      "textRight": 24,
+      "fullBleed": false,
+      "footer": true,
+      "hero": false,
+      "continues": false,
+      "pinned": false
+     }
+    ],
+    "gaps": [],
+    "h1s": [
+     {
+      "text": "Viết một chút. Tiến một bước.",
+      "size": 39,
+      "top": 304,
+      "firstScreen": true
+     }
+    ],
+    "edgeText": [],
+    "edges": [
+     {
+      "x": 24,
+      "n": 6
+     },
+     {
+      "x": 64,
+      "n": 1
+     }
+    ],
+    "leftBlocks": 7,
+    "bodySize": 16,
+    "stage": false,
+    "explains": false,
+    "slivers": [],
+    "voidShare": 0,
+    "voidBox": null
+   },
+   "app": null,
+   "consoleErrors": []
+  },
+  {
+   "width": 390,
+   "height": 844,
+   "load": "load",
+   "screens": 5,
+   "filled": [
+    0.71,
+    0.67,
+    0.87,
+    0.91,
+    0.66
+   ],
+   "motion": {
+    "elements": 18,
+    "css": 18,
+    "transitions": 0,
+    "scripted": 0,
+    "videos": 0,
+    "playingVideos": 0
+   },
+   "metrics": {
+    "viewport": {
+     "w": 390,
+     "h": 844
+    },
+    "page": {
+     "height": 3845,
+     "screens": 4.6,
+     "words": 404,
+     "img": 0,
+     "video": 0,
+     "canvas": 0,
+     "svg": 21,
+     "sections": 3,
+     "horizontalOverflow": 0,
+     "overflowCulprits": [],
+     "uiFragments": 4,
+     "uiAbuse": false,
+     "realPictures": 0,
+     "videoCount": 0,
+     "uiPictures": 4,
+     "pictureSamples": [],
+     "blendText": 0,
+     "sideScrollers": 0,
+     "brokenImages": [],
+     "emoji": [],
+     "videosNoPoster": 0
+    },
+    "hero": {
+     "text": "Viết một chút. Tiến một bước.",
+     "words": 6,
+     "chars": 29,
+     "lines": 2,
+     "size": 34.3,
+     "vw": 8.8,
+     "font": "Be Vietnam Pro",
+     "weight": 600,
+     "tracking": -0.055,
+     "leading": 1.15,
+     "upper": false,
+     "italic": false,
+     "mono": false,
+     "align": "left",
+     "position": "center",
+     "widthRatio": 0.9,
+     "top": 110,
+     "tag": "h1",
+     "kind": "heading"
+    },
+    "h1": {
+     "text": "Viết một chút. Tiến một bước.",
+     "words": 6,
+     "lines": 2,
+     "size": 34.3,
+     "font": "Be Vietnam Pro"
+    },
+    "headings": [
+     {
+      "text": "Viết một chút. Tiến một bước.",
+      "words": 6,
+      "chars": 29,
+      "lines": 2,
+      "size": 34.3,
+      "vw": 8.8,
+      "font": "Be Vietnam Pro",
+      "weight": 600,
+      "tracking": -0.055,
+      "leading": 1.15,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.9,
+      "top": 110,
+      "tag": "h1",
+      "kind": "heading"
+     },
+     {
+      "text": "Chọn một đề vừa sức, viết ý của bạn. Giữ lại một cụm từ thật hay. Ngày mai, viết thêm một chút.",
+      "words": 22,
+      "chars": 95,
+      "lines": 4,
+      "size": 24,
+      "vw": 6.2,
+      "font": "Be Vietnam Pro",
+      "weight": 500,
+      "tracking": -0.04,
+      "leading": 1.6,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.9,
+      "top": 1158,
+      "tag": "p",
+      "kind": "statement"
+     },
+     {
+      "text": "at your own pace",
+      "words": 4,
+      "chars": 16,
+      "lines": 1,
+      "size": 30,
+      "vw": 7.7,
+      "font": "Be Vietnam Pro",
+      "weight": 500,
+      "tracking": -0.05,
+      "leading": 1.25,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.79,
+      "top": 1825,
+      "tag": "p",
+      "kind": "statement"
+     },
+     {
+      "text": "Hiểu chỗ vấp. Viết tự tin hơn.",
+      "words": 7,
+      "chars": 30,
+      "lines": 2,
+      "size": 32,
+      "vw": 8.2,
+      "font": "Be Vietnam Pro",
+      "weight": 600,
+      "tracking": -0.055,
+      "leading": 1.15,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.9,
+      "top": 2249,
+      "tag": "h2",
+      "kind": "heading"
+     },
+     {
+      "text": "Task Response",
+      "words": 2,
+      "chars": 13,
+      "lines": 1,
+      "size": 24,
+      "vw": 6.2,
+      "font": "Be Vietnam Pro",
+      "weight": 500,
+      "tracking": -0.045,
+      "leading": 1.3,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.79,
+      "top": 2632,
+      "tag": "p",
+      "kind": "statement"
+     },
+     {
+      "text": "Viết.",
+      "words": 1,
+      "chars": 5,
+      "lines": 1,
+      "size": 117,
+      "vw": 30,
+      "font": "Be Vietnam Pro",
+      "weight": 600,
+      "tracking": -0.08,
+      "leading": 1.15,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.77,
+      "top": 3423,
+      "tag": "h2",
+      "kind": "heading"
+     }
+    ],
+    "headingSummary": {
+     "count": 6,
+     "maxLines": 4,
+     "over2Lines": 0,
+     "statements": 3,
+     "centered": 0,
+     "medianWords": 4,
+     "mixedFontHeadings": 0
+    },
+    "type": {
+     "families": [
+      {
+       "family": "Be Vietnam Pro",
+       "share": 1,
+       "mono": false
+      }
+     ],
+     "familyCount": 1,
+     "sizes": [
+      13,
+      16,
+      20,
+      24,
+      32,
+      34,
+      117
+     ],
+     "sizeCount": 7,
+     "notLoaded": [],
+     "body": {
+      "font": "Be Vietnam Pro",
+      "size": 16,
+      "leading": 1.65,
+      "weight": 400,
+      "tracking": 0,
+      "contrast": 10.8
+     },
+     "measureChars": 44,
+     "max": {
+      "size": 117,
+      "vw": 30,
+      "font": "Be Vietnam Pro",
+      "text": "Viết."
+     },
+     "monoShare": 0,
+     "monoProseShare": 0,
+     "monoFamilies": [],
+     "monoSamples": [],
+     "microLabels": 0,
+     "microLabelShare": 0,
+     "microSamples": [],
+     "upperShare": 0,
+     "centerShare": 0.05,
+     "smallText": 0
+    },
+    "eyebrows": [],
+    "numbered": [],
+    "color": {
+     "bodyBg": "#f6f7f2",
+     "bodyBgHsl": {
+      "h": 72,
+      "s": 0.24,
+      "l": 0.96
+     },
+     "dark": false,
+     "sectionBgs": [
+      {
+       "color": "#dce8dd",
+       "top": 421,
+       "hsl": {
+        "h": 125,
+        "s": 0.21,
+        "l": 0.89
+       }
+      },
+      {
+       "color": "#ffffff",
+       "top": 485,
+       "hsl": {
+        "h": 0,
+        "s": 0,
+        "l": 1
+       }
+      },
+      {
+       "color": "#eef1eb",
+       "top": 2195,
+       "hsl": {
+        "h": 90,
+        "s": 0.18,
+        "l": 0.93
+       }
+      }
+     ],
+     "textColors": [
+      {
+       "color": "#223e35",
+       "share": 0.63
+      },
+      {
+       "color": "#52665c",
+       "share": 0.36
+      },
+      {
+       "color": "#ffffff",
+       "share": 0.01
+      },
+      {
+       "color": "#f6f7f2",
+       "share": 0
+      }
+     ],
+     "button": {
+      "bg": "#ffffff",
+      "hsl": {
+       "h": 0,
+       "s": 0,
+       "l": 1
+      },
+      "fg": "#223e35"
+     },
+     "lowContrast": []
+    },
+    "buttons": {
+     "count": 5,
+     "inHero": 2,
+     "radius": 4,
+     "height": 44,
+     "withShadow": 0,
+     "withGradient": 0,
+     "mono": 0,
+     "upper": 0,
+     "heroLabels": [
+      "Đến nội dung",
+      "Bắt đầu viết"
+     ]
+    },
+    "surfaces": {
+     "shadowStatic": 0,
+     "shadowOverlay": 0,
+     "shadowSamples": [],
+     "gradients": 0,
+     "scrims": 0,
+     "gradientSamples": [],
+     "gradientText": 0,
+     "hairlines": 0,
+     "hairlineSamples": [],
+     "outlinedBoxes": 0,
+     "dashed": 0,
+     "blurred": 0,
+     "roundedBoxes": 0,
+     "boxRadius": 0,
+     "squareMedia": 0,
+     "roundedMedia": 0,
+     "mediaRadius": 0,
+     "textShadow": 0,
+     "cardRows": []
+    },
+    "heroMedia": [],
+    "nav": {
+     "links": 1,
+     "fixed": false,
+     "height": 88,
+     "floatingPill": false,
+     "blur": false
+    },
+    "fontsLoaded": [
+     "be vietnam pro"
+    ]
+   },
+   "layout": {
+    "viewport": {
+     "w": 390,
+     "h": 844
+    },
+    "pageH": 3845,
+    "margins": {
+     "left": 20,
+     "right": 20
+    },
+    "sections": [
+     {
+      "sel": "section.hero.wrap",
+      "tag": "section",
+      "top": 88,
+      "height": 1006,
+      "words": 122,
+      "media": 0,
+      "middle": 0,
+      "heading": {
+       "text": "Viết một chút.",
+       "size": 34,
+       "tag": "h1"
+      },
+      "left": 20,
+      "right": 39,
+      "textLeft": 20,
+      "textRight": 39,
+      "fullBleed": false,
+      "footer": false,
+      "hero": true,
+      "continues": true,
+      "pinned": false
+     },
+     {
+      "sel": "section.capabilities.wrap",
+      "tag": "section",
+      "top": 1094,
+      "height": 1101,
+      "words": 107,
+      "media": 0,
+      "middle": 0,
+      "heading": {
+       "text": "Chọn một đề",
+       "size": 24,
+       "tag": "p"
+      },
+      "left": 20,
+      "right": 40,
+      "textLeft": 20,
+      "textRight": 43,
+      "fullBleed": false,
+      "footer": false,
+      "hero": false,
+      "continues": true,
+      "pinned": false
+     },
+     {
+      "sel": "section#feedback.process",
+      "tag": "section",
+      "top": 2195,
+      "height": 1033,
+      "words": 119,
+      "media": 0,
+      "middle": 0,
+      "heading": {
+       "text": "Hiểu chỗ vấp.",
+       "size": 32,
+       "tag": "h2"
+      },
+      "left": 20,
+      "right": 18,
+      "textLeft": 20,
+      "textRight": 31,
+      "fullBleed": false,
+      "footer": false,
+      "hero": false,
+      "continues": true,
+      "pinned": false
+     },
+     {
+      "sel": "a.write-cta.wrap",
+      "tag": "a",
+      "top": 3292,
+      "height": 284,
+      "words": 12,
+      "media": 0,
+      "middle": 0,
+      "heading": {
+       "text": "Viết.",
+       "size": 117,
+       "tag": "h2"
+      },
+      "left": 44,
+      "right": 114,
+      "textLeft": 44,
+      "textRight": 114,
+      "fullBleed": false,
+      "footer": false,
+      "hero": false,
+      "continues": true,
+      "pinned": false
+     },
+     {
+      "sel": "footer.footer.wrap",
+      "tag": "footer",
+      "top": 3575,
+      "height": 270,
+      "words": 25,
+      "media": 0,
+      "middle": 0,
+      "heading": null,
+      "left": 20,
+      "right": 100,
+      "textLeft": 20,
+      "textRight": 100,
+      "fullBleed": false,
+      "footer": true,
+      "hero": false,
+      "continues": false,
+      "pinned": false
+     }
+    ],
+    "gaps": [],
+    "h1s": [
+     {
+      "text": "Viết một chút. Tiến một bước.",
+      "size": 34,
+      "top": 110,
+      "firstScreen": true
+     }
+    ],
+    "edgeText": [],
+    "edges": [
+     {
+      "x": 20,
+      "n": 6
+     },
+     {
+      "x": 44,
+      "n": 1
+     }
+    ],
+    "leftBlocks": 7,
+    "bodySize": 16,
+    "stage": false,
+    "explains": false,
+    "slivers": [],
+    "voidShare": 0,
+    "voidBox": null
+   },
+   "app": null,
+   "consoleErrors": []
+  }
+ ],
+ "findings": [
+  {
+   "level": "WARN",
+   "id": "no-real-pictures",
+   "width": 1440,
+   "message": "Only 0 real photograph(s) or clip(s); the rest are interface fragments.",
+   "fix": "Add two or more real pictures of the customer's world from scripts/assets.mjs, not stock of people at laptops."
+  },
+  {
+   "level": "WARN",
+   "id": "no-footage",
+   "width": 1440,
+   "message": "No video anywhere on the page.",
+   "fix": "Look for one honest clip with scripts/assets.mjs --video (the place, the material, the process) and use it as a muted loop with a poster frame. Defend its absence only if no clip fits the subject."
+  }
+ ],
+ "images": [
+  {
+   "viewport": "desktop",
+   "width": 1440,
+   "fold": "D:\\ielts\\docs\\demos\\writing-studio-playful\\.taste-skill\\inspect\\desktop-fold.jpg",
+   "pages": [
+    "D:\\ielts\\docs\\demos\\writing-studio-playful\\.taste-skill\\inspect\\desktop-page-01.jpg"
+   ],
+   "film": []
+  },
+  {
+   "viewport": "tablet",
+   "width": 768,
+   "fold": "D:\\ielts\\docs\\demos\\writing-studio-playful\\.taste-skill\\inspect\\tablet-fold.jpg",
+   "pages": [
+    "D:\\ielts\\docs\\demos\\writing-studio-playful\\.taste-skill\\inspect\\tablet-page-01.jpg"
+   ],
+   "film": []
+  },
+  {
+   "viewport": "mobile",
+   "width": 390,
+   "fold": "D:\\ielts\\docs\\demos\\writing-studio-playful\\.taste-skill\\inspect\\mobile-fold.jpg",
+   "pages": [
+    "D:\\ielts\\docs\\demos\\writing-studio-playful\\.taste-skill\\inspect\\mobile-page-01.jpg"
+   ],
+   "film": []
+  }
+ ]
+}

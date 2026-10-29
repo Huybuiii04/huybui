@@ -62,7 +62,7 @@ for (const file of files) {
   assert.equal(app.operatingSystem, 'Web', `${file.path}: sai operatingSystem`)
   assert.ok(!('author' in app) && !('publisher' in app) && !('offers' in app), `${file.path}: JSON-LD còn dữ liệu chưa xác minh`)
 
-  // Mọi trang phải dùng đúng theme của app: mặc định tối, tôn trọng lựa chọn đã lưu.
+  // Mọi trang phải dùng đúng theme của app: mặc định sáng, tôn trọng lựa chọn đã lưu.
   assert.match(
     html,
     new RegExp(`<html[^>]*\\sdata-theme="${defaultTheme}"`),
@@ -81,8 +81,8 @@ for (const file of files) {
 // Landing tĩnh phải là nội dung thật của trang: đọc được ngay trong HTML.
 const landing = readFileSync(join(dist, 'index.html'), 'utf8')
 assert.ok(landing.includes('class="landing"'), 'landing: thiếu wrapper .landing')
-assert.match(landing, /Your ideas\./, 'landing: thiếu nội dung hero')
-assert.match(landing, /A LITTLE BETTER\. EVERY DAY\./, 'landing: thiếu kicker')
+assert.match(landing, /Four skills\./, 'landing: thiếu nội dung hero')
+assert.match(landing, /A little better\. Every day\./, 'landing: thiếu kicker')
 assert.match(landing, /href="\/app\/prompts"/, 'landing: thiếu link tới kho đề bài')
 assert.match(landing, /href="\/app\/write"/, 'landing: thiếu link tới không gian viết')
 assert.match(landing, /href="\/donate"/, 'landing: thiếu link ủng hộ')

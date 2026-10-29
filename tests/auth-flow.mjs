@@ -53,7 +53,7 @@ check('đăng ký phải vào thẳng app', !page.url().includes('/auth'))
 
 // 2. Thanh trên cùng có nút đăng xuất.
 const topbarSignOut = page.locator('.topbar-actions').getByRole('button', { name: 'Sign out', exact: true })
-await page.locator('.dashboard-hero').waitFor()
+await page.locator('.dashboard-page').waitFor()
 await topbarSignOut.waitFor()
 check('thanh trên cùng phải có nút đăng xuất', await page.locator('.topbar-actions .icon-button[aria-label="Sign out"]').count() === 1)
 
