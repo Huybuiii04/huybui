@@ -27,7 +27,7 @@ const expectedFunctions = [
   'submit_essay_job', 'estimate_ai_cost'
 ]
 
-const expectedBuckets = ['essay-images', 'content-media', 'donation-media', 'prompt-media', 'user-prompt-media', 'skill-audio']
+const expectedBuckets = ['essay-images', 'content-media', 'donation-media', 'prompt-media', 'user-prompt-media', 'skill-audio', 'speaking-audio']
 
 /** Chạy SQL và trả về chuỗi kết quả (phân tách bằng |). */
 function query(sql) {
