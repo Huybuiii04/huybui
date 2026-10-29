@@ -7,6 +7,9 @@ import { detectImageMimeType } from "./security.ts";
 
 export const ESSAY_IMAGE_BUCKET = "essay-images";
 
+/** Bucket audio của module Speaking — private, xoá sau khi chấm. */
+export const SPEAKING_AUDIO_BUCKET = "speaking-audio";
+
 export interface EssayAssetRow {
   id: string;
   user_id: string;
@@ -114,6 +117,32 @@ export async function removeUserAssetObjects(
     .neq("status", "deleted");
   if (error) throw new AppError(503, "database_unavailable", "Could not load the account images");
   await removeEssayAssetObjects(service, (data ?? []) as Pick<EssayAssetRow, "object_path">[]);
+}
+
+/**
+ * Xoá toàn bộ recording của user trong bucket `speaking-audio`.
+ * Các row trong `speaking_attempts` bị `on delete cascade` xoá theo `auth.users`, nhưng
+ * object trong Storage thì không — nên phải dọn riêng khi xoá tài khoản.
+ */
+export async function removeUserSpeakingAudioObjects(
+  service: SupabaseClient,
+  userId: string,
+): Promise<void> {
+  const { data, error } = await service.storage.from(SPEAKING_AUDIO_BUCKET).list(userId, { limit: 1000 });
+  if (error) return;
+  const paths = (data ?? []).map((item) => `${userId}/${item.name}`);
+  if (!paths.length) return;
+  await service.storage.from(SPEAKING_AUDIO_BUCKET).remove(paths);
+}
+
+/** Xoá một danh sách recording cụ thể (dùng sau khi chấm xong). */
+export async function removeSpeakingAudioObjects(
+  service: SupabaseClient,
+  paths: string[],
+): Promise<void> {
+  const unique = [...new Set(paths.filter((path) => Boolean(path)))];
+  if (!unique.length) return;
+  await service.storage.from(SPEAKING_AUDIO_BUCKET).remove(unique);
 }
 
 function isNotFound(error: { statusCode?: string | number; status?: number; message?: string }): boolean {

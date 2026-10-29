@@ -96,6 +96,113 @@ export interface UsageQueryInput {
   to: string;
 }
 
+/** Chế độ luyện nói: 1 phần hoặc full mock 3 phần. */
+export type SpeakingMode = "part-1" | "part-2" | "part-3" | "mock";
+export type SpeakingPart = "part-1" | "part-2" | "part-3";
+
+export interface PrepareSpeakingInput {
+  mode: SpeakingMode;
+  questionId: string | null;
+  question: string | null;
+  targetBand: number | null;
+  feedbackLocale: "vi" | "en";
+}
+
+export interface CommitSpeakingTurnInput {
+  attemptId: string;
+  turnId: string;
+  mimeType: string;
+  byteSize: number;
+  durationMs: number;
+  idempotencyKey: string;
+}
+
+export const SPEAKING_MODES: SpeakingMode[] = ["part-1", "part-2", "part-3", "mock"];
+export const SPEAKING_AUDIO_MIME_TYPES = [
+  "audio/webm",
+  "audio/mp4",
+  "audio/ogg",
+  "audio/wav",
+  "audio/mpeg",
+  "audio/mp3",
+] as const;
+export const MAX_SPEAKING_AUDIO_BYTES = 4 * 1024 * 1024;
+
+/** Thời lượng tối đa mỗi turn (ms) — khớp giới hạn thời lượng của IELTS Speaking. */
+export const SPEAKING_MAX_DURATION_MS: Record<SpeakingPart, number> = {
+  "part-1": 60_000,
+  "part-2": 120_000,
+  "part-3": 90_000,
+};
+
+export function parsePrepareSpeaking(input: unknown): PrepareSpeakingInput {
+  const record = asRecord(input);
+  const mode = requiredString(record, "mode", { min: 1, max: 16 });
+  if (!SPEAKING_MODES.includes(mode as SpeakingMode)) {
+    fail("mode", "Unknown speaking mode");
+  }
+
+  const locale = record.feedbackLocale === undefined || record.feedbackLocale === null
+    ? "vi"
+    : requiredString(record, "feedbackLocale", { min: 2, max: 2 });
+  if (locale !== "vi" && locale !== "en") {
+    fail("feedbackLocale", "Unsupported feedback locale");
+  }
+
+  let targetBand: number | null = null;
+  if (record.targetBand !== undefined && record.targetBand !== null) {
+    const value = Number(record.targetBand);
+    if (!Number.isFinite(value) || value < 0 || value > 9) {
+      fail("targetBand", "targetBand must be between 0 and 9");
+    }
+    targetBand = value;
+  }
+
+  const questionId = record.questionId === undefined || record.questionId === null
+    ? null
+    : requiredUuid(record, "questionId");
+  const question = optionalString(record, "question", { max: 2_000 })?.trim() || null;
+
+  if (!questionId && !question) {
+    fail("question", "Pick a question or type your own");
+  }
+
+  return {
+    mode: mode as SpeakingMode,
+    questionId,
+    question,
+    targetBand,
+    feedbackLocale: locale as "vi" | "en",
+  };
+}
+
+export function parseCommitSpeakingTurn(input: unknown): CommitSpeakingTurnInput {
+  const record = asRecord(input);
+  const mimeType = requiredString(record, "mimeType", { min: 4, max: 64 });
+  if (!SPEAKING_AUDIO_MIME_TYPES.includes(mimeType as (typeof SPEAKING_AUDIO_MIME_TYPES)[number])) {
+    fail("mimeType", "Unsupported audio type");
+  }
+
+  const byteSize = Number(record.byteSize);
+  if (!Number.isFinite(byteSize) || byteSize <= 0 || byteSize > MAX_SPEAKING_AUDIO_BYTES) {
+    fail("byteSize", "The recording is empty or larger than 4 MB");
+  }
+
+  const durationMs = Number(record.durationMs);
+  if (!Number.isFinite(durationMs) || durationMs < 0 || durationMs > 15 * 60 * 1000) {
+    fail("durationMs", "Invalid recording duration");
+  }
+
+  return {
+    attemptId: requiredUuid(record, "attemptId"),
+    turnId: requiredUuid(record, "turnId"),
+    mimeType,
+    byteSize,
+    durationMs: Math.round(durationMs),
+    idempotencyKey: requiredIdempotencyKey(record),
+  };
+}
+
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const IDEMPOTENCY_PATTERN = /^[A-Za-z0-9._:-]{8,128}$/;
 const SHA256_PATTERN = /^[0-9a-f]{64}$/i;
