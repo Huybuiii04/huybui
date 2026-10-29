@@ -1651,7 +1651,34 @@ body:has(.speaking-dialog[open]) { overflow: hidden; }
 .speaking-dialog-source { margin-top: 12px; color: var(--text-muted); font-size: 12px; }
 .speaking-dialog-source summary { display: flex; align-items: center; min-height: 32px; cursor: pointer; }
 .speaking-dialog-source p { overflow-wrap: anywhere; }
-.speaking-dialog-footer { padding: 0 20px 20px; }
+.speaking-dialog-footer { display: grid; gap: 12px; padding: 0 20px 20px; }
+.speaking-live-help { color: var(--text-muted); font-size: 13px; line-height: 1.6; text-align: center; }
+.live-setup { display: grid; gap: 20px; padding: 24px; }
+.live-setup label { margin-bottom: 0; }
+.live-room { display: grid; gap: 18px; }
+.live-question { padding: 26px; }
+.live-question-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; color: var(--text-muted); font-size: 13px; }
+.live-question-text { white-space: pre-line; font-size: 21px; line-height: 1.7; margin: 22px 0; }
+.live-replay { font-size: 14px; }
+.live-answer-bar { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 20px 24px; }
+.live-answer-bar.is-speaking { border-color: var(--brand); }
+.live-mic-status { display: flex; align-items: center; gap: 14px; }
+.live-mic-status strong { display: block; font-size: 16px; margin-bottom: 5px; }
+.live-mic-status div > span { display: flex; align-items: center; gap: 6px; font-size: 14px; }
+.live-mic-icon { display: grid; place-items: center; width: 48px; height: 48px; flex-shrink: 0; border-radius: 50%; background: var(--brand-soft); color: var(--brand-ink); }
+.live-session-actions { justify-content: space-between; }
+.live-transcript { padding: 24px; }
+.live-transcript ul { display: grid; gap: 12px; list-style: none; padding: 0; margin: 16px 0 0; }
+.live-message { width: fit-content; max-width: 90%; padding: 14px 18px; border-radius: 14px; background: var(--surface-soft); font-size: 15px; line-height: 1.7; overflow-wrap: anywhere; }
+.live-message.is-candidate { margin-left: auto; background: var(--brand-soft); }
+.live-message strong { display: block; color: var(--text-muted); font-size: 12px; margin-bottom: 4px; }
+@media (max-width: 767px) {
+  .live-setup, .live-question, .live-transcript { padding: 18px; }
+  .live-question-text { font-size: 18px; }
+  .live-answer-bar { align-items: stretch; flex-direction: column; padding: 18px; gap: 16px; }
+  .live-session-actions { align-items: stretch; flex-direction: column; }
+  .live-message { max-width: 100%; }
+}
 @media (max-width: 1200px) {
   :is(.speaking-grid, .library-grid) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }

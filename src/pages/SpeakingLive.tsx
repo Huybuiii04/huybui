@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router'
-import { Mic, MicOff, PhoneOff, Volume2 } from 'lucide-react'
+import { Check, Mic, MicOff, PhoneOff, Volume2 } from 'lucide-react'
 
 import { Notice, PageHeader } from '../components/ui'
 import { SpeakingResult } from '../components/speaking/SpeakingResult.tsx'
@@ -87,6 +87,7 @@ export default function SpeakingLive() {
   const [prepSeconds, setPrepSeconds] = useState(0)
   const [result, setResult] = useState<SpeakingResultView | null>(null)
   const [turnLabel, setTurnLabel] = useState('')
+  const [replaying, setReplaying] = useState(false)
 
   const sessionRef = useRef<LiveSession | null>(null)
   const attemptRef = useRef<SpeakingAttempt | null>(null)
@@ -105,6 +106,8 @@ export default function SpeakingLive() {
   const cancelledRef = useRef(false)
   const spokeRef = useRef(false)
   const stoppingRef = useRef(false)
+  const followUpRef = useRef(false)
+  const questionAudioRef = useRef<{ text: string; key: string } | null>(null)
   const pendingUploadsRef = useRef<Promise<void>[]>([])
 
   const setPhaseSafe = useCallback((next: Phase) => {
@@ -206,7 +209,7 @@ export default function SpeakingLive() {
   // ------------------------------------------------------------- vòng hỏi
 
   const askStep = useCallback(
-    async (turnIndex: number, stepIndex: number) => {
+    async (turnIndex: number, stepIndex: number, followUp?: string) => {
       const current = sessionRef.current
       if (!current || cancelledRef.current) return
       const turn = current.plan[turnIndex]
@@ -216,13 +219,18 @@ export default function SpeakingLive() {
       turnIndexRef.current = turnIndex
       stepIndexRef.current = stepIndex
       setTurnLabel(turn.part === 'part-2' ? 'Part 2' : turn.part === 'part-1' ? 'Part 1' : 'Part 3')
-      setCurrentQuestion(step.text)
-      pushTranscript('examiner', step.text)
+      const text = followUp ?? step.text
+      const key = followUp ? `followup:${turnIndex}:${step.index}:${text}` : `${turnIndex}:${step.index}`
+      followUpRef.current = Boolean(followUp)
+      questionAudioRef.current = { text, key }
+      setCurrentQuestion(text)
+      pushTranscript('examiner', text)
       spokeRef.current = false
       setPhaseSafe('asking')
 
-      const played = await speak(step.text, `${turnIndex}:${step.index}`)
-      if (!played || cancelledRef.current) return
+      const played = await speak(text, key)
+      if (cancelledRef.current) return
+      if (!played) { setPhaseSafe('error'); return }
       prefetchVoices(turnIndex, stepIndex + 1)
 
       vadRef.current.reset()
@@ -243,6 +251,9 @@ export default function SpeakingLive() {
       const turn = current?.plan[turnIndex]
       if (!current || !turn) return
       turnIndexRef.current = turnIndex
+      stepIndexRef.current = 0
+      setCurrentQuestion(turn.steps[0]?.text ?? '')
+      setTurnLabel(turn.part === 'part-2' ? 'Part 2' : turn.part === 'part-1' ? 'Part 1' : 'Part 3')
       if (turn.prepMs > 0) {
         prefetchVoices(turnIndex, 0)
         setPrepSeconds(Math.round(turn.prepMs / 1000))
@@ -331,9 +342,10 @@ export default function SpeakingLive() {
       const stepIndex = stepIndexRef.current
       const turn = current.plan[turnIndex]
       const candidateAnswer = transcriberRef.current?.text() ?? ''
+      transcriberRef.current?.stop()
       if (candidateAnswer) pushTranscript('candidate', candidateAnswer)
 
-      if (allowFollowUp && turn) {
+      if (allowFollowUp && turn && !followUpRef.current) {
         setPhaseSafe('thinking')
         const reply = await requestBrain({
           sessionId: current.sessionId,
@@ -345,6 +357,10 @@ export default function SpeakingLive() {
         })
         if (reply.ok) {
           const line = [reply.value.ack, reply.value.followUp].filter(Boolean).join(' ')
+          if (reply.value.followUp) {
+            await askStep(turnIndex, stepIndex, line)
+            return
+          }
           if (line) {
             pushTranscript('examiner', line)
             await speak(line, `followup:${turnIndex}:${stepIndex}:${line.slice(0, 24)}`)
@@ -362,6 +378,32 @@ export default function SpeakingLive() {
       busyRef.current = false
     }
   }, [allowFollowUp, askStep, endTurn, pushTranscript, setPhaseSafe, speak])
+
+  const replayQuestion = useCallback(async () => {
+    if (busyRef.current || phaseRef.current !== 'answering') return
+    const question = questionAudioRef.current
+    if (!question) return
+    busyRef.current = true
+    setReplaying(true)
+    setError('')
+    setUserSpeaking(false)
+    setPhaseSafe('asking')
+    transcriberRef.current?.stop()
+    const started = Date.now()
+    try {
+      await speak(question.text, question.key)
+    } finally {
+      busyRef.current = false
+      setReplaying(false)
+      if (!cancelledRef.current && !stoppingRef.current) {
+        answerStartRef.current += Date.now() - started
+        vadRef.current.reset()
+        spokeRef.current = false
+        setPhaseSafe('answering')
+        transcriberRef.current?.start()
+      }
+    }
+  }, [setPhaseSafe, speak])
 
   // ------------------------------------------------------------- đồng hồ
 
@@ -397,6 +439,8 @@ export default function SpeakingLive() {
   // ------------------------------------------------------------- vòng đời
 
   const start = useCallback(async () => {
+    transcriberRef.current?.stop()
+    micRef.current?.close()
     setError('')
     setResult(null)
     setPhaseSafe('connecting')
@@ -510,7 +554,7 @@ export default function SpeakingLive() {
   }
 
   return (
-    <div className="page">
+    <div className="page speaking-live-page">
       <PageHeader
         eyebrow={testLabel || 'SPEAKING'}
         title={c('Luyện nói trực tiếp', 'Live speaking')}
@@ -530,7 +574,7 @@ export default function SpeakingLive() {
       )}
 
       {phase === 'setup' && (
-        <div className="panel flex flex-col gap-4">
+        <div className="panel live-setup">
           <div className="button-row">
             <label className="muted text-[12px]">
               {c('Giọng giám khảo', 'Examiner voice')}
@@ -576,9 +620,9 @@ export default function SpeakingLive() {
       )}
 
       {(phase === 'prep' || phase === 'asking' || phase === 'answering' || phase === 'thinking') && (
-        <div className="flex flex-col gap-4">
-          <div className="panel flex flex-col gap-2">
-            <div className="flex flex-wrap items-center gap-3 muted text-[12px]">
+        <div className="live-room">
+          <section className="panel live-question" aria-label={c('Câu hỏi của giám khảo', 'Examiner question')}>
+            <div className="live-question-meta">
               <span className="speaking-badge">{turnLabel}</span>
               <span>
                 {c('Câu hỏi', 'Question')} {questionNumber}
@@ -600,8 +644,14 @@ export default function SpeakingLive() {
                 </span>
               )}
             </div>
-            <p className="text-[15px] leading-6">{currentQuestion}</p>
-            <div className="flex items-center gap-2 text-[12px]">
+            <p className="live-question-text">{currentQuestion}</p>
+            <button type="button" className="button outline live-replay" disabled={phase !== 'answering' || replaying} onClick={() => void replayQuestion()}><Volume2 size={16} aria-hidden />{replaying ? c('Đang đọc lại…', 'Replaying…') : c('Nghe lại câu hỏi', 'Replay question')}</button>
+          </section>
+
+          <div className={`panel live-answer-bar ${userSpeaking ? 'is-speaking' : ''}`}>
+            <div className="live-mic-status" role="status">
+              <span className="live-mic-icon"><Mic size={22} aria-hidden /></span>
+              <div><strong>{c('Trả lời bằng mic', 'Answer with your microphone')}</strong>
               {phase === 'answering' ? (
                 <span className={userSpeaking ? 'flex items-center gap-1' : 'muted flex items-center gap-1'}>
                   {userSpeaking ? <Mic size={14} aria-hidden /> : <MicOff size={14} aria-hidden />}
@@ -610,10 +660,12 @@ export default function SpeakingLive() {
               ) : (
                 <span className="muted">—</span>
               )}
+              </div>
             </div>
+            <button type="button" className="button primary" disabled={phase !== 'answering' || replaying} onClick={() => void handleAnswerEnd()}><Check size={16} aria-hidden />{c('Trả lời xong', 'Done answering')}</button>
           </div>
 
-          <div className="button-row">
+          <div className="button-row live-session-actions">
             <button type="button" className="button outline" onClick={() => void endTurn()}>
               {c('Bỏ qua phần này', 'Skip this part')}
             </button>
@@ -623,11 +675,11 @@ export default function SpeakingLive() {
           </div>
 
           {transcript.length > 0 && (
-            <div className="panel flex flex-col gap-2">
+            <div className="panel live-transcript">
               <p className="muted text-[12px]">{c('Hội thoại', 'Conversation')}</p>
               <ul className="flex flex-col gap-2">
                 {transcript.map((entry, index) => (
-                  <li key={index} className={entry.role === 'examiner' ? 'muted text-[13px]' : 'text-[13px]'}>
+                  <li key={index} className={`live-message ${entry.role === 'examiner' ? 'is-examiner' : 'is-candidate'}`}>
                     <strong>{entry.role === 'examiner' ? c('Giám khảo', 'Examiner') : c('Bạn', 'You')}:</strong>{' '}
                     {entry.text}
                   </li>

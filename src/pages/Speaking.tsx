@@ -144,7 +144,7 @@ function SpeakingTestDialog({ group, onClose }: { group: SpeakingTestGroup; onCl
   ]
   const complete = parts.every(part => part.available)
   const query = mode === 'part-3' && questionId ? `&question=${encodeURIComponent(questionId)}` : ''
-  const to = `/app/speaking/${mode}/${group.bookNumber}/${group.testNumber}${query}`
+  const to = `/app/speaking/${mode}/${group.bookNumber}/${group.testNumber}?record=1${query}`
   const liveTo = `/app/speaking/live?mode=${mode}&book=${group.bookNumber}&test=${group.testNumber}${query}`
 
   useEffect(() => {
@@ -191,8 +191,9 @@ function SpeakingTestDialog({ group, onClose }: { group: SpeakingTestGroup; onCl
         {group.sourceLabel && <details className="speaking-dialog-source"><summary>{c('Nguồn đề', 'Test source')}</summary><p>{group.sourceLabel}</p></details>}
       </div>
       <footer className="speaking-dialog-footer">
-        <Link className="speaking-start" to={to} onClick={() => dialog.current?.close()}><Play size={16} aria-hidden />{mode === 'mock' ? c('Bắt đầu đề đầy đủ', 'Start full test') : c(`Bắt đầu Part ${mode.slice(-1)}`, `Start Part ${mode.slice(-1)}`)}</Link>
-        <Link className="button outline" to={liveTo} onClick={() => dialog.current?.close()}><Mic size={16} aria-hidden />{c('Luyện nói trực tiếp', 'Practise live')}</Link>
+        <Link className="speaking-start" to={liveTo} onClick={() => dialog.current?.close()}><Mic size={16} aria-hidden />{mode === 'mock' ? c('Bắt đầu đề đầy đủ', 'Start full test') : c(`Bắt đầu Part ${mode.slice(-1)}`, `Start Part ${mode.slice(-1)}`)}</Link>
+        <p className="speaking-live-help">{c('Giám khảo đọc từng câu hỏi, bạn trả lời bằng mic.', 'Hear each examiner question and answer with your microphone.')}</p>
+        <Link className="button outline" to={to} onClick={() => dialog.current?.close()}><FileText size={16} aria-hidden />{c('Ghi âm / tải file', 'Record / upload a file')}</Link>
       </footer>
     </dialog>
   )

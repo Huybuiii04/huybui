@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react'
-import { useParams, useSearchParams } from 'react-router'
+import { Navigate, useParams, useSearchParams } from 'react-router'
 
 import { Notice, PageHeader } from '../components/ui'
 import { SpeakingRecorder } from '../components/speaking/SpeakingRecorder.tsx'
@@ -118,6 +118,14 @@ export default function SpeakingRoom() {
       setError('unknown_error')
     }
     setPhase('idle')
+  }
+
+  if (searchParams.get('record') !== '1') {
+    const query = new URLSearchParams({ mode })
+    if (book) query.set('book', book)
+    if (test) query.set('test', test)
+    if (questionId) query.set('question', questionId)
+    return <Navigate to={`/app/speaking/live?${query}`} replace />
   }
 
   if (result) {

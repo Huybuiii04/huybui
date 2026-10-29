@@ -152,19 +152,19 @@ try {
           assert.equal(await dialog.evaluate(el => el.matches(':modal')), true, 'Native dialog traps focus and makes background inert')
           assert.equal(new URL(page.url()).pathname, '/app/speaking', 'Choosing a test opens picker before navigating')
           assert.equal(await dialog.locator('input[value=mock]').isChecked(), true)
-          assert.equal(await dialog.locator('.speaking-start').getAttribute('href'), '/app/speaking/mock/12/5')
+          assert.equal(await dialog.locator('.speaking-start').getAttribute('href'), '/app/speaking/live?mode=mock&book=12&test=5')
           await dialog.locator('.speaking-dialog-source summary').click()
           assert.ok((await dialog.locator('.speaking-dialog-source p').innerText()).includes(speaking[0].source_label), 'Source attribution retained')
           await dialog.locator('.speaking-dialog-source summary').click()
           for (const part of ['part-1', 'part-2']) {
             await dialog.locator(`input[value=${part}]`).check()
-            assert.equal(await dialog.locator('.speaking-start').getAttribute('href'), `/app/speaking/${part}/12/5`)
+            assert.equal(await dialog.locator('.speaking-start').getAttribute('href'), `/app/speaking/live?mode=${part}&book=12&test=5`)
           }
           await dialog.locator('input[value=part-3]').check()
           const part3 = speaking.filter(row => row.book_number === 12 && row.test_number === 5 && row.part === 'part-3')
           for (const row of part3) {
             await dialog.getByLabel('Chủ đề Part 3').selectOption(row.id)
-            assert.equal(await dialog.locator('.speaking-start').getAttribute('href'), `/app/speaking/part-3/12/5?question=${encodeURIComponent(row.id)}`, 'Every Part 3 topic remains selectable')
+            assert.equal(await dialog.locator('.speaking-start').getAttribute('href'), `/app/speaking/live?mode=part-3&book=12&test=5&question=${encodeURIComponent(row.id)}`, 'Every Part 3 topic remains selectable')
           }
           await dialog.getByRole('button', { name: 'Đóng', exact: true }).focus()
           await page.keyboard.press('Tab')
@@ -189,7 +189,7 @@ try {
           assert.equal(await cards.count(), 1)
           await cards.first().locator('.speaking-start').click()
           const renamedDialog = page.getByRole('dialog', { name: 'Cambridge 12 · Test 3', exact: true })
-          assert.equal(await renamedDialog.locator('.speaking-start').getAttribute('href'), '/app/speaking/mock/12/7', 'Renamed tests keep their original questions')
+          assert.equal(await renamedDialog.locator('.speaking-start').getAttribute('href'), '/app/speaking/live?mode=mock&book=12&test=7', 'Renamed tests keep their original questions')
           await renamedDialog.getByRole('button', { name: 'Đóng', exact: true }).click()
           await renamedDialog.waitFor({ state: 'hidden' })
           await renamedSearch.fill('')
@@ -220,7 +220,7 @@ try {
         if (path === '/app/speaking') {
           await page.locator('.speaking-card .speaking-start').first().click()
           await page.getByRole('dialog').getByRole('link', { name: 'Bắt đầu đề đầy đủ', exact: true }).click()
-          await page.waitForURL(base + '/app/speaking/mock/12/5')
+          await page.waitForURL(base + '/app/speaking/live?mode=mock&book=12&test=5')
           await page.getByText('Cambridge 12 · Test 1', { exact: true }).waitFor()
         }
         checked.push(`${width} ${theme} ${path}`)
