@@ -23,6 +23,13 @@ export const spaRoutes = [
   '/app/reading',
   '/app/reading/result/:attemptId',
   '/app/reading/:slug',
+  '/app/speaking',
+  // "/app/speaking/live" phải đứng trước "/app/speaking/:mode" để khớp đúng
+  // route live (cùng số đoạn) thay vì route động.
+  '/app/speaking/live',
+  '/app/speaking/result/:attemptId',
+  '/app/speaking/:mode/:book/:test',
+  '/app/speaking/:mode',
   '/admin',
   '/about',
   '/contact',

@@ -121,6 +121,12 @@ test('app and auth routes including dynamic paths stay routable', () => {
   assert.equal(matchPath('/app/essays/abc')?.id, '/app/essays/:id')
   assert.equal(matchPath('/app/essays/abc/')?.id, '/app/essays/:id')
   assert.equal(matchPath('/app/essays')?.id, '/app/essays')
+  // Speaking: route live phải khớp trước route động ":mode".
+  assert.equal(matchPath('/app/speaking')?.id, '/app/speaking')
+  assert.equal(matchPath('/app/speaking/live')?.id, '/app/speaking/live')
+  assert.equal(matchPath('/app/speaking/result/abc')?.id, '/app/speaking/result/:attemptId')
+  assert.equal(matchPath('/app/speaking/part-1')?.id, '/app/speaking/:mode')
+  assert.equal(matchPath('/app/speaking/mock/12/5')?.id, '/app/speaking/:mode/:book/:test')
   assert.equal(matchPath('/khong-ton-tai'), null)
 })
 
