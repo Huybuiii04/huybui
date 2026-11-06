@@ -24,7 +24,7 @@ export default function SkillsTab({ onError, onBusy }: { onError: (message: stri
     reload()
   }
 
-  return <section className="panel">
+  return <section className="panel admin-panel">
     <h2>{c('Kho đề Reading', 'Reading test library')}</h2>
     {loading && <div className="loading-state" role="status">{c('Đang tải…', 'Loading…')}</div>}
     {!loading && !tests.length && <p className="muted">{c('Chưa có đề nào.', 'No tests yet.')}</p>}

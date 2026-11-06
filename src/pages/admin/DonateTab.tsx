@@ -74,14 +74,14 @@ export function DonateTab({ onError, onBusy, busy }: { onError: (value: string) 
 
   return <>
     {notice && <Notice>{notice}</Notice>}
-    <section className="panel admin-donate">
+    <section className="panel admin-panel admin-donate">
       <div className="panel-heading"><h2>{c('Mã QR ủng hộ', 'Donation QR code')}</h2></div>
       {settings?.qrPath
         ? <div className="admin-donate-preview"><img src={settings.qrPath} alt={c('Mã QR hiện tại', 'Current QR code')} /><div><p className="helper-text">{settings.qrPath}</p><label className="button outline"><Upload size={16} />{c('Thay ảnh QR', 'Replace QR image')}<input type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={event => { const file = event.target.files?.[0]; if (file) void upload(file) }} /></label></div></div>
         : <Empty title={c('Chưa có mã QR', 'No QR code yet')} description={c('Tải ảnh QR lên để hiện trong trang ủng hộ.', 'Upload a QR image to show it on the donation page.')} action={<label className="button primary"><Upload size={16} />{c('Tải ảnh QR', 'Upload QR image')}<input type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={event => { const file = event.target.files?.[0]; if (file) void upload(file) }} /></label>} />}
     </section>
 
-    <section className="panel admin-donate">
+    <section className="panel admin-panel admin-donate">
       <div className="panel-heading"><h2>{c('Thông tin tài khoản', 'Account details')}</h2></div>
       <div className="admin-form-grid">
         <label>{c('Ngân hàng / ví', 'Bank or wallet')}<input value={label} onChange={event => setLabel(event.target.value)} placeholder="MB Bank · VietQR" /></label>

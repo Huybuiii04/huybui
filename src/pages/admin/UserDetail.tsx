@@ -92,7 +92,7 @@ export function UserDetail({ userId, displayName, onBack, onError, onBusy, busy 
       <article className="stat-card"><div className="stat-top"><span>{c('Độ phủ', 'Coverage')}</span></div><strong className="stat-value">{coverage}%</strong><small>{TASKS.find(item => item.key === task)?.labelVi}</small></article>
     </section>
 
-    <section className="panel"><div className="panel-heading"><h2>{c('Đề đã làm', 'Prompts written')}</h2></div>
+    <section className="panel admin-panel"><div className="panel-heading"><h2>{c('Đề đã làm', 'Prompts written')}</h2></div>
       {done.length ? <div className="usage-table">{done.map(group => {
         const bands = group.essays.flatMap(essay => bandByEssay.get(essay.id) ?? [])
         const average = bands.length ? (bands.reduce((sum, band) => sum + band, 0) / bands.length).toFixed(1) : null
@@ -100,7 +100,7 @@ export function UserDetail({ userId, displayName, onBack, onError, onBusy, busy 
       })}</div> : <Empty title={c('Chưa làm đề nào', 'No prompts yet')} description={c('Người dùng này chưa viết bài nào.', 'This learner has not written anything yet.')} />}
     </section>
 
-    <section className="panel"><div className="panel-heading"><h2>{c('Đề còn lại', 'Prompts not written yet')}</h2><div className="tabs admin-inline-tabs">{TASKS.map(item => <button key={item.key} className={task === item.key ? 'active' : ''} onClick={() => setTask(item.key)}>{language === 'en' ? item.labelEn : item.labelVi}</button>)}</div></div>
+    <section className="panel admin-panel"><div className="panel-heading"><h2>{c('Đề còn lại', 'Prompts not written yet')}</h2><div className="tabs admin-inline-tabs">{TASKS.map(item => <button key={item.key} className={task === item.key ? 'active' : ''} onClick={() => setTask(item.key)}>{language === 'en' ? item.labelEn : item.labelVi}</button>)}</div></div>
       {remaining.length ? <div className="usage-table">{remaining.slice(0, 50).map(prompt => <div className="usage-row" key={prompt.slug}><span className="admin-prompt-cell"><strong>{promptLabel(prompt, language === 'en' ? 'en' : 'vi')}</strong><small>{prompt.slug}</small></span><span>{prompt.task}</span><span>{shortPrompt(prompt.text ?? '', 50)}</span><span /></div>)}</div> : <Notice>{c('Người dùng đã làm hết đề của loại bài này.', 'This learner has covered every prompt of this task type.')}</Notice>}
       {remaining.length > 50 && <p className="helper-text">{c(`Còn ${remaining.length - 50} đề khác trong danh sách.`, `${remaining.length - 50} more prompts in the list.`)}</p>}
     </section>
