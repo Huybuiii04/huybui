@@ -5,7 +5,7 @@ import { renderMarkdown, renderNotFoundMarkdown } from './src/agent/markdown.ts'
 import { mergeVary, negotiateRepresentation } from './src/agent/negotiation.ts'
 import { matchPath, staticFiles } from './src/agent/routes.ts'
 
-// File do Vite build (thư mục /assets) và các file tĩnh trong public/ được Vercel
+// File do Vite build (/assets), font (/fonts) và các file tĩnh trong public/ được Vercel
 // phục vụ trực tiếp nên phải nằm ngoài matcher: middleware chỉ xử lý logic.
 // Danh sách file tĩnh lấy từ routes.ts để không lệch với bảng route.
 const assetPrefix = 'assets/'
@@ -17,7 +17,7 @@ const assetPrefix = 'assets/'
 // tests/middleware.test.ts kiểm tra đúng điều đó.
 export const config = {
   runtime: 'nodejs',
-  matcher: ['/((?!assets/|favicon\\.svg|favicon\\.png|brand/ielts-studio-mark\\.webp|donate-qr\\.png|og-image\\.png|robots\\.txt|sitemap\\.xml|llms\\.txt).*)'],
+  matcher: ['/((?!assets/|fonts/|images/|favicon\\.svg|favicon\\.png|brand/engloo-mark\\.webp|donate-qr\\.png|og-image\\.png|robots\\.txt|sitemap\\.xml).*)'],
 }
 
 // Đuôi file của tài nguyên kỹ thuật: thiếu file thì trả 404 HTML, không bao giờ Markdown,
@@ -127,7 +127,7 @@ export default function middleware(request: Request) {
   const decodedPath = normalizePath(decodePathLayers(path))
 
   // File tĩnh trong public/ và file build trong /assets do Vercel phục vụ trực tiếp.
-  if (path.startsWith(`/${assetPrefix}`) || (staticFiles as readonly string[]).includes(path)) {
+  if (path.startsWith(`/${assetPrefix}`) || path.startsWith('/fonts/') || path.startsWith('/images/') || (staticFiles as readonly string[]).includes(path)) {
     return next()
   }
 

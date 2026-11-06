@@ -248,33 +248,16 @@ async function commit(
     );
   }
 
-  const attemptUpdate = await service
-    .from("speaking_attempts")
-    .update({ status: "queued" })
-    .eq("id", input.attemptId)
-    .eq("user_id", userId)
-    .eq("status", "recording");
-  if (attemptUpdate.error) throw databaseError("queue the speaking attempt");
-
-  const jobInsert = await service
-    .from("ai_jobs")
-    .insert({
-      user_id: userId,
-      revision_id: null,
-      operation: "grade-speaking",
-      payload: { attemptId: input.attemptId },
-      idempotency_key: input.idempotencyKey,
-      status: "queued",
-      next_attempt_at: new Date().toISOString(),
-    })
-    .select("id")
-    .maybeSingle();
-  if (jobInsert.error || !jobInsert.data) throw databaseError("create the speaking job");
+  const queued = await service.rpc("queue_speaking_grading", {
+    p_attempt_id: input.attemptId,
+    p_user_id: userId,
+  });
+  if (queued.error || !queued.data) throw databaseError("create the speaking job");
 
   return jsonResponse(
     request,
     202,
-    { attemptId: input.attemptId, committed: true, jobId: jobInsert.data.id },
+    { attemptId: input.attemptId, committed: true, jobId: queued.data },
     { requestId: id },
   );
 }

@@ -14,12 +14,6 @@ const auth = { access_token: token, refresh_token: 'preview-refresh', token_type
 const steps = Array.from({ length: 8 }, (_, index) => ({ index, text: `Question number ${index + 1}?`, isCueCard: false }))
 const plan = [{ turnId: 'preview-turn', orderIndex: 0, part: 'part-1', prepMs: 0, maxAnswerMs: 45000, steps }]
 const turn = { turnId: 'preview-turn', orderIndex: 0, part: 'part-1', promptText: steps[0].text, questions: steps.slice(1).map(step => step.text), cueCard: null, maxDurationMs: 60000, uploadUrl: 'https://fixture.invalid/upload' }
-// Valid 100 ms PCM WAV exercises native audio decoding and ended events.
-const audio = Buffer.alloc(44 + 4800)
-audio.write('RIFF', 0); audio.writeUInt32LE(audio.length - 8, 4); audio.write('WAVEfmt ', 8)
-audio.writeUInt32LE(16, 16); audio.writeUInt16LE(1, 20); audio.writeUInt16LE(1, 22)
-audio.writeUInt32LE(24000, 24); audio.writeUInt32LE(48000, 28); audio.writeUInt16LE(2, 32); audio.writeUInt16LE(16, 34)
-audio.write('data', 36); audio.writeUInt32LE(4800, 40)
 const browser = await chromium.launch({ args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream', '--autoplay-policy=no-user-gesture-required'] })
 const errors = [], checked = []
 try {
@@ -37,21 +31,19 @@ try {
       navigator.mediaDevices.getUserMedia = async (...args) => { const stream = await getUserMedia(...args); window.__mic = stream; return stream }
       window.SpeechRecognition = undefined
       window.webkitSpeechRecognition = undefined
-      window.__plays = 0
       window.__browserVoices = []
-      const play = HTMLMediaElement.prototype.play
-      HTMLMediaElement.prototype.play = function() { window.__plays += 1; return play.call(this) }
       window.SpeechSynthesisUtterance = class { constructor(text) { this.text = text } }
       Object.defineProperty(window, 'speechSynthesis', { value: {
-        getVoices: () => [{ name: 'Fixture English', lang: 'en-GB' }],
+        getVoices: () => [{ name: 'Fixture British', lang: 'en-GB' }, { name: 'Fixture American', lang: 'en-US' }],
         cancel() {},
-        speak(utterance) { window.__browserVoices.push(utterance.text); setTimeout(() => utterance.onend?.(), 25) },
+        speak(utterance) { window.__browserVoices.push({ text: utterance.text, lang: utterance.lang }); setTimeout(() => utterance.onend?.(), 25) },
       } })
     }, theme)
-    const voices = [], actions = [], commits = [], uploads = [], brains = [], finishes = []
-    let failVoice = false
+    const actions = [], commits = [], uploads = [], brains = [], finishes = []
     let fixturePlan = plan
     let brainFailure = ''
+    let finishFailure = ''
+    let resultPolls = 0
     await context.route('**/*', async route => {
       const url = new URL(route.request().url())
       if (url.origin === new URL(base).origin) return route.continue()
@@ -73,19 +65,18 @@ try {
           if (brainFailure) return route.fulfill({ status: 502, contentType: 'application/json', body: JSON.stringify({ error: { code: brainFailure } }) })
           body = { ack: '', followUp: 'Why do you think so?', advance: false, nextStepIndex: 1 }
         }
-        else if (input.action === 'finish') { finishes.push(input); body = { finished: true } }
-        else if (input.action === 'voice') {
-          voices.push(input.text)
-          if (failVoice) return route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: { code: 'voice_failed' } }) })
-          return route.fulfill({ status: 200, contentType: 'audio/wav', body: audio })
-        } else throw new Error(`Unexpected live action: ${input.action}`)
-      } else if (url.pathname.endsWith('/speaking_attempts')) body = { status: 'succeeded', speaking_results: { overall_display: 7, overall_raw: 7 } }
+        else if (input.action === 'finish') {
+          finishes.push(input)
+          if (finishFailure) return route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: { code: finishFailure } }) })
+          body = { finished: true }
+        }
+        else throw new Error(`Unexpected live action: ${input.action}`)
+      } else if (url.pathname.endsWith('/speaking_attempts')) { resultPolls += 1; body = { status: 'succeeded', speaking_results: { overall_display: 7, overall_raw: 7 } } }
       else if (url.pathname.endsWith('/profiles')) body = [{ id: user.id, display_name: 'Lan', target_band: 7, feedback_language: 'en' }]
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) })
     })
     const page = await context.newPage()
     page.on('pageerror', error => errors.push(error.message))
-    await page.exposeFunction('voiceRequestCount', () => voices.length)
     await page.goto(base + '/auth')
     await page.getByLabel('Email', { exact: true }).fill(user.email)
     await page.locator('input[type=password]').fill('preview-password')
@@ -105,13 +96,11 @@ try {
     assert.equal(await mic.getAttribute('aria-pressed'), 'false')
     assert.equal(await page.evaluate(() => window.__mic.getAudioTracks()[0].enabled), false, 'Mic stays muted until user starts recording')
     assert.equal(await page.evaluate(() => window.__recorders.length), 0, 'Examiner audio is not recorded')
-    await page.waitForFunction(async () => await window.voiceRequestCount() >= 3)
-    assert.deepEqual(voices, steps.slice(0, 3).map(step => step.text))
-    assert.equal(await page.evaluate(() => window.__plays), 1, 'Examiner question plays automatically')
+    assert.deepEqual(await page.evaluate(() => window.__browserVoices), [{ text: steps[0].text, lang: 'en-GB' }], 'Examiner uses browser voice without prefetching paid audio')
     await page.getByRole('button', { name: 'Replay question', exact: true }).click()
     await page.getByText('Ready for your answer', { exact: true }).waitFor()
-    assert.equal(await page.evaluate(() => window.__plays), 2, 'Replay plays cached audio')
-    assert.equal(voices.length, 3, 'Replay must not request TTS again')
+    assert.equal(await page.evaluate(() => window.__browserVoices.length), 2, 'Replay uses browser voice')
+    assert.equal(actions.includes('voice'), false, 'Playback and replay must not request paid TTS')
     await mic.click()
     assert.equal(await mic.getAttribute('aria-pressed'), 'true')
     assert.equal(await page.evaluate(() => window.__mic.getAudioTracks()[0].enabled), true)
@@ -206,10 +195,10 @@ try {
       assert.equal(brains.length, beforeFollowUp + 1)
       assert.equal(brains[beforeFollowUp].candidateAnswer, 'I enjoy local festivals.', 'Follow-up includes final speech result delivered after Stop')
       assert.equal(brains[beforeFollowUp].audioBase64, undefined, 'Recognized speech does not need an audio fallback request')
-      const followUpVoices = voices.length
+      const followUpVoices = await page.evaluate(() => window.__browserVoices.length)
       await page.getByRole('button', { name: 'Replay question', exact: true }).click()
       await page.getByText('Ready for your answer', { exact: true }).waitFor()
-      assert.equal(voices.length, followUpVoices, 'Follow-up replay also uses cached audio')
+      assert.equal(await page.evaluate(() => window.__browserVoices.length), followUpVoices + 1, 'Follow-up replay uses browser voice')
       await mic.click()
       await mic.click()
       await page.locator('.live-question-text').getByText(steps[1].text, { exact: true }).waitFor()
@@ -272,19 +261,46 @@ try {
       }
       await page.getByRole('heading', { name: 'Live speaking result', exact: true }).waitFor()
       assert.equal(commits.length, 4, 'Each part keeps its own complete audio upload')
-      fixturePlan = plan
-
-      failVoice = true
-      await page.goto(base + '/app/speaking/live?mode=part-1&book=12&test=5')
+      fixturePlan = fixturePlan.map((item, index) => index === 0 ? { ...item, steps } : item)
+      brainFailure = 'brain_provider_error'
+      await page.goto(base + '/app/speaking/live?mode=mock&book=12&test=5')
       await page.getByRole('button', { name: 'Start', exact: true }).click()
       await page.getByText('Ready for your answer', { exact: true }).waitFor()
-      assert.deepEqual(await page.evaluate(() => window.__browserVoices), [steps[0].text], 'Browser voice works when server TTS fails')
+      await mic.click(); await page.waitForTimeout(150); await mic.click()
+      await page.getByText('The follow-up AI service failed. Continuing with the scripted question for this turn.', { exact: true }).waitFor()
+      await page.getByText('Ready for your answer', { exact: true }).waitFor()
+      const beforeEarlyFinish = commits.length
+      await page.getByRole('button', { name: 'End and grade', exact: true }).click()
+      await page.getByRole('heading', { name: 'Live speaking result', exact: true }).waitFor()
+      assert.equal(commits.length, beforeEarlyFinish + 1, 'Early finish uploads only the recorded part')
+      assert.equal(await page.getByText('Follow-up unavailable for this turn', { exact: true }).count(), 0, 'Old follow-up warnings must not remain during grading')
+      brainFailure = ''
+      fixturePlan = plan
+
+      await page.goto(base + '/app/speaking/live?mode=part-1&book=12&test=5')
+      await page.getByLabel('Examiner voice').selectOption('en-US')
+      await page.getByRole('button', { name: 'Start', exact: true }).click()
+      await page.getByText('Ready for your answer', { exact: true }).waitFor()
+      assert.deepEqual(await page.evaluate(() => window.__browserVoices), [{ text: steps[0].text, lang: 'en-US' }], 'Examiner uses selected American voice')
+      await mic.click(); await page.waitForTimeout(150); await mic.click()
+      await page.getByText('Ready for your answer', { exact: true }).waitFor()
+      finishFailure = 'upload_failed'
+      const beforeFailedFinish = resultPolls
+      await page.getByRole('button', { name: 'End and grade', exact: true }).click()
+      await page.getByRole('alert').waitFor()
+      await page.getByRole('button', { name: 'Back', exact: true }).waitFor()
+      assert.equal(resultPolls, beforeFailedFinish, 'Failed finalization must not poll an unqueued attempt')
+      assert.equal(await page.getByText('Scoring your answers…', { exact: true }).count(), 0, 'Failed finalization must not enter endless grading')
+      finishFailure = ''
       await page.goto(base + '/app/speaking/live?mode=part-1&book=12&test=5')
       await page.getByRole('button', { name: 'Start', exact: true }).waitFor()
       await page.evaluate(() => { window.speechSynthesis.getVoices = () => [] })
+      const beforeMissingVoice = actions.length
       await page.getByRole('button', { name: 'Start', exact: true }).click()
       await page.getByRole('button', { name: 'Back', exact: true }).waitFor()
       await page.getByRole('alert').waitFor()
+      assert.equal(actions.length, beforeMissingVoice, 'Missing English voice must fail before creating a server session')
+      await page.getByText('English speech could not be played. Enable or install an English voice on your device, then try again.', { exact: true }).waitFor()
       await page.getByRole('button', { name: 'Back', exact: true }).click()
       await page.getByRole('button', { name: 'Start', exact: true }).waitFor()
       await page.goto(base + '/app/speaking/part-1/12/5?record=1')
@@ -292,10 +308,11 @@ try {
       await page.getByRole('button', { name: 'Record', exact: true }).waitFor()
       await page.getByText('Upload a file', { exact: true }).waitFor()
     }
+    assert.equal(actions.includes('voice'), false, 'No server TTS requests during questions, follow-ups or replay')
     checked.push({ width, theme })
     console.log(`PASS live audio ${width} ${theme}`)
     await context.close()
   }
   assert.deepEqual(errors, [])
-  writeFileSync(`${out}/report.json`, JSON.stringify({ checked, errors, network: 'mocked; native audio playback tested' }, null, 2))
+  writeFileSync(`${out}/report.json`, JSON.stringify({ checked, errors, network: 'mocked; browser speech synthesis fixture; real microphone recording and decoding' }, null, 2))
 } finally { await browser.close() }

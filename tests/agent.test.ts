@@ -85,12 +85,13 @@ test('static file list contains only files that really exist', () => {
   assert.deepEqual(staticFiles, [
     '/favicon.svg',
     '/favicon.png',
-    '/brand/ielts-studio-mark.webp',
+    '/brand/engloo-mark.webp',
+    '/images/english-study-light.webp',
+    '/images/english-study-dark.webp',
     '/donate-qr.png',
     '/og-image.png',
     '/robots.txt',
     '/sitemap.xml',
-    '/llms.txt',
   ])
   for (const file of staticFiles) assert.equal(matchPath(file)?.kind, 'static', file)
 })
@@ -162,15 +163,26 @@ test('public copy claims no public api, developer portal or mcp server', () => {
   }
 })
 
-test('home states that the interactive writing features need sign in', () => {
+test('home states that the interactive practice features need sign in', () => {
   const home = plainText(pageById('home'), 1)
   assert.match(home, /sign[- ]?in/i)
   assert.match(home, /account/i)
 })
 
+test('home, about and metadata describe all four IELTS skills', () => {
+  for (const id of ['home', 'about']) {
+    const page = pageById(id)!
+    for (const copy of [page.summary[0], page.summary[1]]) {
+      for (const skill of ['Listening', 'Reading', 'Writing', 'Speaking']) assert.ok(copy.includes(skill), `${id} must mention ${skill}`)
+    }
+    assert.doesNotMatch(plainText(page, 1), /only for IELTS Writing|Listening and Speaking are in development/)
+  }
+  for (const skill of ['Listening', 'Reading', 'Writing', 'Speaking']) assert.ok(site.description.includes(skill))
+})
+
 test('privacy matches the verified backend facts', () => {
   const privacy = plainText(pageById('privacy'), 1)
-  assert.match(privacy, /26 October 2026/)
+  assert.match(privacy, /30 October 2026/)
   assert.match(privacy, /Supabase/i)
   assert.match(privacy, /Postgres/i)
   assert.match(privacy, /IndexedDB/)
@@ -185,7 +197,7 @@ test('markdown rendering produces a heading, sections and links to real resource
   const markdown = renderMarkdown(pageById('about'), 1)
   assert.match(markdown, /^# /)
   assert.match(markdown, /\n## /)
-  for (const href of ['/', '/about', '/contact', '/privacy', '/sitemap.xml', '/llms.txt']) {
+  for (const href of ['/', '/about', '/contact', '/privacy', '/sitemap.xml']) {
     assert.ok(markdown.includes(`](${href})`), `missing link ${href}`)
   }
   for (const href of ['/docs', '/developers', '/openapi.json', '/.well-known/mcp', '/api/']) {
@@ -198,7 +210,7 @@ test('not found markdown explains the error and points to agent resources', () =
   const markdown = renderNotFoundMarkdown('/khong-ton-tai')
   assert.ok(markdown.length >= 20)
   assert.match(markdown, /404/)
-  assert.match(markdown, /\/llms\.txt/)
+  assert.doesNotMatch(markdown, /\/llms\.txt/)
   assert.match(markdown, /\/sitemap\.xml/)
   assert.ok(markdown.includes('](/)'))
   assert.ok(!markdown.includes('/docs'))
@@ -350,14 +362,15 @@ test('the plain text escape helper neutralises block markers', () => {
   assert.equal(escapePlainText('plain prose'), 'plain prose')
 })
 
-test('the public resource list is shared by the markdown and html renderers', () => {
+test('markdown lists public resources while HTML navigation contains public pages', () => {
   const page = pageById('about')
   assert.ok(page)
   const markdown = renderMarkdown(page, 1)
   const html = renderStaticHtml(page)
   for (const link of publicLinks) {
     assert.ok(markdown.includes(`](${link.href})`), `markdown is missing ${link.href}`)
-    assert.ok(html.includes(`href="${link.href}"`), `html is missing ${link.href}`)
+    if (link.href.endsWith('.xml')) assert.ok(!html.includes(`href="${link.href}"`), `HTML must not show ${link.href}`)
+    else assert.ok(html.includes(`href="${link.href}"`), `html is missing ${link.href}`)
   }
 })
 
@@ -380,10 +393,10 @@ test('json-ld exposes only the verified SoftwareApplication identity', () => {
 
 test('head tags carry canonical url, open graph, twitter card and html language', () => {
   const tags = buildHeadTags({ path: '/about', title: 'About', description: 'About the studio' })
-  assert.match(tags, /<link rel="canonical" href="https:\/\/huybui\.vercel\.app\/about">/)
+  assert.match(tags, /<link rel="canonical" href="https:\/\/engloo\.app\/about">/)
   assert.match(tags, /<meta property="og:type" content="website">/)
-  assert.match(tags, /<meta property="og:image" content="https:\/\/huybui\.vercel\.app\/og-image\.png">/)
-  assert.match(tags, /<meta property="og:url" content="https:\/\/huybui\.vercel\.app\/about">/)
+  assert.match(tags, /<meta property="og:image" content="https:\/\/engloo\.app\/og-image\.png">/)
+  assert.match(tags, /<meta property="og:url" content="https:\/\/engloo\.app\/about">/)
   assert.match(tags, /<meta name="twitter:card" content="summary_large_image">/)
   assert.equal(htmlLang, 'en')
 })
@@ -423,13 +436,15 @@ function collectCopyPairs(
   return found
 }
 
-test('the shared landing copy follows the four-skill reference and marks upcoming modules', () => {
-  assert.deepEqual(landingCopy.heroTitle, ['Bốn kỹ năng.', 'Four skills.'])
-  assert.deepEqual(landingCopy.primaryCta, ['Bắt đầu học', 'Start learning'])
+test('the shared landing copy follows the English-learning reference and marks upcoming modules', () => {
+  assert.deepEqual(landingCopy.heroTitle, ['Luyện IELTS', 'Practise IELTS'])
+  assert.deepEqual(landingCopy.primaryCta, ['Bắt đầu miễn phí', 'Get started free'])
+  assert.deepEqual(landingCopy.rhythmSkills.map(skill => skill.id), ['speaking', 'reading', 'listening', 'writing'])
   assert.deepEqual(landingCopy.features.map(feature => feature.id), ['listening', 'reading', 'writing', 'speaking', 'vocabulary'])
-  assert.deepEqual(landingCopy.features.filter(feature => feature.comingSoon).map(feature => feature.id), ['listening', 'speaking'])
+  assert.deepEqual(landingCopy.features.filter(feature => feature.comingSoon).map(feature => feature.id), ['listening'])
   assert.equal(landingCopy.features.find(feature => feature.id === 'reading')?.href, '/app/reading')
   assert.equal(landingCopy.features.find(feature => feature.id === 'writing')?.href, '/app/write')
+  assert.equal(landingCopy.features.find(feature => feature.id === 'speaking')?.href, '/app/speaking')
 })
 
 test('the static landing html ships both language variants of every shared string', () => {
@@ -452,7 +467,7 @@ test('the static landing html ships both language variants of every shared strin
 
 test('the static landing mirrors the React landing structure and links', () => {
   const html = renderLandingHtml()
-  for (const className of ['landing', 'landing-nav', 'landing-stage', 'landing-intro', 'skill-art', 'landing-learning', 'landing-features', 'landing-feature', 'landing-rhythm', 'learning-steps', 'landing-feedback', 'sample-score', 'landing-cta', 'landing-footer']) {
+  for (const className of ['landing', 'landing-nav', 'landing-stage', 'landing-intro', 'skill-art', 'landing-learning', 'landing-features', 'landing-feature', 'landing-rhythm', 'rhythm-skills', 'landing-feedback', 'sample-score', 'landing-cta', 'landing-footer']) {
     assert.ok(new RegExp(`class="[^"\\n]*\\b${className}\\b`).test(html), `static landing is missing .${className}`)
   }
   assert.equal((html.match(/<h1[\s>]/g) ?? []).length, 1, 'static landing needs exactly one h1')
@@ -495,9 +510,12 @@ test('the trust page renderer produces a complete document body', () => {
     assert.ok(html.includes('class="doc-footer"'), `${id} is missing .doc-footer`)
     assert.equal((html.match(/<h1[\s>]/g) ?? []).length, 1, `${id} needs exactly one h1`)
     assert.equal((html.match(/<h2[\s>]/g) ?? []).length, page.sections.length, `${id} needs one h2 per section`)
-    for (const href of ['/', '/about', '/contact', '/privacy', '/llms.txt', '/sitemap.xml']) {
+    for (const href of ['/', '/about', '/contact', '/privacy']) {
       assert.ok(html.includes(`href="${href}"`), `${id} is missing the link ${href}`)
     }
+    const footer = html.match(/<footer class="doc-footer">[\s\S]*?<\/footer>/)?.[0]
+    assert.ok(footer, `${id} needs a footer`)
+    assert.doesNotMatch(footer, /llms\.txt|sitemap\.xml/)
   }
 })
 

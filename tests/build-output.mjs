@@ -16,10 +16,10 @@ if (!existsSync(join(dist, 'index.html'))) {
 }
 
 const files = [
-  { path: 'index.html', canonical: 'https://huybui.vercel.app/' },
-  { path: join('pages', 'about.html'), canonical: 'https://huybui.vercel.app/about' },
-  { path: join('pages', 'contact.html'), canonical: 'https://huybui.vercel.app/contact' },
-  { path: join('pages', 'privacy.html'), canonical: 'https://huybui.vercel.app/privacy' },
+  { path: 'index.html', canonical: 'https://engloo.app/' },
+  { path: join('pages', 'about.html'), canonical: 'https://engloo.app/about' },
+  { path: join('pages', 'contact.html'), canonical: 'https://engloo.app/contact' },
+  { path: join('pages', 'privacy.html'), canonical: 'https://engloo.app/privacy' },
 ]
 
 const trustPages = ['about.html', 'contact.html', 'privacy.html']
@@ -36,12 +36,13 @@ function textOf(html) {
 
 for (const file of files) {
   const html = readFileSync(join(dist, file.path), 'utf8')
+  assert.ok(!html.includes('huybui.vercel.app'), `${file.path}: còn domain cũ`)
   const text = textOf(html)
   assert.ok(text.length >= 500, `${file.path}: chỉ có ${text.length} ký tự text`)
   assert.match(html, /<html[^>]*\slang="en"/, `${file.path}: thiếu html lang`)
   assert.match(html, new RegExp(`<link rel="canonical" href="${file.canonical.replace(/[/.]/g, '\\$&')}">`), `${file.path}: sai canonical`)
   assert.match(html, /<meta property="og:type" content="website">/, `${file.path}: thiếu og:type`)
-  assert.match(html, /<meta property="og:image" content="https:\/\/huybui\.vercel\.app\/og-image\.png">/, `${file.path}: thiếu og:image`)
+  assert.match(html, /<meta property="og:image" content="https:\/\/engloo\.app\/og-image\.png">/, `${file.path}: thiếu og:image`)
   assert.match(html, /<meta name="twitter:card" content="summary_large_image">/, `${file.path}: thiếu twitter card`)
 
   const headings = [...html.matchAll(/<h([1-6])[\s>]/g)].map(match => Number(match[1]))
@@ -81,8 +82,8 @@ for (const file of files) {
 // Landing tĩnh phải là nội dung thật của trang: đọc được ngay trong HTML.
 const landing = readFileSync(join(dist, 'index.html'), 'utf8')
 assert.ok(landing.includes('class="landing"'), 'landing: thiếu wrapper .landing')
-assert.match(landing, /Four skills\./, 'landing: thiếu nội dung hero')
-assert.match(landing, /A little better\. Every day\./, 'landing: thiếu kicker')
+assert.match(landing, /Practise IELTS/, 'landing: thiếu nội dung hero')
+assert.match(landing, /Small steps\. A little more confidence\./, 'landing: thiếu kicker')
 assert.match(landing, /href="\/app\/prompts"/, 'landing: thiếu link tới kho đề bài')
 assert.match(landing, /href="\/app\/write"/, 'landing: thiếu link tới không gian viết')
 assert.match(landing, /href="\/donate"/, 'landing: thiếu link ủng hộ')

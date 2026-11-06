@@ -67,11 +67,22 @@ try {
     const page = await context.newPage()
     page.on('pageerror', error => errors.push(`${width}: ${error.message}`))
     page.on('dialog', dialog => dialog.accept())
-    await page.goto(base + '/auth')
+    if (width === 1440) {
+      await page.goto(base + '/')
+      await page.locator('.landing-nav a[href="/app/prompts"]').click()
+      await page.waitForURL(base + '/auth')
+      assert.equal(await page.locator('.academic-card, .topic-card').count(), 0, 'Guests cannot view Library')
+    }
+    await page.goto(base + '/app/prompts?task=academic_task1')
+    await page.waitForURL(base + '/auth')
+    assert.equal(await page.locator('.academic-card, .topic-card').count(), 0, 'Direct Library URL requires sign in')
+    const authLogoSize = await page.locator('.brand').first().evaluate(el => ({ font: getComputedStyle(el).fontSize, icon: el.querySelector('img').getBoundingClientRect().width }))
     await page.getByLabel('Email', { exact: true }).fill(user.email)
     await page.locator('input[type=password]').fill('preview-password')
     await page.getByRole('button', { name: 'Đăng nhập', exact: true }).click()
-    await page.waitForURL(base + '/app')
+    await page.waitForURL(base + '/app/prompts?task=academic_task1')
+    await page.locator('.task-type-cards').waitFor()
+    await page.goto(base + '/app')
     await page.locator('.overview-practice').waitFor()
     const paths = ['/', '/app', '/app/prompts', '/app/write', '/app/essays', '/app/essays/demo', '/app/vocabulary', '/app/review', '/app/errors', '/app/settings', '/app/reading', '/app/reading/' + source.slug, '/app/speaking', '/admin', '/donate', '/about', '/contact', '/privacy']
     for (const theme of ['dark', 'light']) {
@@ -100,7 +111,8 @@ try {
         if (path === '/app') {
           assert.equal(await page.locator('.overview-practice > a').count(), 3, 'Overview must show Reading and both Writing tasks together')
           if (width < 861) assert.equal(await page.locator('.overview-practice').evaluate(el => getComputedStyle(el).gridTemplateColumns.split(' ').length), 1, 'Mobile practice cards must fill one column')
-          assert.equal(await page.locator('.brand-mark').first().getAttribute('src'), '/brand/ielts-studio-mark.webp')
+          assert.equal(await page.locator('.brand-mark').first().getAttribute('src'), '/brand/engloo-mark.webp')
+          assert.deepEqual(await page.locator('.brand').first().evaluate(el => ({ font: getComputedStyle(el).fontSize, icon: el.querySelector('img').getBoundingClientRect().width })), authLogoSize, 'Workspace and sign-in logos must match')
           await page.getByText('3 bài đã làm · Band cao nhất 6.0', { exact: true }).waitFor()
           assert.ok(await page.locator('.brand-mark').first().evaluate(el => el.complete && el.naturalWidth > 0), 'Logo must load successfully')
           assert.ok(await page.locator('.overview-practice p').first().evaluate(el => parseFloat(getComputedStyle(el).fontSize) >= 16), 'Practice descriptions must remain readable')

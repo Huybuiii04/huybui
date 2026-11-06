@@ -2,30 +2,48 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
 import { createVad, rms } from '../src/lib/liveVad.ts'
-import { cachedVoice } from '../src/lib/liveAudio.ts'
+import { pickBrowserVoice, speakWithBrowser } from '../src/lib/liveAudio.ts'
 
-test('phát giọng dùng chung request đang tải trước, rồi dùng lại audio đã tải', async () => {
-  const cache = new Map<string, Promise<Blob>>()
-  let resolve!: (audio: Blob) => void
-  let calls = 0
-  const load = () => { calls += 1; return new Promise<Blob>(done => { resolve = done }) }
-  const prefetch = cachedVoice(cache, '0:1', load)
-  const playback = cachedVoice(cache, '0:1', load)
-  assert.equal(playback, prefetch)
-  assert.equal(calls, 1)
-  const audio = new Blob(['audio'], { type: 'audio/mpeg' })
-  resolve(audio)
-  assert.equal(await playback, audio)
-  assert.equal(await cachedVoice(cache, '0:1', load), audio)
-  assert.equal(calls, 1)
-})
+test('giọng trình duyệt chọn đúng accent, báo lỗi và dừng khi hủy', async (t) => {
+  let voices = [{ name: 'British', lang: 'en-GB' }, { name: 'American', lang: 'en-US' }]
+  let utterance: any
+  let cancelled = 0
+  t.mock.method(globalThis, 'fetch', () => { throw new Error('Giọng đọc không được gọi API') })
+  t.after(() => {
+    Reflect.deleteProperty(globalThis, 'window')
+    Reflect.deleteProperty(globalThis, 'SpeechSynthesisUtterance')
+  })
+  Object.defineProperty(globalThis, 'window', { configurable: true, value: { speechSynthesis: {
+    getVoices: () => voices,
+    cancel: () => { cancelled += 1 },
+    speak: (value: any) => { utterance = value },
+  } } })
+  Object.defineProperty(globalThis, 'SpeechSynthesisUtterance', { configurable: true, value: class {
+    text: string
+    constructor(text: string) { this.text = text }
+  } })
+  assert.equal(pickBrowserVoice('en-US')?.name, 'American')
+  const playback = speakWithBrowser('Question?', 'en-GB')
+  assert.equal(utterance.voice.name, 'British')
+  assert.equal(utterance.text, 'Question?')
+  utterance.onend()
+  assert.equal(await playback, true)
 
-test('tải giọng lỗi không giữ request lỗi trong cache', async () => {
-  const cache = new Map<string, Promise<Blob>>()
-  await assert.rejects(cachedVoice(cache, '0:1', () => Promise.reject(new Error('voice_failed'))), /voice_failed/)
-  assert.equal(cache.size, 0)
-  const audio = new Blob(['retry'])
-  assert.equal(await cachedVoice(cache, '0:1', () => Promise.resolve(audio)), audio)
+  voices = [voices[1]]
+  assert.equal(pickBrowserVoice('en-GB')?.name, 'American', 'Thiếu accent thì dùng giọng tiếng Anh khác')
+  const failed = speakWithBrowser('Question?', 'en-US')
+  utterance.onerror()
+  assert.equal(await failed, false)
+
+  const controller = new AbortController()
+  const pending = speakWithBrowser('Question?', 'en-US', controller.signal)
+  const before = cancelled
+  controller.abort()
+  assert.equal(await pending, false, 'Hủy phải kết thúc promise dù trình duyệt không phát sự kiện')
+  assert.equal(cancelled, before + 1)
+  assert.equal(await speakWithBrowser('Question?', 'en-US', controller.signal), false)
+  voices = [{ name: 'Vietnamese', lang: 'vi-VN' }]
+  assert.equal(await speakWithBrowser('Question?', 'en-GB'), false, 'Không đọc tiếng Anh bằng giọng sai ngôn ngữ')
 })
 
 const QUIET = { calibrationMs: 0, minThreshold: 0.01, noiseFactor: 2 }

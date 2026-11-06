@@ -24,8 +24,6 @@ export const LIVE_LIMITS = {
   maxSessionsPerDay: 10,
   /** Số lần gọi "AI examiner" (brain) trong một phiên. */
   maxBrainCalls: 40,
-  /** Số lần tổng hợp giọng trong một phiên. */
-  maxVoiceCalls: 60,
   /** Số câu hỏi tối đa của một phần. */
   maxQuestionsPerPart: 12,
 } as const;

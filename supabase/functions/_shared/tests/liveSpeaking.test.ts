@@ -172,11 +172,14 @@ test("follow-up nghe audio khi thiếu transcript; lỗi và timeout không bị
   let sent: Record<string, any> = {};
   let endpoint = "";
   let outcome = "ok";
+  let requests = 0;
   t.mock.method(globalThis, "fetch", async (url: string, options: RequestInit) => {
     endpoint = String(url);
     sent = JSON.parse(String(options.body));
+    requests += 1;
     if (outcome === "timeout") return new Promise((_, reject) => options.signal!.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")), { once: true }));
     if (outcome === "error") return new Response("unavailable", { status: 503 });
+    if (outcome === "transient" && requests === 1) return new Response("unavailable", { status: 503 });
     const reply = { ack: "", followUp: "Why do you enjoy that festival?", advance: false };
     if (outcome === "claude") return Response.json({ content: [{ type: "tool_use", input: reply }] });
     return Response.json({ candidates: [{ content: { parts: [{ thought: true, text: "private reasoning" }, { text: outcome === "invalid" ? "not JSON" : JSON.stringify(reply) }] } }] });
@@ -185,6 +188,10 @@ test("follow-up nghe audio khi thiếu transcript; lỗi và timeout không bị
   assert.deepEqual(sent.contents[0].parts[1].inlineData, audio);
   assert.deepEqual(sent.generationConfig.thinkingConfig, { thinkingLevel: "minimal" });
   assert.match(sent.contents[0].parts[0].text, /attached audio recording/);
+  outcome = "transient";
+  requests = 0;
+  assert.ok((await callBrain(input, audio)).followUp);
+  assert.equal(requests, 2, "A transient provider failure retries once within the same timeout");
   outcome = "error";
   await assert.rejects(callBrain(input, audio), { code: "brain_provider_error" });
   outcome = "invalid";

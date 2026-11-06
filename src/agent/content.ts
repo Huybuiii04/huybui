@@ -7,19 +7,19 @@ export type ContentPage = { id: string; path: string; title: Copy; summary: Copy
 export const home: ContentPage = {
   id: 'home',
   path: '/',
-  title: ['IELTS Studio — luyện IELTS miễn phí', 'IELTS Studio — free IELTS practice'],
+  title: ['Engloo.app — luyện IELTS miễn phí', 'Engloo.app — free IELTS practice'],
   summary: [
-    'Không gian luyện IELTS miễn phí: Reading, Writing, nhận xét theo band và sổ từ vựng. Listening và Speaking đang phát triển.',
-    'A free IELTS studio for Reading, Writing, band-style feedback and your own vocabulary. Listening and Speaking are in development.',
+    'Không gian luyện IELTS miễn phí cho Listening, Reading, Writing và Speaking, với nhận xét chi tiết, sổ từ vựng và lịch ôn tập.',
+    'A free IELTS practice space for Listening, Reading, Writing and Speaking, with detailed feedback, personal vocabulary and review.',
   ],
   sections: [
     {
       id: 'practice',
-      heading: ['Luyện viết có hệ thống', 'A deliberate writing practice'],
+      heading: ['Bốn kỹ năng, một không gian luyện tập', 'Four skills, one practice space'],
       body: [
         [
-          'Mỗi bài viết đều được chấm theo bốn tiêu chí Task 2 (Task 1: ba tiêu chí), kèm nhận xét và gợi ý cải thiện cụ thể cho từng đoạn.',
-          'Every essay is graded against the four Task 2 criteria (three criteria for Task 1), with concrete, paragraph-level notes on what to improve next.',
+          'Luyện Listening, Reading, Writing và Speaking để cải thiện khả năng nghe hiểu, đọc hiểu, viết và giao tiếp. Xem lại câu trả lời, nhận xét và lỗi thường gặp để biết nên tập trung vào đâu trong lần luyện tiếp theo.',
+          'Build your Listening, Reading, Writing and Speaking skills through focused IELTS practice. Review your answers, feedback and recurring mistakes to see what to work on next.',
         ],
         [
           'Bản nháp tự lưu, thư viện đề sẵn có biểu đồ và câu hỏi đầy đủ, sổ từ vựng có lịch ôn tập — tất cả gắn với một tài khoản duy nhất.',
@@ -27,7 +27,7 @@ export const home: ContentPage = {
         ],
       ],
       list: [
-        ['Task 1 Academic và Task 2', 'Task 1 Academic and Task 2'],
+        ['Listening, Reading, Writing và Speaking', 'Listening, Reading, Writing and Speaking'],
         ['Chấm bài theo band, có sổ lỗi sai lặp lại', 'Band scoring with a repeatable error logbook'],
         ['Từ vựng ôn theo lịch, không mất trình độ', 'Vocabulary reviewed on a schedule, so progress sticks'],
         ['Không paywall, không quảng cáo', 'No paywalls and no advertising'],
@@ -38,8 +38,8 @@ export const home: ContentPage = {
       heading: ['Đăng nhập để luyện', 'Sign in to practise'],
       body: [
         [
-          'Các tính năng luyện viết tương tác cần một tài khoản: bài viết, bản nháp, thẻ từ vựng và lịch ôn tập được lưu theo tài khoản của bạn. Đăng nhập bằng email, miễn phí và không cần thẻ tín dụng.',
-          'The interactive writing features need an account: your essays, drafts, vocabulary cards and review schedule are stored under your account. Sign in with an email address — it is free and needs no credit card.',
+          'Các tính năng luyện tập tương tác cần một tài khoản: bài luyện, kết quả, bài viết, bản nháp, thẻ từ vựng và lịch ôn tập được lưu theo tài khoản của bạn. Đăng nhập bằng email, miễn phí và không cần thẻ tín dụng.',
+          'The interactive practice features need an account: your attempts, results, essays, drafts, vocabulary cards and review schedule are stored under your account. Sign in with an email address — it is free and needs no credit card.',
         ],
         [
           'Trang này được đọc ngay trong HTML mà không cần chạy JavaScript, nên bạn có thể xem trước nội dung và chính sách trước khi quyết định đăng nhập.',
@@ -66,8 +66,8 @@ export const home: ContentPage = {
           'The content of the four public pages sits directly in the HTML (no JavaScript required), and the same content is served as Markdown when an agent asks with Accept: text/markdown.',
         ],
         [
-          'Sitemap ở /sitemap.xml và chỉ mục cho agent ở /llms.txt. Dự án không phát hành API công khai: những gì bạn đọc được ở đây đều là nội dung tĩnh của chính trang này.',
-          'The sitemap is at /sitemap.xml and the agent index is at /llms.txt. The project publishes no public API: everything readable here is static content of these very pages.',
+          'Sitemap ở /sitemap.xml. Dự án không phát hành API công khai: những gì bạn đọc được ở đây đều là nội dung tĩnh của chính trang này.',
+          'The sitemap is at /sitemap.xml. The project publishes no public API: everything readable here is static content of these very pages.',
         ],
       ],
     },
@@ -77,10 +77,10 @@ export const home: ContentPage = {
 export const about: ContentPage = {
   id: 'about',
   path: '/about',
-  title: ['Về IELTS Studio', 'About IELTS Studio'],
+  title: ['Về Engloo.app', 'About Engloo.app'],
   summary: [
-    'Một dự án cá nhân xây dựng để việc luyện IELTS Writing trở nên công khai, có phản hồi thật và không tốn tiền.',
-    'A one-person project built to make IELTS Writing practice open, genuinely feedback-driven and free to use.',
+    'Một dự án cá nhân giúp bạn luyện cả bốn kỹ năng IELTS: Listening, Reading, Writing và Speaking, với phản hồi rõ ràng và hoàn toàn miễn phí.',
+    'A one-person project for practising all four IELTS skills — Listening, Reading, Writing and Speaking — with clear feedback and free access.',
   ],
   sections: [
     {
@@ -88,12 +88,12 @@ export const about: ContentPage = {
       heading: ['Mục tiêu', 'What this project is for'],
       body: [
         [
-          'IELTS Studio là không gian luyện viết dành riêng cho IELTS Writing Task 1 và Task 2. Học viên chọn một đề trong thư viện, viết trong không gian viết có lưu nháp tự động, rồi nhận chấm bài theo đúng tiêu chí band của IELTS kèm nhận xét chi tiết và các lỗi thường gặp được gom vào sổ lỗi sai.',
-          'IELTS Studio is a practice space built only for IELTS Writing Task 1 and Task 2. Learners pick a prompt from the library, write in an editor that saves drafts automatically, then receive band-style grading against the real IELTS criteria together with detailed notes and the recurring mistakes collected into an error logbook.',
+          'Engloo.app được xây dựng để giúp bạn luyện cả Listening, Reading, Writing và Speaking trong một không gian. Mục tiêu là rèn nghe hiểu và ghi chú, đọc hiểu và vốn từ, viết Task 1 và Task 2, cùng khả năng diễn đạt và phản xạ khi nói. Nội dung và bài luyện được bổ sung theo từng kỹ năng.',
+          'Engloo.app is built to help you practise Listening, Reading, Writing and Speaking in one place. The aim is to develop listening comprehension and note-taking, reading comprehension and vocabulary, Task 1 and Task 2 writing, and confident spoken communication. Content and exercises are added skill by skill.',
         ],
         [
-          'Mọi nội dung học tập — kho đề, khung bài, mẫu bài và thẻ từ vựng — đều mở cho mọi người, không có bậc trả phí và không có quảng cáo. Đóng góp tự nguyện giúp duy trì hạ tầng và phát triển thêm tài liệu.',
-          'All learning content — the prompt library, essay frameworks, sample answers and vocabulary cards — stays open to everyone. There are no paid tiers and no advertising. Voluntary donations keep the infrastructure running and fund new learning material.',
+          'Nội dung học tập gồm kho đề, bài đọc, câu hỏi Speaking, hướng dẫn Writing, bài mẫu và thẻ từ vựng. Không có bậc trả phí hay quảng cáo. Đóng góp tự nguyện giúp duy trì hạ tầng và phát triển tài liệu cho cả bốn kỹ năng.',
+          'Learning content includes the prompt library, reading passages, speaking questions, writing guides, sample answers and vocabulary cards. There are no paid tiers or advertising. Voluntary donations support the infrastructure and learning material across all four skills.',
         ],
       ],
     },
@@ -102,12 +102,12 @@ export const about: ContentPage = {
       heading: ['Cách hoạt động', 'How it works'],
       body: [
         [
-          'Bài của bạn được gửi tới endpoint AI do bản triển khai cấu hình để chấm theo rubric, rồi kết quả được tách thành điểm từng tiêu chí, nhận xét theo đoạn và danh sách lỗi ngữ pháp để luyện lại. Bạn sở hữu toàn bộ bài viết và có thể xoá bất kỳ lúc nào.',
-          'Your essay is sent to the AI endpoint this deployment is configured with, for rubric-based grading, and the result is split into per-criterion scores, paragraph-level notes and a grammar error list to practise from. You own every essay and can delete it whenever you like.',
+          'Chọn kỹ năng và bài luyện phù hợp, làm bài rồi xem lại kết quả. Reading được đối chiếu với đáp án kèm giải thích. Writing có nháp tự lưu và nhận xét theo tiêu chí IELTS; Speaking có hội thoại với AI và góp ý về câu trả lời. Sổ từ vựng và lịch ôn tập giúp bạn ghi nhớ những gì vừa học.',
+          'Choose a skill and an exercise, practise, then review the result. Reading answers are checked against an answer key with explanations. Writing includes autosaved drafts and feedback against IELTS criteria; Speaking offers AI conversations and feedback on your responses. Your vocabulary library and review schedule help you retain what you learn.',
         ],
         [
-          'Tài khoản, bài viết, thẻ từ vựng và lịch ôn tập được lưu trong Postgres của dự án; phiên đăng nhập do Supabase quản lý. Trang này không dùng cookie quảng cáo hay tracker bên thứ ba.',
-          'Accounts, essays, vocabulary cards and review schedules are stored in the project Postgres database, and sessions are handled by Supabase. This site sets no advertising cookies and loads no third-party trackers.',
+          'Đăng nhập để lưu bài luyện, kết quả, bài viết, thẻ từ vựng và lịch ôn tập theo tài khoản. Phiên đăng nhập và dữ liệu học tập do Supabase quản lý. Trang này không dùng cookie quảng cáo hay tracker bên thứ ba.',
+          'Sign in to keep your practice attempts, results, essays, vocabulary cards and review schedule under one account. Supabase manages sign-in sessions and learning data. This site sets no advertising cookies and loads no third-party trackers.',
         ],
       ],
     },
@@ -120,8 +120,8 @@ export const about: ContentPage = {
           'The project is maintained by a single developer based in Vietnam, with the source code published on GitHub. Feedback on content, translations or the learning experience is welcome through the contact page.',
         ],
         [
-          'IELTS Studio là công cụ luyện tập độc lập, không phải sản phẩm của IELTS, IDP hoặc British Council, và không được các tổ chức này bảo trợ hay chứng nhận. Điểm trong ứng dụng là ước lượng theo tiêu chí band công khai, không phải điểm chính thức.',
-          'IELTS Studio is an independent practice tool. It is not a product of IELTS, IDP or the British Council and is not endorsed or sponsored by them. The scores shown in the app are estimates based on the public band descriptors, not official results.',
+          'Engloo.app là công cụ luyện tập độc lập, không phải sản phẩm của IELTS, IDP hoặc British Council, và không được các tổ chức này bảo trợ hay chứng nhận. Điểm trong ứng dụng là ước lượng theo tiêu chí band công khai, không phải điểm chính thức.',
+          'Engloo.app is an independent practice tool. It is not a product of IELTS, IDP or the British Council and is not endorsed or sponsored by them. The scores shown in the app are estimates based on the public band descriptors, not official results.',
         ],
       ],
     },
@@ -161,8 +161,8 @@ export const contact: ContentPage = {
       heading: ['Nên gửi kèm gì', 'What to include'],
       body: [
         [
-          'Với lỗi kỹ thuật, hãy gửi trình duyệt, hệ điều hành, bước tái hiện và ảnh chụp màn hình. Với câu hỏi về nội dung, gửi tên đề hoặc loại bài đang luyện. Với khiếu nại về dữ liệu cá nhân, nêu rõ tài khoản và loại dữ liệu cần xoá.',
-          'For a bug, send the browser, operating system, reproduction steps and a screenshot. For a content question, name the prompt or essay type you were working on. For a privacy complaint, state the account and the data you want removed.',
+          'Với lỗi kỹ thuật, hãy gửi trình duyệt, hệ điều hành, bước tái hiện và ảnh chụp màn hình. Với câu hỏi về nội dung, nêu kỹ năng Listening, Reading, Writing hay Speaking, tên bài và câu hỏi liên quan. Với khiếu nại về dữ liệu cá nhân, nêu rõ tài khoản và loại dữ liệu cần xoá.',
+          'For a bug, send the browser, operating system, reproduction steps and a screenshot. For a content question, name the skill — Listening, Reading, Writing or Speaking — plus the exercise and question involved. For a privacy complaint, state the account and the data you want removed.',
         ],
         [
           'Phản hồi được gửi khi chúng tôi xử lý xong. Báo cáo bảo mật được ưu tiên hơn các yêu cầu khác.',
@@ -175,8 +175,8 @@ export const contact: ContentPage = {
       heading: ['Phạm vi hỗ trợ', 'What we can help with'],
       body: [
         [
-          'Chúng tôi hỗ trợ về lỗi trang web, câu hỏi về nội dung học tập, đề xuất tính năng, góp ý về bản dịch Việt/Anh và các vấn đề quyền riêng tư. Chúng tôi không thể viết bài thay bạn, không chấm điểm bài IELTS chính thức và không tư vấn hồ sơ ứng tuyển.',
-          'We support website bugs, learning-content questions, feature requests, Vietnamese and English translation feedback and privacy issues. We cannot write essays on your behalf, produce official IELTS scores, or advise on admissions.',
+          'Chúng tôi hỗ trợ lỗi trang web và nội dung cho cả bốn kỹ năng, đề xuất tính năng, góp ý về bản dịch Việt/Anh và các vấn đề quyền riêng tư. Chúng tôi không làm bài thay bạn, không cấp điểm IELTS chính thức và không tư vấn hồ sơ ứng tuyển.',
+          'We support website bugs and learning-content questions across all four skills, feature requests, Vietnamese and English translation feedback and privacy issues. We cannot complete exercises on your behalf, produce official IELTS scores, or advise on admissions.',
         ],
       ],
     },
@@ -197,8 +197,8 @@ export const privacy: ContentPage = {
       heading: ['Dữ liệu được lưu', 'What is stored'],
       body: [
         [
-          'Dữ liệu tài khoản và dữ liệu học tập nằm trong cơ sở dữ liệu Supabase/Postgres của dự án: địa chỉ email bạn đăng ký, hồ sơ học tập gồm tên hiển thị, band mục tiêu và ngôn ngữ phản hồi, các bài viết và bản nháp, thẻ từ vựng bạn lưu, lịch ôn tập và các mục trong sổ lỗi sai ghi lại khi bài viết được chấm.',
-          'Account and learning data live in the project Supabase/Postgres database: the email address you register with, your learning profile (display name, target band, feedback language), your essays and drafts, the vocabulary cards you save, your review schedule and the error log entries recorded when an essay is graded.',
+          'Dữ liệu tài khoản và học tập nằm trong cơ sở dữ liệu Supabase/Postgres của dự án: email đăng ký, hồ sơ học tập gồm tên hiển thị, band mục tiêu và ngôn ngữ phản hồi; câu trả lời và kết quả bài luyện; bài viết và bản nháp; bản chép lời, nhận xét và điểm Speaking; thẻ từ vựng, lịch ôn tập và sổ lỗi sai. Bản ghi âm Speaking được tải lên khi bạn gửi bài bằng giọng nói.',
+          'Account and learning data live in the project Supabase/Postgres database: your registered email and learning profile (display name, target band, feedback language); practice answers and results; essays and drafts; speaking transcripts, feedback and scores; vocabulary cards, review schedules and error logs. Speaking recordings are uploaded when you submit an audio response.',
         ],
         [
           'Phiên đăng nhập do Supabase Auth quản lý, và Supabase lưu credential đã băm của tài khoản; ứng dụng không giữ mật khẩu dạng rõ.',
@@ -221,12 +221,12 @@ export const privacy: ContentPage = {
       heading: ['Xử lý bởi AI', 'AI processing'],
       body: [
         [
-          'Khi bạn yêu cầu chấm bài, nội dung bài viết và những ảnh bạn chọn được gửi tới endpoint AI mà bản triển khai này cấu hình, để bài viết được chấm. Mã nguồn hỗ trợ Anthropic API và các endpoint tương thích; endpoint nào đang chạy phụ thuộc vào cấu hình triển khai.',
-          'When you request feedback, your essay text and the images you selected are sent to the AI endpoint this deployment is configured with, so that the essay can be graded. The code supports the Anthropic API and compatible endpoints; which one is live depends on how this deployment is configured.',
+          'Khi bạn yêu cầu nhận xét Writing hoặc luyện Speaking với AI, nội dung cần thiết để xử lý yêu cầu — bài viết, ảnh bạn chọn, câu trả lời, bản chép lời hoặc bản ghi âm — được gửi tới dịch vụ AI đã cấu hình. Bản ghi âm có thể được xử lý để chép lời và chấm bài nói. Mã nguồn hỗ trợ Anthropic API và các endpoint tương thích; dịch vụ đang dùng phụ thuộc vào cấu hình triển khai.',
+          'When you request Writing feedback or practise Speaking with AI, the content needed for that request — essay text, selected images, responses, transcripts or recordings — is sent to the configured AI service. Recordings may be processed for transcription and speaking assessment. The code supports the Anthropic API and compatible endpoints; the active service depends on deployment configuration.',
         ],
         [
-          'Dự án không cam kết về thời gian endpoint AI lưu giữ nội dung nó nhận được, cũng không cam kết về cách endpoint đó dùng nội dung sau đó. Nếu điều đó quan trọng với bạn, hãy hỏi trước khi gửi bài.',
-          'This project makes no promise about how long the AI endpoint keeps the text it receives, or about how that endpoint uses the text afterwards. If that matters to you, please ask before you submit an essay.',
+          'Dự án không cam kết về thời gian dịch vụ AI lưu giữ nội dung nhận được hay cách dịch vụ đó sử dụng nội dung sau đó. Nếu điều đó quan trọng với bạn, hãy hỏi trước khi gửi bài viết hoặc bản ghi âm.',
+          'This project makes no promise about how long an AI service retains submitted content or how it uses that content afterwards. If that matters to you, please ask before submitting writing or recordings.',
         ],
       ],
     },
@@ -235,8 +235,8 @@ export const privacy: ContentPage = {
       heading: ['Điều chúng tôi không làm', 'What we do not do'],
       body: [
         [
-          'Không quảng cáo, không tracker bên thứ ba, không bán hoặc chia sẻ dữ liệu người dùng, không dùng cookie để theo dõi hành vi. Dữ liệu chỉ được dùng để cung cấp chính sản phẩm luyện viết.',
-          'No advertising, no third-party trackers, no selling or sharing user data, and no tracking cookies. Your data is used only to provide the writing practice product itself.',
+          'Không quảng cáo, không tracker bên thứ ba, không bán dữ liệu người dùng và không dùng cookie để theo dõi hành vi. Dữ liệu chỉ được dùng để cung cấp tính năng luyện IELTS, lưu tiến độ và xử lý AI như mô tả ở trên.',
+          'No advertising, no third-party trackers, no selling user data and no tracking cookies. Data is used to provide IELTS practice, save learning progress and perform the AI processing described above.',
         ],
       ],
     },
@@ -275,8 +275,8 @@ export const privacy: ContentPage = {
           'This policy is updated as the features change. The last updated date is shown right below.',
         ],
         [
-          'Cập nhật lần cuối: 26 tháng 10 năm 2026.',
-          'Last updated: 26 October 2026.',
+          'Cập nhật lần cuối: 30 tháng 10 năm 2026.',
+          'Last updated: 30 October 2026.',
         ],
       ],
     },

@@ -4,7 +4,6 @@
  * action `start`      : mở phiên live (gắn với 1 attempt của module Speaking),
  *                       cấp token ngắn hạn và trả kế hoạch câu hỏi từ database.
  * action `brain`      : hỏi "AI examiner" (gemini-3.8-flash) câu tiếp theo / follow-up.
- * action `voice`      : tổng hợp giọng cho 1 câu của giám khảo (trả audio/mpeg).
  * action `transcribe` : chép lời người học (dự phòng khi trình duyệt không có SpeechRecognition).
  * action `finish`     : kết thúc phiên, lưu transcript.
  *
@@ -26,7 +25,6 @@ import {
   requestId,
   requireMethod,
 } from "../_shared/http.ts";
-import { corsHeaders } from "../_shared/cors.ts";
 import {
   buildLiveTurnPlan,
   countQuestions,
@@ -39,7 +37,6 @@ import {
   type LiveTranscriptEntry,
   type LiveTurnPlan,
 } from "../_shared/ai/liveSpeaking.ts";
-import { isLiveVoiceAccent, synthesizeSpeech, type LiveVoiceAccent } from "../_shared/ai/liveVoice.ts";
 import { callAudioModel } from "../_shared/ai/audioProvider.ts";
 import { callBrain, liveAnswerAudio } from "../_shared/ai/liveBrain.ts";
 
@@ -54,7 +51,6 @@ Deno.serve(async (request) => {
 
     if (action === "start") return await start(request, context.service, context.userId, body, id);
     if (action === "brain") return await brain(request, context.service, context.userId, body, id);
-    if (action === "voice") return await voice(request, context.service, context.userId, body, id);
     if (action === "transcribe") return await transcribe(request, context.service, context.userId, body, id);
     if (action === "finish") return await finish(request, context.service, context.userId, body, id);
     throw new AppError(400, "invalid_action", "Unknown action");
@@ -69,9 +65,7 @@ type LiveSessionRow = {
   user_id: string;
   mode: string;
   status: string;
-  voice: string;
   brain_calls: number;
-  voice_calls: number;
   question_count: number;
   transcript: unknown;
 };
@@ -98,7 +92,7 @@ async function start(
   if (!/^[0-9a-f-]{36}$/i.test(attemptId)) {
     throw new AppError(400, "invalid_request", "A valid attemptId is required");
   }
-  const voice: LiveVoiceAccent = isLiveVoiceAccent(body.voice) ? body.voice : "en-GB";
+  const voice = body.voice === "en-US" ? "en-US" : "en-GB";
 
   const attemptResult = await service
     .from("speaking_attempts")
@@ -171,7 +165,6 @@ async function start(
       limits: {
         maxDurationMs: LIVE_LIMITS.maxDurationMs,
         maxBrainCalls: LIVE_LIMITS.maxBrainCalls,
-        maxVoiceCalls: LIVE_LIMITS.maxVoiceCalls,
       },
       plan: plan.map((turn) => ({
         turnId: turn.turnId,
@@ -248,86 +241,6 @@ async function brain(
   );
 }
 
-// ------------------------------------------------------------------ voice
-
-/** Bucket chứa audio dựng sẵn cho câu hỏi Cambridge. */
-const VOICE_BUCKET = "speaking-voice";
-
-async function voiceCachePath(accent: string, text: string): Promise<string> {
-  const digest = await crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(`${accent}|${text.trim()}`),
-  );
-  const hash = Array.from(new Uint8Array(digest))
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
-  return `voices/${accent}/${hash}.mp3`;
-}
-
-/** Đọc audio đã dựng sẵn (null nếu chưa có). */
-async function readVoiceCache(
-  service: SupabaseClient,
-  accent: string,
-  text: string,
-): Promise<Uint8Array | null> {
-  const path = await voiceCachePath(accent, text);
-  const download = await service.storage.from(VOICE_BUCKET).download(path);
-  if (download.error || !download.data) return null;
-  const bytes = new Uint8Array(await download.data.arrayBuffer());
-  return bytes.length ? bytes : null;
-}
-
-async function voice(
-  request: Request,
-  service: SupabaseClient,
-  userId: string,
-  body: Record<string, unknown>,
-  id: string,
-): Promise<Response> {
-  const { session } = await authorize(service, userId, body);
-
-  const text = String(body.text ?? "").trim().slice(0, 600);
-  if (!text) throw new AppError(400, "invalid_request", "The text to speak is required");
-
-  const accent: LiveVoiceAccent = isLiveVoiceAccent(body.accent)
-    ? body.accent
-    : ((session.voice as LiveVoiceAccent) ?? "en-GB");
-
-  // Câu hỏi Cambridge đã được dựng sẵn → phát ngay, không tốn lượt gọi provider.
-  const cached = await readVoiceCache(service, accent, text);
-  if (cached) {
-    return voiceResponse(request, cached, "audio/mpeg", "cache", id);
-  }
-
-  if (session.voice_calls >= LIVE_LIMITS.maxVoiceCalls) {
-    throw new AppError(429, "rate_limited", "This live session has reached its voice limit");
-  }
-
-  const speech = await synthesizeSpeech({ text, accent });
-  await service
-    .from("speaking_live_sessions")
-    .update({ voice_calls: session.voice_calls + 1, updated_at: new Date().toISOString() })
-    .eq("id", session.id)
-    .eq("user_id", userId);
-
-  return voiceResponse(request, speech.bytes, speech.mimeType, speech.engine, id);
-}
-
-function voiceResponse(
-  request: Request,
-  bytes: Uint8Array,
-  mimeType: string,
-  engine: string,
-  id: string,
-): Response {
-  const headers = corsHeaders(request.headers.get("origin"), getEnv("ALLOWED_ORIGINS") ?? "*");
-  headers.set("content-type", mimeType);
-  headers.set("cache-control", "no-store");
-  headers.set("x-request-id", id);
-  headers.set("x-voice-engine", engine);
-  return new Response(bytes as unknown as BodyInit, { status: 200, headers });
-}
-
 // ------------------------------------------------------------------ transcribe
 
 async function transcribe(
@@ -365,7 +278,17 @@ async function finish(
     ? (body.transcript as LiveTranscriptEntry[]).slice(0, 400)
     : [];
 
-  await service
+  const queued = await service.rpc("queue_speaking_grading", {
+    p_attempt_id: session.attempt_id,
+    p_user_id: userId,
+    p_allow_partial: true,
+  });
+  if (queued.error?.message === "no_speech_detected") {
+    throw new AppError(422, "no_speech_detected", "There is no recording to grade");
+  }
+  if (queued.error) throw databaseError("queue the speaking attempt");
+
+  const saved = await service
     .from("speaking_live_sessions")
     .update({
       status: "finished",
@@ -375,6 +298,7 @@ async function finish(
     })
     .eq("id", session.id)
     .eq("user_id", userId);
+  if (saved.error) throw databaseError("finish the live session");
 
   return jsonResponse(request, 200, { sessionId: session.id, status: "finished" }, { requestId: id });
 }
@@ -396,7 +320,7 @@ async function authorize(
 
   const result = await service
     .from("speaking_live_sessions")
-    .select("id,attempt_id,user_id,mode,status,voice,brain_calls,voice_calls,question_count,transcript")
+    .select("id,attempt_id,user_id,mode,status,brain_calls,question_count,transcript")
     .eq("id", sessionId)
     .eq("user_id", userId)
     .maybeSingle();

@@ -9,11 +9,25 @@
       "includeFiles": "src/agent/**"
     }
   },
+  "redirects": [
+    {
+      "source": "/",
+      "has": [{ "type": "host", "value": "huybui.vercel.app" }],
+      "destination": "https://engloo.app/",
+      "permanent": true
+    },
+    {
+      "source": "/:path*",
+      "has": [{ "type": "host", "value": "huybui.vercel.app" }],
+      "destination": "https://engloo.app/:path*",
+      "permanent": true
+    }
+  ],
   "rewrites": [
     { "source": "/about", "destination": "/pages/about.html" },
     { "source": "/contact", "destination": "/pages/contact.html" },
     { "source": "/privacy", "destination": "/pages/privacy.html" },
-    { "source": "/((?!api/|assets/).*)", "destination": "/index.html" }
+    { "source": "/((?!api/|assets/|fonts/|images/).*)", "destination": "/index.html" }
   ],
   "headers": [
     {

@@ -2,7 +2,7 @@
  * Luồng thư viện từ vựng 25 chủ đề: mở tab, chọn chủ đề, thêm từ vào sổ.
  *
  *   node --env-file-if-exists=.env.test tests/vocabulary-library.mjs
- *   TEST_URL=https://huybui.vercel.app node --env-file-if-exists=.env.test tests/vocabulary-library.mjs
+ *   TEST_URL=https://engloo.app node --env-file-if-exists=.env.test tests/vocabulary-library.mjs
  *
  * Cần đăng nhập (TEST_EMAIL / TEST_PASSWORD) vì trang nằm sau RouteGuard.
  */

@@ -1,5 +1,5 @@
 import type { ContentPage, Copy } from './content.ts'
-import { landingCopy, skillArtwork } from './landing.ts'
+import { landingCopy } from './landing.ts'
 import { publicLinks } from './routes.ts'
 
 export function escapeHtml(value: string) {
@@ -16,24 +16,38 @@ const bilingual = (pair: Copy) => `<span data-copy="vi" lang="vi">${escapeHtml(p
 // Trusted local content only; every copy value and URL is escaped here.
 export function renderLandingHtml() {
   const copy = landingCopy
-  const brand = `<a class="brand" href="/app" aria-label="IELTS Studio"><img class="brand-mark" src="/brand/ielts-studio-mark.webp" width="44" height="44" alt=""><span>${copy.brandName}</span></a>`
+  const brand = `<a class="brand" href="/app" aria-label="Engloo.app"><img class="brand-mark" src="/brand/engloo-mark.webp" width="52" height="52" alt=""><span>Engloo<span class="brand-domain">.app</span></span></a>`
   const languageButtons = copy.languageButtons.map(button => `<button type="button" data-lang-switch="${button.code}" aria-pressed="${button.code === 'en'}">${button.label}</button>`).join('')
-  const features = copy.features.map(item => `<a class="landing-feature" data-skill="${item.id}" href="${escapeHtml(item.href)}"><span class="feature-number">${item.number}</span><h3>${bilingual(item.title)}</h3><div class="feature-description"><p>${bilingual(item.body)}</p><span class="landing-label">${bilingual(item.action)}</span>${item.comingSoon ? `<span class="coming-soon">${bilingual(copy.comingSoon)}</span>` : ''}</div><span class="feature-arrow" aria-hidden="true">→</span></a>`).join('')
-  const steps = copy.steps.map((item, index) => `<li><span class="step-number" aria-hidden="true">${index + 1}</span><h3>${bilingual(item.title)}</h3><p>${bilingual(item.body)}</p></li>`).join('')
-  const criteria = copy.criteria.map(item => `<div class="sample-criterion"><div><span>${item.title}</span><span>${item.score}</span></div><div class="sample-bar"><i style="--score:${Number(item.score) / 9 * 100}%"></i></div></div>`).join('')
+  const features = copy.features.map(item => `<a class="landing-feature" data-skill="${item.id}" href="${escapeHtml(item.href)}"><span class="feature-number">${item.number}</span><h3>${bilingual(item.title)}</h3><div class="feature-description"><p>${bilingual(item.body)}</p><span class="landing-label">${bilingual(item.action)}</span></div><span class="feature-arrow" aria-hidden="true">→</span></a>`).join('')
+  const rhythmIcons: Record<string, string> = {
+    speaking: '<path d="M21 15a4 4 0 0 1-4 4H7l-4 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z"/><circle cx="8" cy="11" r=".7"/><circle cx="12" cy="11" r=".7"/><circle cx="16" cy="11" r=".7"/>',
+    reading: '<path d="M12 7v14M3 18V3s6 0 9 3c3-3 9-3 9-3v15s-6 0-9 3c-3-3-9-3-9-3Z"/>',
+    listening: '<path d="M3 14v-3a9 9 0 0 1 18 0v3"/><rect x="3" y="12" width="4" height="9" rx="2"/><rect x="17" y="12" width="4" height="9" rx="2"/>',
+    writing: '<path d="m16 3 5 5M4 16 16 4a3.5 3.5 0 0 1 5 5L9 21H3Z"/>',
+  }
+  const rhythm = copy.rhythmSkills.map((item, index) => {
+    const feature = copy.features.find(feature => feature.id === item.id)!
+    const artwork = ['light', 'dark'].map(theme => `<img class="rhythm-art rhythm-art-${theme}" src="/images/skills/${item.id}-${theme}.webp" width="220" height="220" loading="lazy" decoding="async" alt="">`).join('')
+    const content = `<div class="rhythm-skill-top"><span class="rhythm-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${rhythmIcons[item.id]}</svg></span><span class="rhythm-number" aria-hidden="true">0${index + 1}</span></div><h3>${bilingual(feature.title)}</h3><p>${bilingual(item.body)}</p><span class="rhythm-arrow" aria-hidden="true">→</span>${artwork}`
+    return feature.comingSoon ? `<article class="rhythm-skill is-upcoming">${content}</article>` : `<a class="rhythm-skill" href="${escapeHtml(feature.href)}">${content}</a>`
+  }).join('')
+  const feedbackTabs = copy.feedbackSamples.map((sample, index) => `<label class="sample-tab"><input type="radio" name="feedback-skill" value="${sample.id}"${index === 0 ? ' checked' : ''}><span id="feedback-${sample.id}-label">${sample.title}</span></label>`).join('')
+  const feedbackPanels = copy.feedbackSamples.map(sample => `<div class="sample-panel" data-feedback-panel="${sample.id}" role="group" aria-labelledby="feedback-${sample.id}-label"><header><span class="landing-label">${bilingual(sample.label)}</span><div class="sample-overall"><b>${sample.band}</b><span>${bilingual(copy.overallBand)}</span></div></header>${sample.criteria.map(item => `<div class="sample-criterion"><div><span>${escapeHtml(item.title)}</span><span>${item.score}</span></div><div class="sample-bar"><i style="--score:${Number(item.score) / 9 * 100}%"></i></div></div>`).join('')}</div>`).join('')
+  const feedbackArtwork = ['light', 'dark'].map(theme => `<img class="feedback-art-${theme}" src="/images/feedback/${theme}.webp" width="712" height="428" loading="lazy" decoding="async" alt="">`).join('')
+  const benefits = copy.heroBenefits.map(item => `<li><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="10" fill="currentColor"/><path d="m5.5 10 3 3 6-6" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>${bilingual(item)}</li>`).join('')
   return `<div class="landing">
 <a href="#landing-main" class="skip-link">${bilingual(copy.skipToContent)}</a>
 <span id="landing-nav-label" class="sr-only">${bilingual(copy.navLabel)}</span>
 <span id="landing-language-label" class="sr-only">${bilingual(copy.languageSwitchLabel)}</span>
-<header class="landing-nav"><div class="landing-wrap">${brand}<nav aria-labelledby="landing-nav-label"><a class="landing-nav-link" href="#skills">${bilingual(copy.navSkills)}</a><a class="landing-nav-link" href="/app/prompts">${bilingual(copy.navPromptLibrary)}</a><a class="landing-nav-link" href="/app/vocabulary">${bilingual(copy.navVocabulary)}</a><div class="language-switch" aria-labelledby="landing-language-label">${languageButtons}</div><button class="theme-toggle" type="button" data-theme-switch><span class="sr-only">${bilingual(copy.themeLabel)}</span><span aria-hidden="true">◐</span></button><a class="button primary" href="/app">${bilingual(copy.navOpenStudio)}</a></nav></div></header>
+<header class="landing-nav"><div class="landing-wrap">${brand}<nav aria-labelledby="landing-nav-label"><a class="landing-nav-link" href="#skills">${bilingual(copy.navSkills)}</a><a class="landing-nav-link" href="/app/prompts">${bilingual(copy.navPromptLibrary)}</a><a class="landing-nav-link" href="/app/vocabulary">${bilingual(copy.navVocabulary)}</a><div class="language-switch" aria-labelledby="landing-language-label">${languageButtons}</div><button class="theme-toggle" type="button" data-theme-switch><span class="sr-only">${bilingual(copy.themeLabel)}</span><span aria-hidden="true">◐</span></button><a class="button primary" href="/auth">${bilingual(copy.navSignIn)}<span aria-hidden="true">→</span></a></nav></div></header>
 <main id="landing-main">
 <div class="landing-hero"><div class="landing-stage landing-wrap">
-<section class="landing-intro"><span class="landing-label">${bilingual(copy.heroKicker)}</span><h1>${bilingual(copy.heroTitle)}<br>${bilingual(copy.heroAccent)}<em>${bilingual(copy.heroEmphasis)}</em>${bilingual(copy.heroEnd)}</h1><p>${bilingual(copy.heroBody)}</p><div class="button-row"><a class="button primary large" href="/app">${bilingual(copy.primaryCta)}<span aria-hidden="true">→</span></a><a class="button outline large" href="/app/essays/demo">${bilingual(copy.secondaryCta)}</a></div><p class="landing-note">${bilingual(copy.signInNote)}</p></section>
-<div class="skill-art" aria-hidden="true">${skillArtwork()}</div>
+<section class="landing-intro"><span class="landing-kicker"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 1 3.1 7.9L23 12l-7.9 3.1L12 23l-3.1-7.9L1 12l7.9-3.1Z" fill="currentColor"/></svg>${bilingual(copy.heroKicker)}</span><h1>${bilingual(copy.heroTitle)}<br><span class="hero-accent">${bilingual(copy.heroAccent)}<em>${bilingual(copy.heroEmphasis)}</em>${bilingual(copy.heroEnd)}</span></h1><p>${bilingual(copy.heroBody)}</p><div class="button-row"><a class="button primary large" href="/app">${bilingual(copy.primaryCta)}<span aria-hidden="true">→</span></a><a class="button outline large" href="/app/essays/demo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 4 12 8-12 8Z" fill="currentColor"/></svg>${bilingual(copy.secondaryCta)}</a></div><ul class="hero-benefits">${benefits}</ul><p class="landing-note">${bilingual(copy.signInNote)}</p></section>
+<div class="skill-art" aria-hidden="true"><img class="hero-scene-light" src="/images/english-study-light.webp" width="1448" height="1086" alt="" fetchpriority="high"><img class="hero-scene-dark" src="/images/english-study-dark.webp" width="952" height="841" alt="" fetchpriority="high"></div>
 </div></div>
 <section class="landing-learning landing-wrap" id="skills"><div class="landing-section-heading"><span class="landing-label">${bilingual(copy.learningKicker)}</span><h2>${bilingual(copy.learningTitle)}</h2></div><div class="landing-features">${features}</div></section>
-<section class="landing-rhythm landing-wrap"><div class="landing-section-heading"><span class="landing-label">${bilingual(copy.rhythmKicker)}</span><h2>${bilingual(copy.rhythmTitle)}</h2></div><ol class="learning-steps">${steps}</ol></section>
-<section class="landing-feedback"><div class="landing-wrap feedback-layout"><div><span class="landing-label">${bilingual(copy.feedbackKicker)}</span><h2>${bilingual(copy.feedbackTitle)}</h2><p>${bilingual(copy.feedbackBody)}</p><a class="button outline" href="/app/essays/demo">${bilingual(copy.feedbackAction)}<span aria-hidden="true">→</span></a></div><div class="sample-score"><header><span class="landing-label">${bilingual(copy.sampleLabel)}</span><b>7.0</b></header>${criteria}</div></div></section>
+<section class="landing-rhythm landing-wrap"><svg class="rhythm-trail" viewBox="0 0 500 180" fill="none" aria-hidden="true"><path d="M1 155c130-90 220-75 185-25S340 65 499 1" stroke="currentColor" stroke-width="2"/></svg><span class="rhythm-note" aria-hidden="true">${bilingual(copy.rhythmNote)}<svg viewBox="0 0 120 70" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 48c28 21 80-2 105-37m-15 5 16-7 1 18"/></svg></span><div class="landing-section-heading"><span class="landing-label">${bilingual(copy.rhythmKicker)}</span><h2>${bilingual(copy.rhythmTitle)} <em>${bilingual(copy.rhythmAccent)}</em></h2></div><div class="rhythm-skills">${rhythm}</div></section>
+<section class="landing-feedback" aria-labelledby="feedback-title"><div class="landing-wrap feedback-layout"><div class="feedback-copy"><span class="landing-label">${bilingual(copy.feedbackKicker)}</span><h2 id="feedback-title">${bilingual(copy.feedbackTitle)}<span class="feedback-accent">${bilingual(copy.feedbackAccent)}</span></h2><p>${bilingual(copy.feedbackBody)}</p><a class="button primary" href="/app/essays/demo">${bilingual(copy.feedbackAction)}<span aria-hidden="true">→</span></a></div><div class="feedback-art" aria-hidden="true">${feedbackArtwork}</div><div class="sample-score" data-ui><fieldset class="sample-tabs"><legend class="sr-only">${bilingual(copy.feedbackSkillsLabel)}</legend>${feedbackTabs}</fieldset>${feedbackPanels}</div></div></section>
 <section class="landing-cta"><div class="landing-wrap"><h2>${bilingual(copy.ctaTitle)}</h2><p>${bilingual(copy.ctaBody)}</p><a class="button outline" href="/donate">${bilingual(copy.donateCta)}</a></div></section>
 </main><footer class="landing-footer landing-wrap">${brand}<span class="landing-footer-copyright">${copy.footerCopyright}</span><nav class="landing-footer-links" aria-label="Public information">${copy.footerLinks.map(link => `<a href="${link.href}">${link.label}</a>`).join('')}</nav><a class="landing-footer-start" href="/app">${bilingual(copy.primaryCta)}<span aria-hidden="true">↗</span></a></footer></div>`
 }
@@ -44,7 +58,7 @@ export function renderStaticHtml(page: ContentPage): string {
   const parts: string[] = ['<div class="doc-shell">']
   parts.push(
     '<header class="doc-nav">',
-    `<a class="brand" href="/" aria-label="IELTS Studio"><img class="brand-mark" src="/brand/ielts-studio-mark.webp" width="44" height="44" alt=""><span>${escapeHtml(landingCopy.brandName)}</span></a>`,
+    `<a class="brand" href="/" aria-label="Engloo.app"><img class="brand-mark" src="/brand/engloo-mark.webp" width="52" height="52" alt=""><span>Engloo<span class="brand-domain">.app</span></span></a>`,
     '<nav aria-label="Public pages">',
   )
   for (const link of publicLinks.filter(item => !item.href.endsWith('.xml') && !item.href.endsWith('.txt'))) {
@@ -55,7 +69,7 @@ export function renderStaticHtml(page: ContentPage): string {
   parts.push(`<main class="doc-page" data-agent-page="${escapeHtml(page.id)}">`)
   parts.push(
     '<header class="doc-header">',
-    '<p class="doc-eyebrow">IELTS Studio</p>',
+    '<p class="doc-eyebrow">Engloo.app</p>',
     `<h1>${bilingual(page.title)}</h1>`,
     `<p class="doc-summary">${bilingual(page.summary)}</p>`,
     '</header>',
@@ -74,10 +88,8 @@ export function renderStaticHtml(page: ContentPage): string {
   parts.push('</main>', '</div>')
   parts.push(
     '<footer class="doc-footer">',
-    '<span>IELTS Studio</span>',
+    '<span>Engloo.app</span>',
     '<a href="/">Home</a>',
-    '<a href="/llms.txt">llms.txt</a>',
-    '<a href="/sitemap.xml">Sitemap</a>',
     '</footer>',
     '</div>',
   )
@@ -125,13 +137,13 @@ function errorDocument(input: { code: string; title: string; heading: string; co
 export function renderNotFoundHtml(path: string) {
   return errorDocument({
     code: '404',
-    title: '404 — Page not found — IELTS Writing Studio',
+    title: '404 — Page not found — Engloo.app',
     heading: 'This page is not here',
-    content: `<p>The address <code>${escapeHtml(path)}</code> does not exist on IELTS Writing Studio, so there is no page to read at this URL.</p>
+    content: `<p>The address <code>${escapeHtml(path)}</code> does not exist on Engloo.app, so there is no page to read at this URL.</p>
       <p>If you are looking for machine-readable resources, use one of these:</p>
       <ul>
         <li><a href="/">Home</a></li>
-        <li><a href="/llms.txt">llms.txt</a> and the <a href="/sitemap.xml">sitemap</a></li>
+        <li><a href="/sitemap.xml">Sitemap</a></li>
       </ul>`,
   })
 }
@@ -140,7 +152,7 @@ export function renderNotFoundHtml(path: string) {
 export function renderNotAcceptableHtml() {
   return errorDocument({
     code: '406',
-    title: '406 — Not Acceptable — IELTS Writing Studio',
+    title: '406 — Not Acceptable — Engloo.app',
     heading: 'This format is not available',
     content: `<p>The Accept header of this request does not allow any format this site can produce. Every public page is available in two formats:</p>
       <ul>

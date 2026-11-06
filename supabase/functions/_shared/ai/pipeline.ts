@@ -202,6 +202,7 @@ async function runSpeakingGrading(service: SupabaseClient, job: ClaimedJob): Pro
     .select("id,order_index,part,prompt_text,questions,cue_card,audio_path,mime_type,status")
     .eq("attempt_id", attemptId)
     .eq("user_id", attempt.user_id)
+    .in("status", ["uploaded", "graded"])
     .order("order_index", { ascending: true });
   if (turnsResult.error) throw databaseError("load the speaking turns");
   const turns = (turnsResult.data ?? []) as Array<{
@@ -238,7 +239,6 @@ async function runSpeakingGrading(service: SupabaseClient, job: ClaimedJob): Pro
       });
     }
 
-    const audioModel = modelForJob(job, "AI_MODEL_AUDIO");
     const analyses = await Promise.all(
       audios.map(async (audio) => {
         try {
@@ -254,7 +254,7 @@ async function runSpeakingGrading(service: SupabaseClient, job: ClaimedJob): Pro
             turnId: audio.turnId,
             message: error instanceof Error ? error.message : "unknown",
           }));
-          return { turnId: audio.turnId, analysis: null, model: audioModel, latencyMs: 0 };
+          throw error;
         }
       }),
     );
@@ -359,10 +359,18 @@ async function runSpeakingGrading(service: SupabaseClient, job: ClaimedJob): Pro
     if (insert.error || !insert.data) throw databaseError("save the speaking result");
 
     await service.from("speaking_attempts").update({ status: "succeeded" }).eq("id", attemptId);
-    await service.from("speaking_turns").update({ status: "graded" }).eq("attempt_id", attemptId);
+    await service.from("speaking_turns").update({ status: "graded" }).in("id", turns.map((turn) => turn.id));
     succeeded = true;
 
     return insert.data.id as string;
+  } catch (error) {
+    const failure = classifyJobError(error);
+    if (!failure.retry || job.attempts >= 3) {
+      await service.from("speaking_attempts")
+        .update({ status: "failed", error_code: failure.code })
+        .eq("id", attemptId);
+    }
+    throw error;
   } finally {
     // XOA audio khi da cham xong, hoac khi het luot thu (attempts >= 3) de retry
     // van co audio de doc. Xoa som khi that bai se lam retry that bai khong duoc audio.

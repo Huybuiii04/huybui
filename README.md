@@ -1,6 +1,6 @@
-# IELTS Writing Studio
+# Engloo.app
 
-Giao diện luyện IELTS Writing song ngữ Việt/Anh, xây mới theo thiết kế tại `docs/superpowers/specs/2026-10-24-ielts-ai-platform-design.md`.
+Ứng dụng luyện bốn kỹ năng IELTS Listening, Reading, Writing và Speaking, song ngữ Việt/Anh.
 
 Ứng dụng chạy trên **Supabase**: tài khoản người dùng, nháp, thẻ ôn tập, tiến độ đọc và kho đề bài đều nằm trong Postgres; phần chấm bài và công cụ AI chạy qua Edge Functions.
 
@@ -34,8 +34,8 @@ node tests/screenshots.mjs     # ảnh chụp màn hình vào test-results/
 Các script trình duyệt dùng `http://127.0.0.1:5173`; đổi qua biến môi trường `TEST_URL` nếu chạy cổng khác, hoặc trỏ thẳng vào bản deploy:
 
 ```bash
-TEST_URL=https://huybui.vercel.app node tests/production.mjs   # smoke test bản deploy
-TEST_URL=https://huybui.vercel.app node tests/browser.mjs       # toàn bộ luồng trên production
+TEST_URL=https://engloo.app node tests/production.mjs   # smoke test bản deploy
+TEST_URL=https://engloo.app node tests/browser.mjs       # toàn bộ luồng trên production
 ```
 
 `tests/browser.mjs` bỏ qua các luồng cần đăng nhập nếu thiếu `TEST_EMAIL` / `TEST_PASSWORD`. `tests/skill-flow.mjs` cũng vậy — route `/app/reading` nằm sau `RouteGuard` nên không đăng nhập thì chỉ chạy được phần kiểm tra công khai.
@@ -98,7 +98,7 @@ Tab *Người dùng* trong trang *Quản trị* liệt kê tài khoản kèm **e
 
 Cấu hình sẵn trong `vercel.json` (SPA fallback + cache header). Project hiện tắt tự động deploy từ GitHub (`createDeployments: disabled`), nên **deploy bằng CLI**.
 
-Bản đang chạy: **https://huybui.vercel.app** (project `huybui04/huybui`, Node 24.x).
+Bản đang chạy: **https://engloo.app** (project `huybui04/huybui`, Node 24.x).
 
 1. Vercel → **Add New → Project** → **Import** repo `Huybuiii04/huybui`.
 2. Framework preset: **Vite** · Build command: `npm run build` · Output: `dist`.
@@ -119,7 +119,7 @@ Bản đang chạy: **https://huybui.vercel.app** (project `huybui04/huybui`, No
 Sau đó kiểm tra bản live:
 
 ```bash
-TEST_URL=https://huybui.vercel.app node tests/production.mjs
+TEST_URL=https://engloo.app node tests/production.mjs
 ```
 
 Muốn deploy lại bản cũ thì bấm **Redeploy** trong Vercel dashboard.
@@ -166,7 +166,7 @@ Cần `SUPABASE_ACCESS_TOKEN` trong `.env.local`. Xem `supabase/README.md` cho t
 
 ## Kho đề bài (`/app/prompts`)
 
-Đề **không nằm trong mã nguồn** — frontend đọc từ backend qua `src/lib/promptRepository.ts`.
+Library yêu cầu đăng nhập trước khi xem. Đề **không nằm trong mã nguồn** — frontend đọc từ backend qua `src/lib/promptRepository.ts`.
 
 - **Luồng:** chọn loại bài (Task 2 / Task 1 Academic / Task 1 General) → chọn **chủ đề** → bấm vào chủ đề để mở **danh sách đề** của chủ đề đó → chọn 1 đề → *Thi thử* (đồng hồ đếm ngược 40/20 phút) hoặc *Luyện tập*.
 - **Task 1 Academic chia theo 7 dạng biểu đồ**: Line Graph · Bar Chart · Pie Chart · Table · Map / Floor Plan · Process Diagram · Mixed Charts — đề có ảnh thật trong bucket `prompt-media`.
@@ -188,6 +188,7 @@ Cần `SUPABASE_ACCESS_TOKEN` trong `.env.local`. Xem `supabase/README.md` cho t
 - **Nguồn**: 9 file `.docx` OCR trong `IELTS_Speaking_Cambridge_12-20_Word_Pack/Theo_tung_Cambridge`. Script `npm run build:speaking:cambridge` tự giải nén DOCX (không cần dependency), bóc tách Part 1/2/3, **tự sửa lỗi OCR rõ ràng** và ghi `supabase/seed/speaking-cambridge-flags.md` cho các câu còn lỗi. Câu sửa tay nằm trong `MANUAL_FIXES` của chính script.
 - **Luồng học**: `/app/speaking` → chọn cuốn (C12…C20) → chọn test → **luyện từng part** (Part 1 / Part 2 / Part 3 chủ đề A hoặc B) hoặc **luyện cả 3 phần** (4 lượt: P1 → P2 → P3A → P3B của cùng test).
 - **Chấm 2 lớp**: `gemini-3.8-flash` đọc audio → transcript + phát âm/ngữ điệu; `claude-haiku-5-5` chấm rubric ETS band 3–9 trên transcript. Band tổng = trung bình theo lượt (đúng luật IELTS "average performance across all parts").
+- **Giọng giám khảo trực tiếp**: dùng `speechSynthesis` của trình duyệt, không gọi API TTS trả phí. Chọn Anh-Anh hoặc Anh-Mỹ theo giọng có trên thiết bị; nếu thiếu accent đã chọn thì dùng giọng tiếng Anh khác. Cần bật hoặc cài giọng tiếng Anh nếu thiết bị chưa có.
 - **Route**: `/app/speaking/:mode/:book/:test` (`mode` = `part-1` · `part-2` · `part-3` · `mock`), Part 3 chọn chủ đề qua `?question=<id>`.
 - **Audio** lưu ở bucket riêng `speaking-audio` (private, ≤ 4 MiB) và **xoá ngay sau khi chấm**.
 

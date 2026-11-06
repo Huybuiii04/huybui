@@ -9,8 +9,6 @@ import { supabase } from './supabase'
 import type { LiveVoiceAccent } from './liveAudio.ts'
 import type { SpeakingMode, SpeakingPart } from './speakingLogic.ts'
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL ?? ''
-
 export type LiveStep = {
   index: number
   text: string
@@ -35,7 +33,6 @@ export type LiveSession = {
   limits: {
     maxDurationMs: number
     maxBrainCalls: number
-    maxVoiceCalls: number
   }
   plan: LiveTurnPlan[]
 }
@@ -55,11 +52,6 @@ export type LiveTranscriptEntry = {
 
 export type LiveApiError = { ok: false; code: string }
 export type LiveApiOk<T> = { ok: true; value: T }
-
-async function accessToken(): Promise<string | null> {
-  const { data } = await supabase.auth.getSession()
-  return data.session?.access_token ?? null
-}
 
 async function postJson<T>(body: Record<string, unknown>): Promise<LiveApiOk<T> | LiveApiError> {
   try {
@@ -128,35 +120,4 @@ export function finishLiveSession(input: {
   transcript: LiveTranscriptEntry[]
 }): Promise<LiveApiOk<{ status: string }> | LiveApiError> {
   return postJson<{ status: string }>({ action: 'finish', ...input })
-}
-
-/** Tổng hợp giọng giám khảo — trả về blob audio để phát. */
-export async function requestVoice(input: {
-  sessionId: string
-  token: string
-  text: string
-  accent: LiveVoiceAccent
-}): Promise<LiveApiOk<Blob> | LiveApiError> {
-  try {
-    const token = await accessToken()
-    if (!token) return { ok: false, code: 'unauthenticated' }
-    const response = await fetch(`${supabaseUrl}/functions/v1/speaking-live`, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ action: 'voice', ...input }),
-    })
-    if (!response.ok) {
-      const body = (await response.json().catch(() => null)) as {
-        error?: { code?: string }
-      } | null
-      return { ok: false, code: body?.error?.code ?? 'voice_failed' }
-    }
-    const blob = await response.blob()
-    return { ok: true, value: blob }
-  } catch {
-    return { ok: false, code: 'voice_failed' }
-  }
 }

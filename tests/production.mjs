@@ -1,7 +1,8 @@
 ﻿/**
- * Smoke test bản deploy: app phải nối được Supabase và hiện kho đề bài.
+ * Smoke test bản deploy: Library yêu cầu đăng nhập; có TEST_EMAIL/TEST_PASSWORD
+ * thì kiểm tra thêm đăng nhập và tải kho đề bài từ Supabase.
  *
- *   TEST_URL=https://huybui.vercel.app node tests/production.mjs
+ *   TEST_URL=https://engloo.app node tests/production.mjs
  *
  * Không set TEST_URL thì test bỏ qua (cần dev server cho bản local).
  */
@@ -22,27 +23,23 @@ page.on('console', message => {
   if (message.type() === 'error') errors.push(message.text())
 })
 
-await page.goto(`${base}/app/prompts`, { waitUntil: 'networkidle' })
-await page.waitForTimeout(4000)
+const libraryPath = '/app/prompts?task=academic_task1'
+await page.goto(`${base}${libraryPath}`, { waitUntil: 'networkidle' })
+await page.waitForURL(`${base}/auth`)
+assert.equal(await page.locator('.topic-card, .academic-card').count(), 0, 'Library không được hiện trước khi đăng nhập')
+assert.ok(!await page.getByText(/not configured|Chưa cấu hình kết nối máy chủ/).count(), 'Thiếu cấu hình đăng nhập trên bản deploy')
 
-const state = await page.evaluate(() => ({
-  notices: [...document.querySelectorAll('.notice')].map(node => node.textContent?.trim() ?? ''),
-  topicCards: document.querySelectorAll('.topic-card').length,
-  academicCards: document.querySelectorAll('.academic-card').length,
-}))
-
-// Banner "chưa cấu hình" = thiếu biến VITE_* lúc build.
-assert.ok(
-  !state.notices.some(text => text.includes('chưa được cấu hình') || text.includes('not configured')),
-  `Thiếu biến môi trường VITE_* khi build: ${state.notices.join(' | ')}`,
-)
-// Không có câu "chưa kết nối kho đề bài" = đã đọc được từ database.
-assert.ok(
-  !state.notices.some(text => text.includes('Chưa kết nối kho đề bài') || text.includes('prompt library is not connected')),
-  'Kho đề bài chưa kết nối được database',
-)
-assert.ok(state.topicCards > 0, 'Không có nhóm chủ đề nào được tải')
-assert.ok(state.academicCards > 0, 'Không có đề nào được tải')
+if (process.env.TEST_EMAIL && process.env.TEST_PASSWORD) {
+  await page.getByLabel('Email', { exact: true }).fill(process.env.TEST_EMAIL)
+  await page.locator('input[type=password]').fill(process.env.TEST_PASSWORD)
+  await page.getByRole('button', { name: /Sign in|Đăng nhập/, exact: true }).click()
+  await page.waitForURL(`${base}${libraryPath}`)
+  await page.locator('.topic-card').first().waitFor()
+  await page.locator('.academic-card').first().waitFor()
+  console.log('PASS: đăng nhập quay lại đúng Library và tải được đề từ database.')
+} else {
+  console.log('SKIP: kiểm tra kho đề sau đăng nhập cần TEST_EMAIL/TEST_PASSWORD.')
+}
 
 // Route sâu phải trả về index.html (SPA fallback).
 for (const route of ['/app/write', '/app/essays', '/auth']) {
@@ -57,4 +54,4 @@ if (errors.length) {
   for (const error of errors) console.log('  -', error)
   process.exit(1)
 }
-console.log(`PASS: bản deploy ${base} nối được database — ${state.topicCards} chủ đề, ${state.academicCards} đề.`)
+console.log(`PASS: bản deploy ${base} chặn Library khi chưa đăng nhập, route sâu trả 200 và không lỗi runtime.`)

@@ -7,11 +7,11 @@ import { SpeakingResult } from '../components/speaking/SpeakingResult.tsx'
 import { useCopy } from '../i18n'
 import { createVad, type Vad } from '../lib/liveVad.ts'
 import {
-  cachedVoice,
   createLiveTranscriber,
   openLiveMic,
-  playAudioBlob,
+  pickBrowserVoice,
   speakWithBrowser,
+  waitForBrowserVoices,
   type LiveMic,
   type LiveTranscriber,
   type LiveVoiceAccent,
@@ -27,7 +27,6 @@ import {
 import {
   finishLiveSession,
   requestBrain,
-  requestVoice,
   startLiveSession,
   type LiveSession,
   type LiveTranscriptEntry,
@@ -57,7 +56,7 @@ const ERROR_MESSAGES: Record<string, readonly [string, string]> = {
   no_speaking_questions: ['Chưa có câu hỏi cho chế độ này.', 'There is no question available for this mode yet.'],
   rate_limited: ['Bạn đã dùng quá nhiều phiên. Hãy thử lại sau.', 'You have reached the live-session limit. Try again later.'],
   invalid_live_token: ['Phiên đã hết hạn. Hãy bắt đầu lại.', 'The live session expired. Please start again.'],
-  voice_failed: ['Không phát được giọng giám khảo.', 'The examiner voice could not be played.'],
+  voice_failed: ['Không phát được giọng tiếng Anh. Hãy bật hoặc cài giọng tiếng Anh trên thiết bị, rồi thử lại.', 'English speech could not be played. Enable or install an English voice on your device, then try again.'],
   recording_failed: ['Không ghi âm được. Hãy kiểm tra mic và thử lại.', 'Could not record. Check your microphone and try again.'],
   brain_timeout: ['AI chưa trả lời kịp. Lượt này tiếp tục câu hỏi trong đề.', 'The AI timed out. Continuing with the scripted question for this turn.'],
   brain_provider_error: ['Dịch vụ AI hỏi thêm đang lỗi. Lượt này tiếp tục câu hỏi trong đề.', 'The follow-up AI service failed. Continuing with the scripted question for this turn.'],
@@ -107,7 +106,7 @@ export default function SpeakingLive() {
   const vadRef = useRef<Vad>(createVad())
   const micRef = useRef<LiveMic | null>(null)
   const transcriberRef = useRef<LiveTranscriber | null>(null)
-  const voiceCacheRef = useRef(new Map<string, Promise<Blob>>())
+  const speechRef = useRef<AbortController | null>(null)
   const transcriptRef = useRef<LiveTranscriptEntry[]>([])
   const answerStartRef = useRef(0)
   const answerLimitRef = useRef(45_000)
@@ -118,12 +117,13 @@ export default function SpeakingLive() {
   const recordingRef = useRef(false)
   const stoppingRef = useRef(false)
   const followUpRef = useRef(false)
-  const questionAudioRef = useRef<{ text: string; key: string } | null>(null)
+  const questionAudioRef = useRef<string | null>(null)
   const pendingUploadsRef = useRef<Promise<void>[]>([])
   const conversationRef = useRef<HTMLUListElement>(null)
 
   const setPhaseSafe = useCallback((next: Phase) => {
     if (next === 'error' || next === 'grading' || next === 'done') {
+      speechRef.current?.abort()
       recordingRef.current = false
       setRecording(false)
       void transcriberRef.current?.stop()
@@ -177,67 +177,18 @@ export default function SpeakingLive() {
 
   // ------------------------------------------------------------- giọng giám khảo
 
-  const loadVoice = useCallback((text: string, key: string): Promise<Blob> => {
-    const current = sessionRef.current
-    if (!current) return Promise.reject(new Error('invalid_live_token'))
-    return cachedVoice(voiceCacheRef.current, key, async () => {
-      const result = await requestVoice({ sessionId: current.sessionId, token: current.token, text, accent })
-      if (!result.ok) throw new Error(result.code)
-      return result.value
-    })
-  }, [accent])
-
   const speak = useCallback(
-    async (text: string, key: string): Promise<boolean> => {
-      if (!sessionRef.current || !text.trim()) return false
-      // 1) Giọng của server (đồng nhất, có cache sẵn cho câu Cambridge).
-      //    Thử lại một lần: provider TTS đôi lúc bị "hết kênh" ở lần gọi đầu.
-      for (let attempt = 0; attempt < 2; attempt += 1) {
-        let audio: Blob
-        try {
-          audio = await loadVoice(text, key)
-        } catch (error) {
-          if (attempt === 0) continue
-          break
-        }
-        if (cancelledRef.current) return false
-        try {
-          await playAudioBlob(audio)
-          return true
-        } catch {
-          voiceCacheRef.current.delete(key)
-          break
-        }
-      }
-      // 2) Dự phòng: đọc bằng giọng của trình duyệt (miễn phí, tức thì).
-      if (cancelledRef.current) return false
-      if (await speakWithBrowser(text, accent)) return true
+    async (text: string): Promise<boolean> => {
+      if (!sessionRef.current || cancelledRef.current || !text.trim()) return false
+      speechRef.current?.abort()
+      const controller = new AbortController()
+      speechRef.current = controller
+      if (await speakWithBrowser(text, accent, controller.signal)) return true
+      if (controller.signal.aborted) return false
       setError('voice_failed')
       return false
     },
-    [accent, loadVoice],
-  )
-
-  /**
-   * Tải trước giọng cho câu hiện tại và 2 câu kế tiếp, cộng thêm câu đầu của
-   * phần kế tiếp — nếu không có câu đầu phần sau trong 2 câu kế tiếp thì lúc
-   * chuyển phần sẽ phải chờ gọi TTS.
-   */
-  const prefetchVoices = useCallback(
-    (turnIndex: number, stepIndex: number) => {
-      const current = sessionRef.current
-      if (!current) return
-      const upcoming = current.plan.flatMap((turn, index) => turn.steps
-        .filter(step => index > turnIndex || (index === turnIndex && step.index >= stepIndex))
-        .map(step => ({ key: `${index}:${step.index}`, text: step.text })))
-      const nextTurn = current.plan[turnIndex + 1]
-      const nextPartFirst = nextTurn?.steps[0]
-        ? [{ key: `${turnIndex + 1}:0`, text: nextTurn.steps[0].text }]
-        : []
-      const targets = [...upcoming.slice(0, 2), ...nextPartFirst]
-      for (const step of targets) void loadVoice(step.text, step.key).catch(() => undefined)
-    },
-    [loadVoice],
+    [accent],
   )
 
   // ------------------------------------------------------------- vòng hỏi
@@ -254,17 +205,15 @@ export default function SpeakingLive() {
       stepIndexRef.current = stepIndex
       setTurnLabel(turn.part === 'part-2' ? 'Part 2' : turn.part === 'part-1' ? 'Part 1' : 'Part 3')
       const text = followUp ?? step.text
-      const key = followUp ? `followup:${turnIndex}:${step.index}:${text}` : `${turnIndex}:${step.index}`
       followUpRef.current = Boolean(followUp)
-      questionAudioRef.current = { text, key }
+      questionAudioRef.current = text
       setCurrentQuestion(text)
       pushTranscript('examiner', text)
       setPhaseSafe('asking')
 
-      const played = await speak(text, key)
+      const played = await speak(text)
       if (cancelledRef.current) return
       if (!played) { setPhaseSafe('error'); return }
-      prefetchVoices(turnIndex, stepIndex + 1)
 
       vadRef.current.reset()
       transcriberRef.current?.clear()
@@ -272,7 +221,7 @@ export default function SpeakingLive() {
       setAnswerSeconds(0)
       setPhaseSafe('answering')
     },
-    [prefetchVoices, pushTranscript, setPhaseSafe, speak],
+    [pushTranscript, setPhaseSafe, speak],
   )
 
   /** Bắt đầu một phần: chuẩn bị (nếu có) rồi hỏi câu đầu tiên. */
@@ -286,7 +235,6 @@ export default function SpeakingLive() {
       setCurrentQuestion(turn.steps[0]?.text ?? '')
       setTurnLabel(turn.part === 'part-2' ? 'Part 2' : turn.part === 'part-1' ? 'Part 1' : 'Part 3')
       if (turn.prepMs > 0) {
-        prefetchVoices(turnIndex, 0)
         prepEndRef.current = Date.now() + turn.prepMs
         setPrepSeconds(Math.round(turn.prepMs / 1000))
         setPhaseSafe('prep')
@@ -294,24 +242,30 @@ export default function SpeakingLive() {
       }
       await askStep(turnIndex, 0)
     },
-    [askStep, prefetchVoices, setPhaseSafe],
+    [askStep, setPhaseSafe],
   )
 
   const finishExam = useCallback(async () => {
     const current = sessionRef.current
     const attempt = attemptRef.current
     if (!current || !attempt) return
+    setFollowUpIssue('')
     setPhaseSafe('grading')
     try {
       await waitUploads()
     } catch {
       return
     }
-    await finishLiveSession({
+    const finished = await finishLiveSession({
       sessionId: current.sessionId,
       token: current.token,
       transcript: transcriptRef.current,
     })
+    if (!finished.ok) {
+      setError(finished.code)
+      setPhaseSafe('error')
+      return
+    }
     const polled = await pollSpeakingResult(attempt.attemptId)
     if (!polled.ok) {
       setError(polled.code)
@@ -396,7 +350,7 @@ export default function SpeakingLive() {
           }
           if (line) {
             pushTranscript('examiner', line)
-            await speak(line, `followup:${turnIndex}:${stepIndex}:${line.slice(0, 24)}`)
+            await speak(line)
           }
           setFollowUpIssue('brain_no_follow_up')
         } else setFollowUpIssue(reply.code)
@@ -459,14 +413,17 @@ export default function SpeakingLive() {
     setError('')
     setUserSpeaking(false)
     setPhaseSafe('asking')
+    let played = false
     try {
-      await speak(question.text, question.key)
+      played = await speak(question)
     } finally {
       busyRef.current = false
       setReplaying(false)
       if (!cancelledRef.current && !stoppingRef.current) {
-        vadRef.current.reset()
-        setPhaseSafe('answering')
+        if (played) {
+          vadRef.current.reset()
+          setPhaseSafe('answering')
+        } else setPhaseSafe('error')
       }
     }
   }, [setPhaseSafe, speak])
@@ -510,6 +467,7 @@ export default function SpeakingLive() {
   // ------------------------------------------------------------- vòng đời
 
   const start = useCallback(async () => {
+    speechRef.current?.abort()
     transcriberRef.current?.stop()
     micRef.current?.close()
     setError('')
@@ -518,13 +476,20 @@ export default function SpeakingLive() {
     setPhaseSafe('connecting')
     sessionStartRef.current = Date.now()
     cancelledRef.current = false
-    voiceCacheRef.current = new Map()
     stoppingRef.current = false
     recordingRef.current = false
     setRecording(false)
     busyRef.current = false
     transcriptRef.current = []
     setTranscript([])
+
+    await waitForBrowserVoices()
+    if (cancelledRef.current) return
+    if (!pickBrowserVoice(accent)) {
+      setError('voice_failed')
+      setPhaseSafe('error')
+      return
+    }
 
     const prepared = await prepareSpeaking({
       mode,
@@ -590,6 +555,7 @@ export default function SpeakingLive() {
   useEffect(() => {
     return () => {
       cancelledRef.current = true
+      speechRef.current?.abort()
       transcriberRef.current?.stop()
       micRef.current?.close()
     }
@@ -612,7 +578,7 @@ export default function SpeakingLive() {
 
   if (result) {
     return (
-      <div className="page">
+      <div className="page speaking-result-page">
         <PageHeader
           eyebrow={testLabel || 'SPEAKING'}
           title={c('Kết quả luyện nói trực tiếp', 'Live speaking result')}
@@ -657,16 +623,16 @@ export default function SpeakingLive() {
                 onChange={(event) => setAccent(event.target.value as LiveVoiceAccent)}
                 className="ml-2"
               >
-                <option value="en-GB">{c('Giọng nam · Anh-Anh', 'Male voice · British English')}</option>
-                <option value="en-US">{c('Giọng nữ · Anh-Mỹ', 'Female voice · American English')}</option>
+                <option value="en-GB">{c('Anh-Anh', 'British English')}</option>
+                <option value="en-US">{c('Anh-Mỹ', 'American English')}</option>
               </select>
             </label>
           </div>
           <p className="muted">{c('Giám khảo tự hỏi thêm dựa trên câu trả lời của bạn. Có thể cần vài giây để chuẩn bị câu hỏi.', 'The examiner automatically asks follow-up questions based on your answer. Preparing a question may take a few seconds.')}</p>
           <p className="muted text-[12px]">
             {c(
-              'Cần cấp quyền mic khi bắt đầu. Trình duyệt Chrome/Edge cho trải nghiệm nhanh nhất. Nếu không tổng hợp được giọng server, hệ thống tự đọc bằng giọng của trình duyệt.',
-              'Microphone access is requested when you start. Chrome/Edge gives the smoothest experience. If the server voice is unavailable, the examiner falls back to the browser voice.',
+              'Cần cấp quyền mic khi bắt đầu. Giám khảo đọc bằng giọng miễn phí của trình duyệt. Giọng và accent có sẵn tùy thiết bị; nếu thiếu accent đã chọn, hệ thống dùng giọng tiếng Anh khác.',
+              'Microphone access is requested when you start. The examiner uses your browser’s free speech voices. Available voices and accents depend on your device; another English voice is used if your chosen accent is unavailable.',
             )}
           </p>
           <div className="button-row">

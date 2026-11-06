@@ -114,7 +114,6 @@ const secretValues = [
   ['AI_MODEL_EXTRACTION', env.AI_MODEL_EXTRACTION],
   ['AI_MODEL_AUDIO', env.AI_MODEL_AUDIO],
   ['AI_MODEL_LIVE', env.AI_MODEL_LIVE],
-  ['AI_MODEL_VOICE', env.AI_MODEL_VOICE],
   ['ALLOWED_ORIGINS', env.ALLOWED_ORIGINS],
 ].filter(([, value]) => Boolean(value))
 

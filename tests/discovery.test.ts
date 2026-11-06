@@ -1,6 +1,6 @@
 /**
  * Kiểm tra các tài nguyên khám phá (discovery) mà trang công khai và middleware
- * đã hứa: robots.txt, sitemap.xml, llms.txt và OG image 1200x630.
+ * đã hứa: robots.txt, sitemap.xml và OG image 1200x630.
  *
  *   node --test tests/discovery.test.ts
  */
@@ -10,9 +10,8 @@ import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { config as middlewareConfig } from '../middleware.ts'
 import { publicLinks, spaRoutes, staticFiles } from '../src/agent/routes.ts'
-import { site } from '../src/agent/site.ts'
 
-const origin = 'https://huybui.vercel.app'
+const origin = 'https://engloo.app'
 const publicDir = join(process.cwd(), 'public')
 
 const routePaths = new Set<string>(spaRoutes)
@@ -140,7 +139,7 @@ function parseXml(source: string): XmlElement {
 }
 
 test('the discovery files exist in public/', () => {
-  for (const name of ['robots.txt', 'sitemap.xml', 'llms.txt', 'og-image.png']) {
+  for (const name of ['robots.txt', 'sitemap.xml', 'og-image.png']) {
     assert.ok(existsSync(join(publicDir, name)), `public/${name} chưa tồn tại`)
   }
 })
@@ -152,7 +151,7 @@ test('robots.txt allows the public pages, blocks the private areas and names the
   assert.match(robots, /^Disallow: \/app\/$/m)
   assert.match(robots, /^Disallow: \/admin$/m)
   assert.match(robots, /^Disallow: \/auth\/$/m)
-  assert.match(robots, /^Sitemap: https:\/\/huybui\.vercel\.app\/sitemap\.xml$/m)
+  assert.match(robots, /^Sitemap: https:\/\/engloo\.app\/sitemap\.xml$/m)
 })
 
 test('robots.txt references only files that really exist', () => {
@@ -195,51 +194,15 @@ test('sitemap.xml never points at a private area, a preview URL or an essay', ()
   }
 })
 
-test('llms.txt follows the llms.txt proposal', () => {
-  const llms = readPublicFile('llms.txt')
-  assert.ok(llms.startsWith('# '), 'llms.txt phải bắt đầu bằng một H1')
-  assert.ok(llms.startsWith(`# ${site.name}`), 'H1 phải chứa tên sản phẩm')
-  assert.match(llms, /^> .+/m, 'llms.txt phải có một blockquote tóm tắt')
-  const sections = [...llms.matchAll(/^## .+$/gm)]
-  assert.ok(sections.length >= 2, 'llms.txt phải có ít nhất hai mục "##"')
+test('the optional llms.txt index is no longer published', () => {
+  assert.equal(existsSync(join(publicDir, 'llms.txt')), false)
+  assert.equal(filePaths.has('/llms.txt'), false)
+  assert.equal(publicLinks.some(link => String(link.href) === '/llms.txt'), false)
 })
 
-test('llms.txt points at the four public pages with absolute production URLs', () => {
-  const llms = readPublicFile('llms.txt')
-  for (const url of expectedCanonicalUrls) {
-    assert.ok(llms.includes(url), `llms.txt thiếu ${url}`)
-  }
-})
-
-test('llms.txt says which parts need a signed-in session', () => {
-  const llms = readPublicFile('llms.txt')
-  assert.match(llms, /signed-in session/i)
-  for (const feature of ['writing space', 'essay', 'vocabulary', 'review', 'progress', 'setting']) {
-    assert.match(llms, new RegExp(feature, 'i'), `llms.txt không nhắc tới ${feature}`)
-  }
-  assert.match(llms, /four public pages/i)
-  assert.match(llms, /need no sign-in|do not require|without (a )?sign-in/i)
-})
-
-test('llms.txt states that there is no public REST API and no MCP server', () => {
-  const llms = readPublicFile('llms.txt')
-  assert.match(llms, /no public REST API/i)
-  assert.match(llms, /no MCP server/i)
-})
-
-test('llms.txt does not advertise interfaces or rules that do not exist', () => {
-  const llms = readPublicFile('llms.txt')
-  for (const term of ['openapi', 'api key', 'developer portal', 'sandbox', '/api/mcp']) {
-    assert.ok(!llms.toLowerCase().includes(term), `llms.txt không được nhắc tới ${term}`)
-  }
-  assert.ok(!/\b(must|should)\b/i.test(llms), 'llms.txt là mô tả, không phải bộ lệnh cho bot')
-})
-
-test('every link in llms.txt and sitemap.xml resolves to a published route or file', () => {
-  const llms = readPublicFile('llms.txt')
+test('every link in sitemap.xml resolves to a published route or file', () => {
   const sitemap = readPublicFile('sitemap.xml')
   const links = [
-    ...[...llms.matchAll(/\]\(([^)]+)\)/g)].map(match => match[1]),
     ...parseXml(sitemap)
       .children.filter(child => child.name === 'url')
       .flatMap(url => url.children.filter(child => child.name === 'loc').map(child => child.text)),
@@ -256,7 +219,7 @@ test('every link in llms.txt and sitemap.xml resolves to a published route or fi
 test('the discovery files are static files that the middleware never intercepts', () => {
   const matcher = String((middlewareConfig as { matcher: string[] }).matcher[0])
   const regex = new RegExp(`^${matcher}$`)
-  for (const file of ['/robots.txt', '/sitemap.xml', '/llms.txt', '/og-image.png']) {
+  for (const file of ['/robots.txt', '/sitemap.xml', '/og-image.png']) {
     assert.ok(filePaths.has(file), `${file} phải nằm trong staticFiles`)
     assert.equal(regex.test(file), false, `${file} phải được phục vụ như file tĩnh`)
   }

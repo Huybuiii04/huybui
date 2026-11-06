@@ -35,8 +35,8 @@ export function routes() {
       <Route path="/auth/reset-password" element={<Auth />} />
       <Route element={<Layout />}>
         <Route path="/donate" element={<Donate />} />
-        <Route path="/app/prompts" element={<Suspense fallback={<AppFallback />}><Prompts /></Suspense>} />
         <Route element={<RouteGuard />}>
+          <Route path="/app/prompts" element={<Suspense fallback={<AppFallback />}><Prompts /></Suspense>} />
           <Route path="/app" element={<Dashboard />} />
           <Route path="/app/write" element={<Suspense fallback={<AppFallback />}><Writing /></Suspense>} />
           <Route path="/app/essays" element={<Essays />} />

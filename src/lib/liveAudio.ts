@@ -7,18 +7,6 @@ import { rms } from './liveVad.ts'
 
 export type LiveVoiceAccent = 'en-GB' | 'en-US'
 
-/** Tải trước và phát cùng dùng một request; lỗi phải cho phép thử lại. */
-export function cachedVoice(cache: Map<string, Promise<Blob>>, key: string, load: () => Promise<Blob>): Promise<Blob> {
-  const cached = cache.get(key)
-  if (cached) return cached
-  const pending = load().catch(error => {
-    if (cache.get(key) === pending) cache.delete(key)
-    throw error
-  })
-  cache.set(key, pending)
-  return pending
-}
-
 export const ALLOWED_AUDIO_MIME_TYPES = [
   'audio/webm',
   'audio/mp4',
@@ -190,26 +178,6 @@ export async function openLiveMic(onLevel: (level: number) => void): Promise<Liv
   }
 }
 
-/** Phát một blob audio và chờ tới khi phát xong. */
-export function playAudioBlob(blob: Blob): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(blob)
-    const audio = new Audio(url)
-    audio.onended = () => {
-      URL.revokeObjectURL(url)
-      resolve()
-    }
-    audio.onerror = () => {
-      URL.revokeObjectURL(url)
-      reject(new Error('Could not play the audio.'))
-    }
-    void audio.play().catch((error) => {
-      URL.revokeObjectURL(url)
-      reject(error instanceof Error ? error : new Error('Could not play the audio.'))
-    })
-  })
-}
-
 // ------------------------------------------------------------------ Web Speech
 
 type SpeechAlternativeLike = { transcript: string; confidence: number }
@@ -262,9 +230,7 @@ export type LiveTranscriber = {
 /**
  * Đọc bằng giọng của trình duyệt (`SpeechSynthesis`).
  *
- * Dùng khi server không tổng hợp được audio (ví dụ hết số dư nhà cung cấp):
- * không mất tiền, không cần CPU mạnh và bắt đầu phát gần như tức thì nên hợp
- * với câu follow-up sinh động.
+ * Giọng giám khảo dùng trực tiếp trên thiết bị, không gọi API TTS trả phí.
  */
 export function browserVoiceAvailable(): boolean {
   return typeof window !== 'undefined' && typeof window.speechSynthesis !== 'undefined'
@@ -316,24 +282,34 @@ export function pickBrowserVoice(accent: LiveVoiceAccent): SpeechSynthesisVoice 
  * Đọc một câu bằng giọng trình duyệt. Trả false nếu trình duyệt không có giọng
  * tiếng Anh (ví dụ môi trường headless).
  */
-export async function speakWithBrowser(text: string, accent: LiveVoiceAccent): Promise<boolean> {
-  if (!browserVoiceAvailable() || !text.trim()) return false
+export async function speakWithBrowser(text: string, accent: LiveVoiceAccent, signal?: AbortSignal): Promise<boolean> {
+  if (!browserVoiceAvailable() || !text.trim() || signal?.aborted) return false
   if (!browserVoices().length) await waitForBrowserVoices()
+  if (signal?.aborted) return false
   const voice = pickBrowserVoice(accent)
   if (!voice) return false
   return new Promise((resolve) => {
+    const done = (played: boolean) => {
+      signal?.removeEventListener('abort', onAbort)
+      resolve(played)
+    }
+    const onAbort = () => {
+      window.speechSynthesis.cancel()
+      done(false)
+    }
     try {
       const utterance = new SpeechSynthesisUtterance(text)
       utterance.lang = voice.lang
       utterance.voice = voice
       utterance.rate = 1
       utterance.pitch = 1
-      utterance.onend = () => resolve(true)
-      utterance.onerror = () => resolve(false)
+      utterance.onend = () => done(true)
+      utterance.onerror = () => done(false)
+      signal?.addEventListener('abort', onAbort, { once: true })
       window.speechSynthesis.cancel()
       window.speechSynthesis.speak(utterance)
     } catch {
-      resolve(false)
+      done(false)
     }
   })
 }

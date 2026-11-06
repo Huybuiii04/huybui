@@ -40,12 +40,13 @@ export const spaRoutes = [
 export const staticFiles = [
   '/favicon.svg',
   '/favicon.png',
-  '/brand/ielts-studio-mark.webp',
+  '/brand/engloo-mark.webp',
+  '/images/english-study-light.webp',
+  '/images/english-study-dark.webp',
   '/donate-qr.png',
   '/og-image.png',
   '/robots.txt',
   '/sitemap.xml',
-  '/llms.txt',
 ] as const
 
 // Link tới tài nguyên public thật: một danh sách duy nhất dùng chung cho bản
@@ -56,7 +57,6 @@ export const publicLinks = [
   { label: 'Contact', href: '/contact' },
   { label: 'Privacy policy', href: '/privacy' },
   { label: 'Sitemap', href: '/sitemap.xml' },
-  { label: 'llms.txt', href: '/llms.txt' },
 ] as const
 
 // Không có API public: backend chưa phát hành endpoint nào cho bên thứ ba.

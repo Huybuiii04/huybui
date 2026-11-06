@@ -21,15 +21,15 @@
  *     body bắt đầu bằng "# " và dài hơn 500 ký tự.
  *  3. GET / (text/markdown;q=0, wildcard q=1) → 200 HTML (q=0 của Markdown thắng).
  *  4. GET / (application/json) → 406.
- *  5. Đường dẫn lạ (text/html) → 404, text/html, link /, /llms.txt, /sitemap.xml.
+ *  5. Đường dẫn lạ (text/html) → 404, text/html, link /, /sitemap.xml.
  *  6. Đường dẫn lạ (text/markdown) → 404, text/markdown, nhắc 404 và link
- *     /llms.txt, /sitemap.xml.
+ *     /sitemap.xml.
  *  7. /app/essays/does-not-exist → 200 (route động hợp lệ không được 404).
  *  8. /auth/callback?code=...&state=... → 200 (query string phải còn nguyên).
  *  9. /assets/does-not-exist.js → 404 và body không phải HTML của SPA.
  * 10. /favicon.svg → 200 image/svg+xml; asset build có hash (URL lấy từ trang đang
  *     phục vụ, đối chiếu với dist/index.html local) → 200 kiểu JS.
- * 11. /robots.txt, /llms.txt, /sitemap.xml, /og-image.png → 200 đúng kiểu file.
+ * 11. /robots.txt, /sitemap.xml, /og-image.png → 200 đúng kiểu file; /llms.txt → 404.
  * 12. /api/does-not-exist → 404 JSON có error.code/hint/message/status.
  * 13. /about, /contact, /privacy → 200 text/html với <h1> có chữ.
  * 14. Trộn cache CDN: HTML → Markdown → HTML, response thứ ba phải là HTML.
@@ -57,7 +57,7 @@ const bypassToken = (process.env.TEST_BYPASS_TOKEN ?? '').trim()
 // Đường dẫn không tồn tại, dùng làm mẫu cho cả bản HTML lẫn bản Markdown.
 const UNKNOWN_PATH = '/agent-audit-missing-20261026'
 // Một đoạn chữ chỉ có trong hero của landing (bản HTML), không có trong Markdown.
-const HERO_TEXT = 'Practise IELTS Writing'
+const HERO_TEXT = 'Practise IELTS'
 // Dấu hiệu bản Markdown: bắt đầu bằng một heading cấp 1.
 const MARKDOWN_HEADING = '# '
 // Dấu hiệu bản HTML của SPA (dùng để phân biệt với trang lỗi).
@@ -153,9 +153,8 @@ await check(`5. GET ${UNKNOWN_PATH} (text/html) → 404 HTML có link điều h�
   const contentType = response.headers.get('content-type') ?? ''
   assert.ok(contentType.includes('text/html'), `Trang 404 phải là text/html — ${summarize(response, body)}`)
   assert.ok(body.includes('href="/"'), `Trang 404 phải link về / — ${summarize(response, body)}`)
-  assert.ok(body.includes('/llms.txt'), `Trang 404 phải link tới /llms.txt — ${summarize(response, body)}`)
   assert.ok(body.includes('/sitemap.xml'), `Trang 404 phải link tới /sitemap.xml — ${summarize(response, body)}`)
-  return '404 text/html, có link /, /llms.txt, /sitemap.xml'
+  return '404 text/html, có link /, /sitemap.xml'
 })
 
 await check(`6. GET ${UNKNOWN_PATH} (text/markdown) → 404 Markdown có link điều hướng`, async () => {
@@ -165,9 +164,8 @@ await check(`6. GET ${UNKNOWN_PATH} (text/markdown) → 404 Markdown có link đ
   const contentType = response.headers.get('content-type') ?? ''
   assert.ok(contentType.includes('text/markdown'), `Trang 404 Markdown phải là text/markdown — ${summarize(response, body)}`)
   assert.ok(body.includes('404'), `Body Markdown phải nhắc 404 — ${summarize(response, body)}`)
-  assert.ok(body.includes('/llms.txt'), `Body Markdown phải link tới /llms.txt — ${summarize(response, body)}`)
   assert.ok(body.includes('/sitemap.xml'), `Body Markdown phải link tới /sitemap.xml — ${summarize(response, body)}`)
-  return '404 text/markdown, có 404, /llms.txt, /sitemap.xml'
+  return '404 text/markdown, có 404, /sitemap.xml'
 })
 
 await check('7. GET /app/essays/does-not-exist → 200 (route động hợp lệ)', async () => {
@@ -225,10 +223,9 @@ await check('10. GET /favicon.svg và asset build có hash → 200 đúng kiểu
   return `favicon.svg 200 image/svg+xml; ${deployedAsset} 200 "${assetType}"${drift}`
 })
 
-await check('11. GET /robots.txt, /llms.txt, /sitemap.xml, /og-image.png → 200 đúng kiểu file', async () => {
+await check('11. Discovery files → 200 đúng kiểu file; /llms.txt → 404', async () => {
   const textFiles = [
     { path: '/robots.txt', type: 'text/plain' },
-    { path: '/llms.txt', type: 'text/plain' },
   ]
   for (const file of textFiles) {
     const response = await request(file.path, { accept: file.type })
@@ -264,7 +261,9 @@ await check('11. GET /robots.txt, /llms.txt, /sitemap.xml, /og-image.png → 200
     assert.equal(local.width, 1200, `${ogImagePath} phải rộng 1200px — ${local.width}×${local.height}`)
     assert.equal(local.height, 630, `${ogImagePath} phải cao 630px — ${local.width}×${local.height}`)
   }
-  return `robots.txt, llms.txt, sitemap.xml (${sitemapType}), og-image.png ${size}`
+  const removedIndex = await request('/llms.txt', { accept: 'text/plain' })
+  assert.equal(removedIndex.status, 404, '/llms.txt must no longer be published')
+  return `robots.txt, sitemap.xml (${sitemapType}), og-image.png ${size}; llms.txt 404`
 })
 
 await check('12. GET /api/does-not-exist → 404 JSON có error.code/hint/message/status', async () => {

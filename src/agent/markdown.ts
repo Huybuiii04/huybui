@@ -94,7 +94,7 @@ export function renderNotFoundMarkdown(path: string): string {
     '',
     ...publicLinks.map(link => `- [${link.label}](${link.href})`),
     '',
-    `The public pages are listed in the sitemap at ${site.url}/sitemap.xml, and ${site.url}/llms.txt is the index for agents.`,
+    `The public pages are listed in the sitemap at ${site.url}/sitemap.xml.`,
     '',
   ].join('\n')
 }

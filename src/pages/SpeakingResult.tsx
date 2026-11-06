@@ -20,7 +20,7 @@ export default function SpeakingResultPage() {
   }, [attemptId])
 
   return (
-    <div className="page">
+    <div className="page speaking-result-page">
       <PageHeader
         eyebrow="SPEAKING"
         title={c('Kết quả', 'Your result')}

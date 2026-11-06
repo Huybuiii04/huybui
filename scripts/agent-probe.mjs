@@ -1,12 +1,12 @@
 /**
  * Ghi lại các sự kiện HTTP công khai của website (không lưu token/secret).
  *
- *   node scripts/agent-probe.mjs https://huybui.vercel.app docs/research/agent-readiness-baseline.json
+ *   node scripts/agent-probe.mjs https://engloo.app docs/research/agent-readiness-baseline.json
  */
 import { writeFileSync, mkdirSync } from 'node:fs'
 import { dirname } from 'node:path'
 
-const base = (process.argv[2] ?? 'https://huybui.vercel.app').replace(/\/$/, '')
+const base = (process.argv[2] ?? 'https://engloo.app').replace(/\/$/, '')
 const output = process.argv[3]
 
 const probes = [

@@ -1,11 +1,11 @@
-// Metadata dùng chung cho head tags, JSON-LD, sitemap và llms.txt.
+// Metadata dùng chung cho head tags, JSON-LD và sitemap.
 import { escapeHtml } from './html.ts'
 
 export const site = {
-  name: 'IELTS Studio',
-  url: 'https://huybui.vercel.app',
+  name: 'Engloo.app',
+  url: 'https://engloo.app',
   description:
-    'IELTS Studio is a free practice space for Reading, Writing, band feedback, personal vocabulary and review. Listening and Speaking are in development.',
+    'Engloo.app is a free IELTS practice space for Listening, Reading, Writing and Speaking, with detailed feedback, personal vocabulary and review.',
 } as const
 
 export const ogImage = `${site.url}/og-image.png`
@@ -29,7 +29,7 @@ export function buildJsonLd(): Record<string, unknown> {
         url: `${site.url}/`,
         applicationCategory: 'EducationalApplication',
         operatingSystem: 'Web',
-        browserRequirements: 'The public pages are readable without JavaScript; the interactive writing studio needs JavaScript.',
+        browserRequirements: 'The public pages are readable without JavaScript; the interactive practice app needs JavaScript.',
         inLanguage: ['en', 'vi'],
       },
     ],

@@ -38,7 +38,8 @@ export async function callBrain(input: LiveBrainInput, audio?: LiveAnswerAudio) 
       const response = await callAnthropic(model, liveBrainSystemPrompt(), [{ role: "user", content: liveBrainUserPrompt(input) }], LIVE_BRAIN_SCHEMA, 512, BRAIN_TIMEOUT_MS);
       parsed = extractJson(response.rawText);
     } else {
-      const response = await fetch(`${baseUrl}/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`, {
+      const endpoint = `${baseUrl}/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+      const options: RequestInit = {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
@@ -50,8 +51,15 @@ export async function callBrain(input: LiveBrainInput, audio?: LiveAnswerAudio) 
           },
         }),
         signal: controller.signal,
-      });
-      if (!response.ok) throw new AppError(502, "brain_provider_error", "The follow-up provider request failed");
+      };
+      let response = await fetch(endpoint, options);
+      if ((response.status === 429 || response.status >= 500) && !controller.signal.aborted) {
+        response = await fetch(endpoint, options);
+      }
+      if (!response.ok) {
+        console.error(JSON.stringify({ event: "live_brain_provider_failed", status: response.status }));
+        throw new AppError(502, "brain_provider_error", "The follow-up provider request failed");
+      }
       const body = await response.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string; thought?: boolean }> } }> };
       const text = (body.candidates?.[0]?.content?.parts ?? []).filter(part => !part.thought).map(part => part.text ?? "").join("");
       parsed = extractJson(text);

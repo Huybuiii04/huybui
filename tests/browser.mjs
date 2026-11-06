@@ -5,8 +5,8 @@ import { chromium } from 'playwright'
 const base = process.env.TEST_URL ?? 'http://127.0.0.1:5173'
 const email = process.env.TEST_EMAIL
 const password = process.env.TEST_PASSWORD
-const publicRoutes = ['/', '/donate', '/app/prompts', '/app/prompts?task=academic_task1', '/auth']
-const guardedRoutes = ['/app', '/app/write', '/app/essays', '/app/vocabulary', '/app/review', '/app/errors', '/app/settings', '/admin']
+const publicRoutes = ['/', '/donate', '/auth']
+const guardedRoutes = ['/app/prompts', '/app/prompts?task=academic_task1', '/app', '/app/write', '/app/essays', '/app/vocabulary', '/app/review', '/app/errors', '/app/settings', '/admin']
 
 const browser = await chromium.launch()
 const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } })
@@ -16,45 +16,12 @@ page.on('pageerror', error => errors.push(error.message))
 await mkdir('test-results', { recursive: true })
 
 try {
-  // ---------- Phần công khai: không cần đăng nhập ----------
-  await page.goto(`${base}/app/prompts`)
-  await page.getByRole('heading', { name: /Luyện đề thi thử IELTS Writing|IELTS Writing practice tests/ }).waitFor()
-  // Mặc định của app là EN — chuyển sang VI để so nhãn tiếng Việt.
-  await page.getByRole('button', { name: 'VI', exact: true }).click()
-  await page.getByRole('radio', { name: /Task 1 Academic/ }).click()
-  await page.locator('.topic-card').first().waitFor()
-  assert.ok(await page.locator('.topic-card').count() >= 7, 'Academic task must group by the 7 chart types')
-  const expectedChartTypes = ['Biểu đồ đường', 'Biểu đồ cột', 'Biểu đồ tròn', 'Bảng số liệu', 'Bản đồ / sơ đồ mặt bằng', 'Quy trình sản xuất, tự nhiên', 'Biểu đồ kết hợp']
-  let chartLabels = []
-  for (let attempt = 0; attempt < 10; attempt += 1) {
-    chartLabels = await page.locator('.topic-card h3').allInnerTexts()
-    if (expectedChartTypes.every(label => chartLabels.includes(label))) break
-    await page.waitForTimeout(300)
+  // Library và các trang học đều yêu cầu đăng nhập.
+  for (const route of guardedRoutes) {
+    await page.goto(base + route)
+    await page.waitForURL(base + '/auth')
+    assert.equal(await page.locator('.academic-card, .topic-card').count(), 0)
   }
-  for (const label of expectedChartTypes) {
-    assert.ok(chartLabels.includes(label), `Missing chart type: ${label}`)
-  }
-  await page.locator('.topic-card').first().click()
-  await page.locator('.topic-dialog').waitFor()
-  await page.keyboard.press('Escape')
-  const academicCards = await page.locator('.academic-card').count()
-  assert.ok(academicCards === 0 || academicCards > 0, 'Academic cards must render')
-
-  await page.getByRole('radio', { name: /Task 2/ }).click()
-  await page.locator('.topic-card').first().waitFor()
-  await page.getByRole('button', { name: /Bring your own question|Tự nhập đề bài của bạn/ }).click()
-  await page.getByLabel(/Prompt text \(English\)|Nội dung đề bài/).fill('Some people think that all students should learn coding. To what extent do you agree or disagree?')
-  await page.getByLabel(/^Title$|^Tiêu đề$/).fill('Mock exam March')
-  await page.getByRole('button', { name: /Save and start writing|Lưu và viết ngay/ }).click()
-  // Chưa đăng nhập thì mở trang viết sẽ bị chuyển về /auth (ghi nhớ đường dẫn để quay lại).
-  await page.waitForURL(url => url.pathname.startsWith('/auth'), { timeout: 30000 })
-  await page.goto(`${base}/app/prompts`)
-  await page.getByText('Mock exam March', { exact: true }).first().waitFor()
-
-  // Route có bảo vệ phải chuyển về /auth khi chưa đăng nhập
-  await page.goto(`${base}/app`)
-  await page.getByRole('heading', { name: /Chào mừng trở lại|Welcome back/ }).waitFor()
-  assert.ok(page.url().includes('/auth'), 'Guarded route must redirect to /auth when signed out')
 
   // ---------- Phần có đăng nhập ----------
   if (email && password) {
@@ -63,6 +30,41 @@ try {
     await page.getByLabel(/^Mật khẩu/).fill(password)
     await page.getByRole('button', { name: /Đăng nhập|Sign in/ }).click()
     await page.waitForURL(url => !url.pathname.startsWith('/auth'), { timeout: 30000 })
+
+    await page.goto(`${base}/app/prompts`)
+    await page.getByRole('heading', { name: /Luyện đề thi thử IELTS Writing|IELTS Writing practice tests/ }).waitFor()
+    // Mặc định của app là EN — chuyển sang VI để so nhãn tiếng Việt.
+    await page.getByRole('button', { name: 'VI', exact: true }).click()
+    await page.getByRole('radio', { name: /Task 1 Academic/ }).click()
+    await page.locator('.topic-card').first().waitFor()
+    assert.ok(await page.locator('.topic-card').count() >= 7, 'Academic task must group by the 7 chart types')
+    const expectedChartTypes = ['Biểu đồ đường', 'Biểu đồ cột', 'Biểu đồ tròn', 'Bảng số liệu', 'Bản đồ / sơ đồ mặt bằng', 'Quy trình sản xuất, tự nhiên', 'Biểu đồ kết hợp']
+    let chartLabels = []
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      chartLabels = await page.locator('.topic-card h3').allInnerTexts()
+      if (expectedChartTypes.every(label => chartLabels.includes(label))) break
+      await page.waitForTimeout(300)
+    }
+    for (const label of expectedChartTypes) {
+      assert.ok(chartLabels.includes(label), `Missing chart type: ${label}`)
+    }
+    await page.locator('.topic-card').first().click()
+    await page.locator('.topic-dialog').waitFor()
+    await page.keyboard.press('Escape')
+    const academicCards = await page.locator('.academic-card').count()
+    assert.ok(academicCards === 0 || academicCards > 0, 'Academic cards must render')
+
+    await page.getByRole('radio', { name: /Task 2/ }).click()
+    await page.locator('.topic-card').first().waitFor()
+    await page.getByRole('button', { name: /Bring your own question|Tự nhập đề bài của bạn/ }).click()
+    await page.getByLabel(/Prompt text \(English\)|Nội dung đề bài/).fill('Some people think that all students should learn coding. To what extent do you agree or disagree?')
+    await page.getByLabel(/^Title$|^Tiêu đề$/).fill('Mock exam March')
+    await page.getByRole('button', { name: /Save and start writing|Lưu và viết ngay/ }).click()
+    // Đã đăng nhập: lưu đề riêng rồi mở trang viết.
+    await page.waitForURL(url => url.pathname === '/app/write', { timeout: 30000 })
+    await page.goto(`${base}/app/prompts`)
+    await page.getByText('Mock exam March', { exact: true }).first().waitFor()
+
 
     await page.goto(`${base}/app`)
     await page.locator('.dashboard-page').waitFor()

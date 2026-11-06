@@ -2,7 +2,7 @@
  * Regression cho landing tĩnh và các trang tin cậy (trust pages).
  *
  *   TEST_URL=http://127.0.0.1:5180 node tests/landing-static.mjs
- *   TEST_URL=https://huybui.vercel.app node tests/landing-static.mjs
+ *   TEST_URL=https://engloo.app node tests/landing-static.mjs
  *
  * Không có server nào ở TEST_URL thì test bỏ qua (giống tests/production.mjs).
  *
@@ -183,7 +183,7 @@ try {
   })
   const fallbackH1 = (await rawPage.locator('h1').first().innerText()).replace(/\s+/g, ' ').trim()
   assert.ok(
-    fallbackH1.includes('Four skills'),
+    fallbackH1.includes('Practise IELTS'),
     `Thiếu data-lang thì phải hiện tiếng Anh (h1: "${fallbackH1.slice(0, 60)}")`,
   )
   assert.equal(
@@ -256,7 +256,7 @@ try {
       if (language === 'vi') {
         const heading = (await reactPage.locator('h1').first().innerText()).replace(/\s+/g, ' ').trim()
         assert.ok(vietnameseChars.test(heading), `React phải hiện tiếng Việt (h1: ${heading.slice(0, 60)})`)
-        assert.ok(!heading.includes('Four skills'), 'React không được ghi đè tiếng Việt đã lưu')
+        assert.ok(!heading.includes('Practise IELTS'), 'React không được ghi đè tiếng Việt đã lưu')
       }
       await reactContext.close()
 

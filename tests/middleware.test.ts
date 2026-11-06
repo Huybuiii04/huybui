@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import middleware, { config } from '../middleware.ts'
 import { staticFiles } from '../src/agent/routes.ts'
 
-const origin = 'https://huybui.vercel.app'
+const origin = 'https://engloo.app'
 
 function call(path: string, accept = 'text/html,application/xhtml+xml') {
   return middleware(new Request(`${origin}${path}`, { headers: { accept } }))
@@ -77,7 +77,7 @@ test('an unknown page path explains the error and links to the real resources', 
   const body = await response.text()
   assert.match(body, /404/)
   assert.match(body, /href="\/"/)
-  assert.match(body, /href="\/llms\.txt"/)
+  assert.doesNotMatch(body, /href="\/llms\.txt"/)
   assert.match(body, /href="\/sitemap\.xml"/)
   assert.ok(!body.includes('/docs'))
 })
@@ -89,9 +89,15 @@ test('unknown paths return markdown body when markdown is requested', async () =
   const body = await response.text()
   assert.match(body, /404/)
   assert.match(body, /\]\(\/\)/)
-  assert.match(body, /\]\(\/llms\.txt\)/)
+  assert.doesNotMatch(body, /\]\(\/llms\.txt\)/)
   assert.match(body, /\]\(\/sitemap\.xml\)/)
   assert.ok(!body.includes('/docs'))
+})
+
+test('the removed llms.txt index returns 404 even for markdown requests', async () => {
+  const response = await call('/llms.txt', 'text/markdown')
+  assert.equal(response.status, 404)
+  assert.equal(response.headers.get('content-type'), 'text/html; charset=utf-8')
 })
 
 test('a trailing slash does not change how a page is served', async () => {
@@ -259,10 +265,10 @@ test('middleware matcher keeps static assets out of the function path', () => {
   const matcher = String((config as { matcher: string[] }).matcher[0])
   assert.match(matcher, /assets/)
   const regex = new RegExp(`^${matcher}$`)
-  for (const path of ['/assets/missing.js', '/favicon.svg', '/donate-qr.png', '/og-image.png', '/robots.txt', '/sitemap.xml', '/llms.txt']) {
+  for (const path of ['/assets/missing.js', '/fonts/dm-sans-latin.woff2', '/fonts/fraunces-latin.woff2', '/favicon.svg', '/donate-qr.png', '/og-image.png', '/robots.txt', '/sitemap.xml']) {
     assert.equal(regex.test(path), false, path)
   }
-  for (const path of ['/', '/about', '/missing.json', '/api/does-not-exist']) {
+  for (const path of ['/', '/about', '/missing.json', '/api/does-not-exist', '/llms.txt']) {
     assert.equal(regex.test(path), true, path)
   }
 })
@@ -274,6 +280,7 @@ test('the middleware matcher excludes exactly the static public files', () => {
     assert.equal(regex.test(file), false, `${file} must be served by the CDN`)
   }
   assert.equal(regex.test('/assets/app.js'), false)
+  assert.equal(regex.test('/fonts/fraunces-vietnamese.woff2'), false)
   for (const path of ['/', '/about', '/api/does-not-exist', '/missing.json', '/logo.svg', '/robots']) {
     assert.equal(regex.test(path), true, path)
   }
