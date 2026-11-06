@@ -5,6 +5,7 @@ import { Empty, Notice } from '../../components/ui'
 import {
   deleteEssay,
   fetchPrompts,
+  fetchUserActivityCounts,
   fetchUserCards,
   fetchUserErrorLogs,
   fetchUserEssays,
@@ -26,23 +27,26 @@ export function UserDetail({ userId, displayName, onBack, onError, onBusy, busy 
   const [revisions, setRevisions] = useState<RevisionRow[]>([])
   const [cardCount, setCardCount] = useState(0)
   const [errorCount, setErrorCount] = useState(0)
+  const [activity, setActivity] = useState({ reading: 0, speaking: 0 })
   const [loading, setLoading] = useState(true)
   const [task, setTask] = useState('task2')
 
   const load = useCallback(async () => {
     setLoading(true)
-    const [essayRows, promptRows, cardRows, errorRows, revisionRows] = await Promise.all([
+    const [essayRows, promptRows, cardRows, errorRows, revisionRows, activityCounts] = await Promise.all([
       fetchUserEssays(userId),
       fetchPrompts(),
       fetchUserCards(userId),
       fetchUserErrorLogs(userId),
       supabaseRevisions(userId),
+      fetchUserActivityCounts(userId),
     ])
     setEssays(essayRows)
     setPrompts(promptRows)
     setCardCount(cardRows.length)
     setErrorCount(errorRows.length)
     setRevisions(revisionRows)
+    setActivity(activityCounts)
     setLoading(false)
   }, [userId])
 
@@ -81,6 +85,8 @@ export function UserDetail({ userId, displayName, onBack, onError, onBusy, busy 
     <section className="stats-grid admin-stats">
       <article className="stat-card"><div className="stat-top"><span>{c('Bài viết', 'Essays')}</span></div><strong className="stat-value">{essays.length}</strong><small>{c('đề khác nhau', 'distinct prompts')}: {done.length}</small></article>
       <article className="stat-card"><div className="stat-top"><span>{c('Lần chấm', 'Assessments')}</span></div><strong className="stat-value">{revisions.length}</strong><small>{c('revision đã gửi AI', 'revisions sent to AI')}</small></article>
+      <article className="stat-card"><div className="stat-top"><span>{c('Bài đọc', 'Reading')}</span></div><strong className="stat-value">{activity.reading}</strong><small>{c('bài Reading đã làm', 'reading tests taken')}</small></article>
+      <article className="stat-card"><div className="stat-top"><span>{c('Phiên nói', 'Speaking')}</span></div><strong className="stat-value">{activity.speaking}</strong><small>{c('phiên Speaking đã làm', 'speaking sessions taken')}</small></article>
       <article className="stat-card"><div className="stat-top"><span>{c('Thẻ từ vựng', 'Word cards')}</span></div><strong className="stat-value">{cardCount}</strong><small>{c('thẻ trong sổ', 'cards in the notebook')}</small></article>
       <article className="stat-card"><div className="stat-top"><span>{c('Lỗi sai đã ghi', 'Logged errors')}</span></div><strong className="stat-value">{errorCount}</strong><small>{c('mục trong sổ lỗi', 'entries in the error log')}</small></article>
       <article className="stat-card"><div className="stat-top"><span>{c('Độ phủ', 'Coverage')}</span></div><strong className="stat-value">{coverage}%</strong><small>{TASKS.find(item => item.key === task)?.labelVi}</small></article>

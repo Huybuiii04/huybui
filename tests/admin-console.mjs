@@ -3,7 +3,7 @@
  * dashboard → danh sách user → chi tiết user (đề đã làm / đề còn lại).
  *
  *   node --env-file-if-exists=.env.test tests/admin-console.mjs
- *   TEST_URL=https://huybui.vercel.app node --env-file-if-exists=.env.test tests/admin-console.mjs
+ *   TEST_URL=https://engloo.app node --env-file-if-exists=.env.test tests/admin-console.mjs
  */
 import assert from 'node:assert/strict'
 import { chromium } from 'playwright'
@@ -92,7 +92,16 @@ try {
   await page.getByText(/Đề còn lại|Prompts not written yet/).first().waitFor({ timeout: 30000 })
   const coverage = await page.locator('.admin-stats .stat-value').last().innerText()
   assert.match(coverage, /%/, 'Ô độ phủ phải hiện phần trăm')
-  console.log(`PASS: chi tiết người dùng có "đề đã làm" và "đề còn lại" (độ phủ ${coverage}).`)
+  // Thẻ Reading và Speaking đếm số lần làm bài của người dùng.
+  // Nội dung thẻ là textContent liền nhau ("Reading3reading tests taken") nên
+  // không dùng \b — ranh giới từ không tồn tại giữa nhãn và số liệu.
+  const readingCard = page.locator('.admin-stats .stat-card').filter({ hasText: /Bài đọc|Reading/ })
+  const speakingCard = page.locator('.admin-stats .stat-card').filter({ hasText: /Phiên nói|Speaking/ })
+  assert.equal(await readingCard.count(), 1, 'Chi tiết người dùng phải có đúng một thẻ số liệu Reading')
+  assert.equal(await speakingCard.count(), 1, 'Chi tiết người dùng phải có đúng một thẻ số liệu Speaking')
+  assert.match(await readingCard.locator('.stat-value').innerText(), /^\d+$/, 'Số bài Reading phải là số nguyên')
+  assert.match(await speakingCard.locator('.stat-value').innerText(), /^\d+$/, 'Số phiên Speaking phải là số nguyên')
+  console.log(`PASS: chi tiết người dùng có "đề đã làm" và "đề còn lại" (độ phủ ${coverage}), kèm số bài Reading/Speaking.`)
 
   // ---------- Tab khác tải được ----------
   await page.getByRole('button', { name: /Đề bài|Prompts/, exact: true }).click()

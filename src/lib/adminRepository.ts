@@ -99,6 +99,31 @@ export async function fetchUserEssays(userId: string): Promise<AdminEssay[]> {
   return (data ?? []) as AdminEssay[]
 }
 
+/** Số lần làm bài Reading và Speaking của một người dùng. */
+export type AdminActivityCounts = { reading: number; speaking: number }
+
+/**
+ * Đếm lượt làm bài của một người dùng.
+ *
+ * `skill_attempts` và `speaking_attempts` chỉ có policy "chỉ chủ sở hữu" nên
+ * admin đọc bằng service role; ở đây dùng luôn client của phiên admin (đã có
+ * policy `*_read_admin`) để không cần thêm một đường gọi riêng cho admin.
+ */
+export async function fetchUserActivityCounts(userId: string): Promise<AdminActivityCounts> {
+  const [reading, speaking] = await Promise.all([
+    supabase
+      .from('skill_attempts')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('skill', 'reading'),
+    supabase
+      .from('speaking_attempts')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId),
+  ])
+  return { reading: reading.count ?? 0, speaking: speaking.count ?? 0 }
+}
+
 export async function fetchUserCards(userId: string): Promise<{ term: string; kind: string; created_at: string }[]> {
   const { data } = await supabase
     .from('study_cards')
